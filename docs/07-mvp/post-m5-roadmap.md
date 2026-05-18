@@ -22,9 +22,17 @@
   (`adapter` + `injector` + `tool_guard` + `memory_bridge` +
   `install_hooks`); demo proven by `examples/04_openclaw_with_runtime`.
 - CLI (`opencoat runtime|concern|dcn|inspect`) talks to the daemon over
-  HTTP/JSON-RPC; **no host-install affordance yet**.
-- No external user has run OpenCOAT against a real OpenClaw build — the
-  M5 example uses an in-tree toy bus.
+  HTTP/JSON-RPC; `opencoat plugin install openclaw` scaffolds host stubs
+  ([#37](https://github.com/HyperdustLabs/OpenCOAT/pull/37)); production
+  OpenClaw uses the TS bridge
+  ([`integrations/openclaw-opencoat-bridge/`](../../integrations/openclaw-opencoat-bridge/README.md)).
+- Joinpoint hot path on `main` after [#64](https://github.com/HyperdustLabs/OpenCOAT/pull/64)–[#67](https://github.com/HyperdustLabs/OpenCOAT/pull/67):
+  `JoinpointPipeline`, `JoinpointDiscovery`, bridge `messages[]`, AOP-shaped
+  concerns (`pointcuts` / `advices` / `declarations`), activation-time
+  `ConflictResolver` + `declare precedence` (full concern catalog).
+- **No recorded pass** of the bridge README §3 live OpenClaw verification
+  checklist yet — the M5 example still uses an in-tree toy bus; §5A
+  prerequisites treat §3 as a manual gate before the 24 h soak.
 
 ## 2. Three candidate threads
 
@@ -35,8 +43,11 @@
   [`adr/0008-meta-concern-as-governance.md`](../adr/0008-meta-concern-as-governance.md).
 - Exit criteria (unchanged): 24 h soak run; DCN converges; token budget
   stable; decay / conflict / merge / archive / meta-review jobs all wired.
-- Touches: `opencoat_runtime_core` workers + scheduler, `MetaConcern`
-  governance loop, admin surfaces in `opencoat`.
+- **Prerequisites** (gate before opening `feat/m6-lifecycle-workers`): see
+  [§5A — M6 prerequisites](#5a-m6-split-4-prs).
+- Touches: `opencoat_runtime_daemon/workers/*` + `scheduler.py`, wire
+  `core/loops/heartbeat_loop.py` and `OpenCOATRuntime.tick`, `MetaConcern`
+  governance under `core/meta/*`, admin surfaces in `opencoat`.
 - Risk: invisible to non-runtime users; heaviest milestone so far;
   needs the soak harness and convergence metrics.
 
@@ -105,7 +116,8 @@ chain_ref schema ── (independent — protocol surface only)
    + `opencoat concern import --demo`.
 5. ✅ **[`HyperdustLabs/opencoat-skill`](https://github.com/HyperdustLabs/opencoat-skill)** — bootstrap commit batch in a
    *separate* repo (out-of-tree; not in this PR stream).
-6. **M6 mainline** — 4 PRs per the §5 split below. ← **next up**
+6. **M6 mainline** — satisfy [§5A prerequisites](#5a-m6-split-4-prs), then 4 PRs
+   per the §5A split. ← **next up**
 
 > Bonus mid-sprint: PRs [#39](https://github.com/HyperdustLabs/OpenCOAT/pull/39) +
 > [#40](https://github.com/HyperdustLabs/OpenCOAT/pull/40) renamed the
@@ -129,11 +141,28 @@ chain_ref schema ── (independent — protocol surface only)
 
 ### 5A. M6 split (4 PRs)
 
+#### M6 prerequisites
+
+Complete **before** the first M6 implementation PR (`feat/m6-lifecycle-workers`).
+These are sequencing gates, not part of the M6 exit criteria.
+
+| # | Prerequisite | How to verify |
+| --- | --- | --- |
+| **P1** | Joinpoint **hot path** stable on current `main` | `JoinpointPipeline` + `JoinpointDiscovery`; bridge forwards `messages[]` on `before_prompt_build` ([#65](https://github.com/HyperdustLabs/OpenCOAT/pull/65)); AOP concern shape + activation-time `ConflictResolver` / `declare precedence` from full catalog ([#66](https://github.com/HyperdustLabs/OpenCOAT/pull/66), [#67](https://github.com/HyperdustLabs/OpenCOAT/pull/67)). `uv run pytest packages/opencoat-runtime/tests/core` green. |
+| **P2** | **Live OpenClaw** smoke (not only in-tree `04_openclaw_with_runtime`) | Run daemon from repo `main` (`uv run opencoat runtime up`, not a stale pip wheel without discovery). Install bridge, restart gateway, walk [bridge README §3](../../integrations/openclaw-opencoat-bridge/README.md) pass table (`#msg:N` in DCN, `user_message` guard counter-example). Record pass/fail in a PR comment or issue — unblocks attributing soak failures to workers vs bridge/joinpoints. |
+| **P3** | **Conflict paths** understood by implementers | **Activation-time:** `ConflictResolver` + `resolver/precedence.py` (already on `main`) drops losers per joinpoint. **Background (M6):** `ConflictScannerWorker` maintains DCN `conflicts_with` (and related) edges — do not re-implement precedence there; align with `core/meta/conflict_resolution.py` for Meta policy. |
+
+**Out of scope for M6** (track as follow-up PRs after soak): multi-advice around
+chains; full DCN export of AOP graph edges (`declares_precedence_over`); see
+[`adr/0010-concern-aop-syntax.md`](../adr/0010-concern-aop-syntax.md).
+
+#### M6 PR split
+
 ```text
-gh/#?  feat/m6-lifecycle-workers   → decay + conflict workers (DCN edge math, paired)
+gh/#?  feat/m6-lifecycle-workers   → decay + ConflictScannerWorker (DCN edges; ≠ ConflictResolver)
 gh/#?  feat/m6-merge-archive       → merge + archive jobs + retention policy
 gh/#?  feat/m6-meta-review         → meta-review loop + governance verdicts (per ADR-0008)
-gh/#?  feat/m6-soak-and-example    → 24 h soak harness + examples/07_meta_governance_soak
+gh/#?  feat/m6-soak-and-example    → Scheduler.start + 24 h soak + examples/07_meta_governance_soak
 ```
 
 Numbers will be assigned as PRs open, per the M5+ convention in
