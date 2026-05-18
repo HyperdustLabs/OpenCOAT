@@ -5,7 +5,7 @@ from __future__ import annotations
 from opencoat_runtime_protocol import (
     AdviceKind,
     AdviceType,
-    AspectJAdvice,
+    AopAdvice,
     Concern,
     PointcutDef,
     WeavingLevel,
@@ -29,7 +29,7 @@ def _user_opencoat_guidance() -> Concern:
             ),
         ],
         advices=[
-            AspectJAdvice(
+            AopAdvice(
                 id="adv-user",
                 kind=AdviceKind.BEFORE,
                 pointcut_ref="pc-user",
@@ -53,7 +53,7 @@ def _memory_write_note() -> Concern:
         description="Annotate every memory write with a lightweight policy line.",
         pointcuts=[PointcutDef(id="pc-mem", expression="before_memory_write()")],
         advices=[
-            AspectJAdvice(
+            AopAdvice(
                 id="adv-mem",
                 kind=AdviceKind.BEFORE,
                 pointcut_ref="pc-mem",

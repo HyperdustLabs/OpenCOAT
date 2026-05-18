@@ -8,7 +8,7 @@ from __future__ import annotations
 from opencoat_runtime_protocol import (
     AdviceKind,
     AdviceType,
-    AspectJAdvice,
+    AopAdvice,
     Concern,
     PointcutDef,
     WeavingLevel,
@@ -31,7 +31,7 @@ def _demo_prompt_prefix() -> Concern:
         ),
         pointcuts=[PointcutDef(id="pc-runtime", expression="runtime_start()")],
         advices=[
-            AspectJAdvice(
+            AopAdvice(
                 id="adv-banner",
                 kind=AdviceKind.BEFORE,
                 pointcut_ref="pc-runtime",
@@ -64,7 +64,7 @@ def _demo_tool_block() -> Concern:
             ),
         ],
         advices=[
-            AspectJAdvice(
+            AopAdvice(
                 id="adv-block",
                 kind=AdviceKind.BEFORE,
                 pointcut_ref="pc-tool",
@@ -88,7 +88,7 @@ def _demo_memory_tag() -> Concern:
         description="Annotate memory writes; pairs with OpenClawMemoryBridge DCN mirroring.",
         pointcuts=[PointcutDef(id="pc-mem", expression="before_memory_write()")],
         advices=[
-            AspectJAdvice(
+            AopAdvice(
                 id="adv-mem",
                 kind=AdviceKind.BEFORE,
                 pointcut_ref="pc-mem",

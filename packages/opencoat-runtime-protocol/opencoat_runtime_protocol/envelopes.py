@@ -271,8 +271,8 @@ class WeavingPolicy(_Base):
     priority: float = Field(default=0.5, ge=0.0, le=1.0)
 
 
-class AspectJAdvice(_Base):
-    """AOP advice bound to a pointcut ref (wire type name retained for compatibility)."""
+class AopAdvice(_Base):
+    """AOP advice bound to a pointcut ref."""
 
     id: str = "adv-default"
     kind: AdviceKind
@@ -403,7 +403,7 @@ class Concern(_Base):
     advice: Advice | None = None
     weaving_policy: WeavingPolicy | None = None
     pointcuts: list[PointcutDef] = Field(default_factory=list)
-    advices: list[AspectJAdvice] = Field(default_factory=list)
+    advices: list[AopAdvice] = Field(default_factory=list)
     declarations: list[ConcernDeclaration] = Field(default_factory=list)
     graph_edges: list[ConcernGraphEdge] = Field(default_factory=list)
     scope: ConcernScope | None = None
@@ -416,10 +416,10 @@ class Concern(_Base):
     schema_version: str = "0.1.0"
 
     @model_validator(mode="after")
-    def _sync_aspectj_executable_shape(self) -> Concern:
-        from . import aspectj as _aspectj
+    def _sync_aop_executable_shape(self) -> Concern:
+        from . import aop as _aop
 
-        synced = _aspectj.sync_concern_aspectj(self)
+        synced = _aop.sync_concern_aop(self)
         if synced is self:
             return self
         for field in (

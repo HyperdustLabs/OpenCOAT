@@ -22,7 +22,7 @@ weave semantics.
    - `declarations[]` — `declare_precedence`, `inter_type`
 3. **Legacy fields** `pointcut`, `advice`, `weaving_policy` remain valid; the
    protocol normalizes legacy ↔ AOP on load via
-   `opencoat_runtime_protocol.aspectj.sync_concern_aspectj`.
+   `opencoat_runtime_protocol.aop.sync_concern_aop`.
 4. **Domain templates** (`tool_guard`, `reasoning_guidance`, …) move to
    `advice.template` (or legacy `advice.type`); they are **not** AOP joinpoint
    kinds.

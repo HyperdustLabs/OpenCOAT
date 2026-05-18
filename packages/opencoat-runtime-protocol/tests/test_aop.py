@@ -6,7 +6,7 @@ from opencoat_runtime_protocol import (
     Advice,
     AdviceKind,
     AdviceType,
-    AspectJAdvice,
+    AopAdvice,
     Concern,
     Pointcut,
     PointcutDef,
@@ -14,11 +14,11 @@ from opencoat_runtime_protocol import (
     WeavingOperation,
     WeavingPolicy,
 )
-from opencoat_runtime_protocol.aspectj import (
+from opencoat_runtime_protocol.aop import (
     parse_pointcut_expression,
     pointcut_def_to_pointcut,
     primary_pointcut,
-    sync_concern_aspectj,
+    sync_concern_aop,
 )
 from opencoat_runtime_protocol.envelopes import PointcutMatch
 
@@ -30,7 +30,7 @@ def test_parse_pointcut_expression_joinpoint_and_args() -> None:
     assert match.any_keywords == ["rm -rf"]
 
 
-def test_legacy_concern_gains_aspectj_lists() -> None:
+def test_legacy_concern_gains_aop_lists() -> None:
     c = Concern(
         id="c-legacy",
         name="shell guard",
@@ -56,9 +56,9 @@ def test_legacy_concern_gains_aspectj_lists() -> None:
     assert c.advices[0].template == AdviceType.TOOL_GUARD
 
 
-def test_aspectj_lists_materialize_legacy_pointcut() -> None:
+def test_aop_lists_materialize_legacy_pointcut() -> None:
     c = Concern(
-        id="c-aj",
+        id="c-aop",
         name="user line guard",
         pointcuts=[
             PointcutDef(
@@ -67,7 +67,7 @@ def test_aspectj_lists_materialize_legacy_pointcut() -> None:
             )
         ],
         advices=[
-            AspectJAdvice(
+            AopAdvice(
                 id="adv-1",
                 kind=AdviceKind.BEFORE,
                 pointcut_ref="pc-user",
@@ -95,8 +95,8 @@ def test_sync_idempotent() -> None:
         pointcut=Pointcut(joinpoints=["runtime_start"]),
         advice=Advice(type=AdviceType.RESPONSE_REQUIREMENT, content="hi"),
     )
-    once = sync_concern_aspectj(c)
-    twice = sync_concern_aspectj(once)
+    once = sync_concern_aop(c)
+    twice = sync_concern_aop(once)
     assert once.pointcut == twice.pointcut
     assert len(once.pointcuts) == len(twice.pointcuts)
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from opencoat_runtime_protocol import (
     AdviceKind,
     AdviceType,
-    AspectJAdvice,
+    AopAdvice,
     Concern,
     PointcutDef,
     WeavingLevel,
@@ -22,7 +22,7 @@ def _opencoat_session_start() -> Concern:
         description="Fires on runtime_start (agent.started).",
         pointcuts=[PointcutDef(id="pc-start", expression="runtime_start()")],
         advices=[
-            AspectJAdvice(
+            AopAdvice(
                 id="adv-start",
                 kind=AdviceKind.BEFORE,
                 pointcut_ref="pc-start",
@@ -46,7 +46,7 @@ def _opencoat_memory_note() -> Concern:
         description="Annotate memory writes with a lightweight policy hint.",
         pointcuts=[PointcutDef(id="pc-mem", expression="before_memory_write()")],
         advices=[
-            AspectJAdvice(
+            AopAdvice(
                 id="adv-mem",
                 kind=AdviceKind.BEFORE,
                 pointcut_ref="pc-mem",
@@ -77,7 +77,7 @@ def _opencoat_user_keyword() -> Concern:
             ),
         ],
         advices=[
-            AspectJAdvice(
+            AopAdvice(
                 id="adv-user",
                 kind=AdviceKind.BEFORE,
                 pointcut_ref="pc-user",

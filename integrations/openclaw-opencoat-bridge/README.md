@@ -195,7 +195,7 @@ concern — the assistant’s `rm -rf` in flattened history can activate the con
 - [ ] Daemon from repo / current `main` — `uv run opencoat runtime up` (not pip-only 0.1.3 without discovery).
 - [ ] Bridge installed and gateway restarted; log shows `[opencoat-bridge] registered`.
 - [ ] Plugin config: `allowPromptInjection: true`, optional `logActivations: true`.
-- [ ] Concern uses AOP (AspectJ) `user_message()` (see [`docs/guides/concern-authoring-aspectj.md`](../../docs/guides/concern-authoring-aspectj.md)) — upsert via `opencoat concern import` or `--demo`.
+- [ ] Concern uses AOP (AspectJ) `user_message()` (see [`docs/guides/concern-authoring-aop.md`](../../docs/guides/concern-authoring-aop.md)) — upsert via `opencoat concern import` or `--demo`.
 
 **Steps**
 
@@ -228,4 +228,4 @@ Requires **JoinpointDiscovery** (`expand_prompt_surface` on by default). Older d
 - Double joinpoint fire (`on_user_input` + `before_response`) is intentional when concerns list both.
 - Section discovery depends on hosts passing `sections` on message objects (uncommon today); message-level JPs always apply when `messages` is present.
 
-See also: [`examples/04_openclaw_with_runtime/README.md`](../../examples/04_openclaw_with_runtime/README.md) (toy bus), [`docs/guides/concern-authoring-aspectj.md`](../../docs/guides/concern-authoring-aspectj.md), and [`docs/design/v0.2-system-design.md`](../../docs/design/v0.2-system-design.md) §4.7.1.
+See also: [`examples/04_openclaw_with_runtime/README.md`](../../examples/04_openclaw_with_runtime/README.md) (toy bus), [`docs/guides/concern-authoring-aop.md`](../../docs/guides/concern-authoring-aop.md), and [`docs/design/v0.2-system-design.md`](../../docs/design/v0.2-system-design.md) §4.7.1.

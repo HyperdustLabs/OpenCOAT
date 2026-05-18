@@ -62,7 +62,7 @@
     "advices": {
       "type": "array",
       "description": "AOP advices (before/after/around + effect).",
-      "items": { "$ref": "#/$defs/AspectJAdvice" },
+      "items": { "$ref": "#/$defs/AopAdvice" },
       "default": []
     },
     "declarations": {
@@ -165,7 +165,7 @@
         "context_predicates": { "$ref": "pointcut.schema.json#/properties/context_predicates" }
       }
     },
-    "AspectJAdvice": {
+    "AopAdvice": {
       "type": "object",
       "additionalProperties": false,
       "required": ["kind", "content"],

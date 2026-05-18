@@ -73,7 +73,7 @@ Or a runtime edge: `relation_type: "declares_precedence_over"` (see concern sche
 
 ## Python (`opencoat concern import`)
 
-See `examples/05_aspectj_concerns/concerns.py` and `opencoat_runtime_cli.demo_concerns`.
+See `examples/05_aop_concerns/concerns.py` and `opencoat_runtime_cli.demo_concerns`.
 
 Skill / install docs: after editing concerns, run `opencoat concern import <file.json>`
 or `opencoat concern import --demo` against a running daemon (`uv run opencoat runtime up`).
