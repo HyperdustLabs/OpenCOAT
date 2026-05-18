@@ -36,6 +36,30 @@ class LifecycleState(StrEnum):
     REVIVED = "revived"
 
 
+class AdviceKind(StrEnum):
+    """AspectJ advice kinds (executable joinpoint semantics)."""
+
+    BEFORE = "before"
+    AFTER = "after"
+    AROUND = "around"
+    AFTER_RETURNING = "after_returning"
+    AFTER_THROWING = "after_throwing"
+
+
+class ConcernGraphEdgeType(StrEnum):
+    """AspectJ-style edges in the Concern Graph / DCN."""
+
+    DEFINES = "defines"
+    SELECTS = "selects"
+    OWNS = "owns"
+    RUNS_AT = "runs_at"
+    BINDS = "binds"
+    DECLARES_PRECEDENCE_OVER = "declares_precedence_over"
+    INTRODUCES = "introduces"
+    ADVISES = "advises"
+    ADVICE_EXECUTION = "advice_execution"
+
+
 class ConcernRelationType(StrEnum):
     ACTIVATES = "activates"
     SUPPRESSES = "suppresses"
@@ -50,6 +74,8 @@ class ConcernRelationType(StrEnum):
     UPDATES = "updates"
     REPLACES = "replaces"
     SUPPORTS = "supports"
+    #: AspectJ ``declare precedence`` between concerns (preferred over ``suppresses``).
+    DECLARES_PRECEDENCE_OVER = "declares_precedence_over"
 
 
 class JoinpointLevel(StrEnum):
@@ -214,6 +240,16 @@ class Pointcut(_Base):
     context_predicates: list[ContextPredicate] = Field(default_factory=list)
 
 
+class PointcutDef(_Base):
+    """AspectJ-shaped pointcut (optional ``expression`` + structured ``match``)."""
+
+    id: str = "pc-default"
+    expression: str | None = None
+    joinpoints: list[str] | list[JoinpointSelector] = Field(default_factory=list)
+    match: PointcutMatch | None = None
+    context_predicates: list[ContextPredicate] = Field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
 # Advice / Weaving
 # ---------------------------------------------------------------------------
@@ -233,6 +269,20 @@ class WeavingPolicy(_Base):
     target: str | None = None
     max_tokens: int = Field(default=200, ge=1)
     priority: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class AspectJAdvice(_Base):
+    """AspectJ-shaped advice bound to a pointcut ref."""
+
+    id: str = "adv-default"
+    kind: AdviceKind
+    pointcut_ref: str = "pc-default"
+    content: str = Field(min_length=1)
+    template: AdviceType | None = None
+    rationale: str | None = None
+    max_tokens: int | None = Field(default=None, ge=1)
+    params: dict[str, Any] | None = None
+    effect: WeavingPolicy | None = None
 
 
 class WeavingOp(_Base):
@@ -295,6 +345,34 @@ class ConcernRelation(_Base):
     relation_type: ConcernRelationType
     weight: float = Field(default=1.0, ge=0.0, le=1.0)
     created_at: datetime | None = None
+    #: ``runtime`` (AspectJ weave graph) vs ``semantic`` (cognitive lineage only).
+    layer: Literal["runtime", "semantic"] = "semantic"
+
+
+class DeclarePrecedence(_Base):
+    kind: Literal["declare_precedence"] = "declare_precedence"
+    order: list[str] = Field(
+        min_length=1,
+        description="Concern or advice ids, highest precedence first.",
+    )
+
+
+class InterTypeDeclaration(_Base):
+    kind: Literal["inter_type"] = "inter_type"
+    target: str
+    introduces: dict[str, Any] = Field(default_factory=dict)
+
+
+ConcernDeclaration = DeclarePrecedence | InterTypeDeclaration
+
+
+class ConcernGraphEdge(_Base):
+    """Explicit AspectJ graph edge (optional; mirrors DCN export)."""
+
+    edge_type: ConcernGraphEdgeType
+    from_id: str
+    to_id: str
+    weight: float = Field(default=1.0, ge=0.0, le=1.0)
 
 
 class ActivationState(_Base):
@@ -324,6 +402,10 @@ class Concern(_Base):
     pointcut: Pointcut | None = None
     advice: Advice | None = None
     weaving_policy: WeavingPolicy | None = None
+    pointcuts: list[PointcutDef] = Field(default_factory=list)
+    advices: list[AspectJAdvice] = Field(default_factory=list)
+    declarations: list[ConcernDeclaration] = Field(default_factory=list)
+    graph_edges: list[ConcernGraphEdge] = Field(default_factory=list)
     scope: ConcernScope | None = None
     relations: list[ConcernRelation] = Field(default_factory=list)
     activation_state: ActivationState | None = None
@@ -332,6 +414,24 @@ class Concern(_Base):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     schema_version: str = "0.1.0"
+
+    @model_validator(mode="after")
+    def _sync_aspectj_executable_shape(self) -> Concern:
+        from . import aspectj as _aspectj
+
+        synced = _aspectj.sync_concern_aspectj(self)
+        if synced is self:
+            return self
+        for field in (
+            "pointcut",
+            "advice",
+            "weaving_policy",
+            "pointcuts",
+            "advices",
+            "declarations",
+        ):
+            object.__setattr__(self, field, getattr(synced, field))
+        return self
 
 
 class MetaConcern(Concern):

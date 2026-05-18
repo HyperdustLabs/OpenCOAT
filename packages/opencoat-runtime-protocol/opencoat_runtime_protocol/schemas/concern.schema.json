@@ -53,6 +53,30 @@
     "advice":          { "$ref": "advice.schema.json" },
     "weaving_policy":  { "$ref": "weaving.schema.json#/$defs/WeavingPolicy" },
 
+    "pointcuts": {
+      "type": "array",
+      "description": "AspectJ-shaped pointcuts (ADR-0010). Legacy pointcut syncs to pointcuts[0].",
+      "items": { "$ref": "#/$defs/PointcutDef" },
+      "default": []
+    },
+    "advices": {
+      "type": "array",
+      "description": "AspectJ-shaped advices (before/after/around + effect).",
+      "items": { "$ref": "#/$defs/AspectJAdvice" },
+      "default": []
+    },
+    "declarations": {
+      "type": "array",
+      "description": "declare precedence | inter-type declarations.",
+      "items": { "$ref": "#/$defs/ConcernDeclaration" },
+      "default": []
+    },
+    "graph_edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ConcernGraphEdge" },
+      "default": []
+    },
+
     "scope": {
       "type": "object",
       "additionalProperties": false,
@@ -78,8 +102,14 @@
             "enum": [
               "activates", "suppresses", "constrains", "verifies",
               "conflicts_with", "depends_on", "generalizes", "specializes",
-              "duplicates", "derived_from", "updates", "replaces", "supports"
+              "duplicates", "derived_from", "updates", "replaces", "supports",
+              "declares_precedence_over"
             ]
+          },
+          "layer": {
+            "type": "string",
+            "enum": ["runtime", "semantic"],
+            "default": "semantic"
           },
           "weight":  { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
           "created_at": { "type": "string", "format": "date-time" }
@@ -122,5 +152,76 @@
     "created_at":  { "type": "string", "format": "date-time" },
     "updated_at":  { "type": "string", "format": "date-time" },
     "schema_version": { "type": "string", "default": "0.1.0" }
+  },
+  "$defs": {
+    "PointcutDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "default": "pc-default" },
+        "expression": { "type": "string", "description": "AspectJ-style surface syntax, e.g. user_message() && args(\"rm -rf\")" },
+        "joinpoints": { "$ref": "pointcut.schema.json#/properties/joinpoints" },
+        "match": { "$ref": "pointcut.schema.json#/properties/match" },
+        "context_predicates": { "$ref": "pointcut.schema.json#/properties/context_predicates" }
+      }
+    },
+    "AspectJAdvice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "content"],
+      "properties": {
+        "id": { "type": "string", "default": "adv-default" },
+        "kind": { "type": "string", "enum": ["before", "after", "around", "after_returning", "after_throwing"] },
+        "pointcut_ref": { "type": "string", "default": "pc-default" },
+        "content": { "type": "string", "minLength": 1 },
+        "template": { "$ref": "advice.schema.json#/properties/type" },
+        "rationale": { "type": "string" },
+        "max_tokens": { "type": "integer", "minimum": 1 },
+        "params": { "type": "object" },
+        "effect": { "$ref": "weaving.schema.json#/$defs/WeavingPolicy" }
+      }
+    },
+    "DeclarePrecedence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "order"],
+      "properties": {
+        "kind": { "const": "declare_precedence" },
+        "order": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+      }
+    },
+    "InterTypeDeclaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "target"],
+      "properties": {
+        "kind": { "const": "inter_type" },
+        "target": { "type": "string" },
+        "introduces": { "type": "object" }
+      }
+    },
+    "ConcernDeclaration": {
+      "oneOf": [
+        { "$ref": "#/$defs/DeclarePrecedence" },
+        { "$ref": "#/$defs/InterTypeDeclaration" }
+      ]
+    },
+    "ConcernGraphEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["edge_type", "from_id", "to_id"],
+      "properties": {
+        "edge_type": {
+          "type": "string",
+          "enum": [
+            "defines", "selects", "owns", "runs_at", "binds",
+            "declares_precedence_over", "introduces", "advises", "advice_execution"
+          ]
+        },
+        "from_id": { "type": "string" },
+        "to_id": { "type": "string" },
+        "weight": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 }
+      }
+    }
   }
 }

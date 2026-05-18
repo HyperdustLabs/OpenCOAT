@@ -100,8 +100,11 @@ class PriorityRanker:
 
     @staticmethod
     def _priority_signal(concern: Concern) -> float:
-        if concern.weaving_policy is not None:
-            return clamp01(concern.weaving_policy.priority)
+        from ..concern.executable import primary_weaving
+
+        weaving = primary_weaving(concern)
+        if weaving is not None:
+            return clamp01(weaving.priority)
         return 0.5  # neutral default
 
     @staticmethod
