@@ -147,7 +147,15 @@ def test_collect_interactive_auto_writes_model_to_yaml(tmp_path: Path) -> None:
         ),
         patch(
             "opencoat_runtime_cli.commands.configure_cmd.input",
-            side_effect=["1", "1", "2", "", "", "", ""],  # mode, provider auto, openai model, azure skips
+            side_effect=[
+                "1",
+                "1",
+                "2",
+                "",
+                "",
+                "",
+                "",
+            ],  # mode, provider auto, openai model, azure skips
         ),
         patch(
             "opencoat_runtime_cli.commands.configure_cmd.fetch_openai_model_ids",
