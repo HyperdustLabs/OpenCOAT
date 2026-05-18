@@ -23,9 +23,6 @@ from datetime import UTC, datetime
 from typing import Any
 
 from opencoat_runtime_protocol import Concern, ConcernVector, JoinpointEvent
-
-# ``(concern, score)`` or ``(concern, score, matched_joinpoint)`` for batch surfaces.
-CandidateTuple = tuple[Concern, float] | tuple[Concern, float, JoinpointEvent]
 from opencoat_runtime_protocol.envelopes import ActiveConcern
 
 from ..concern.vector import ConcernVectorBuilder
@@ -35,6 +32,9 @@ from ._util import clamp01
 from .budget import BudgetController
 from .priority import PriorityRanker
 from .topk import TopKSelector
+
+# ``(concern, score)`` or ``(concern, score, matched_joinpoint)`` for batch surfaces.
+CandidateTuple = tuple[Concern, float] | tuple[Concern, float, JoinpointEvent]
 
 
 class ConcernCoordinator:

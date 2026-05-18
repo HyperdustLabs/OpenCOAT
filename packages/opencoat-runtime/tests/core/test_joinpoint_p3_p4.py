@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from opencoat_runtime_core import OpenCOATRuntime, RuntimeConfig
 from opencoat_runtime_core.config import JoinpointAutomation
 from opencoat_runtime_core.joinpoint.discovery import JoinpointDiscovery
-from opencoat_runtime_core import OpenCOATRuntime, RuntimeConfig
 from opencoat_runtime_core.llm import StubLLMClient
 from opencoat_runtime_protocol import (
     Advice,
