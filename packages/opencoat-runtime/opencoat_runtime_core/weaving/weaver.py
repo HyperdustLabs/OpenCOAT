@@ -69,7 +69,8 @@ class ConcernWeaver:
     def build(
         self,
         *,
-        turn_id: str,
+        weave_id: str,
+        host_round_id: str | None = None,
         vector: ConcernVector,
         concerns: dict[str, Concern],
         advices: dict[str, Advice],
@@ -109,16 +110,26 @@ class ConcernWeaver:
         kept, totals = self._enforce_budget(ordered)
 
         return ConcernInjection(
-            turn_id=turn_id,
+            weave_id=weave_id,
+            host_round_id=host_round_id or vector.host_round_id,
             agent_session_id=vector.agent_session_id,
             ts=datetime.now(UTC),
             injections=kept,
             totals=totals,
         )
 
-    def empty(self, turn_id: str, vector: ConcernVector | None = None) -> ConcernInjection:
+    def empty(
+        self,
+        weave_id: str,
+        vector: ConcernVector | None = None,
+        *,
+        host_round_id: str | None = None,
+    ) -> ConcernInjection:
         return ConcernInjection(
-            turn_id=turn_id,
+            weave_id=weave_id,
+            host_round_id=host_round_id
+            if host_round_id is not None
+            else (vector.host_round_id if vector is not None else None),
             agent_session_id=vector.agent_session_id if vector is not None else None,
             ts=datetime.now(UTC),
             injections=[],

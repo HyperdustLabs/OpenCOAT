@@ -1,4 +1,4 @@
-"""Turn Loop — synchronous, returns a :class:`ConcernInjection`.
+"""Joinpoint pipeline — synchronous weave for one :class:`JoinpointEvent`.
 
 Sequence (v0.1 §22.1):
 
@@ -13,29 +13,14 @@ Sequence (v0.1 §22.1):
 
 Design notes
 ------------
-* The loop is **stateless across turns** — any cross-turn memory (history,
-  decay, conflicts) lives in the stores. This keeps the loop trivially
-  thread-safe per turn while still being driven by long-lived state.
-* A concern with **no** :class:`Pointcut` is treated as inactive on this
-  joinpoint; it can still surface via the event/heartbeat loops or via
-  explicit upserts. We never silently activate a concern that did not
-  declare *some* match condition.
-* The matcher is only invoked for concerns with a pointcut, and only its
-  ``score`` is fed into the coordinator — the reasons / metadata are
-  reserved for the observer side-channel so wire formats stay narrow.
-* DCN activation logging is **best-effort**: the DCN store may be wired
-  to a backend that rejects unknown nodes; we add the node first
-  (idempotent) and only catch ``KeyError`` to keep the turn loop
-  resilient if the host wired in a stricter store.
-* The loop returns ``None`` *only* when the matcher produced zero
-  candidates *and* the host explicitly opted into the
-  ``return_none_when_empty`` flag. The default is to return an empty
-  :class:`ConcernInjection` so downstream code never has to special-case
-  the no-op path.
-* Context passed to collaborators is ``payload ∪ extra`` with explicit-arg
-  precedence for ordinary keys. ``turn_id`` is an exception: after the merge
-  it is **forced** to the canonical mint (same string as
-  ``ConcernInjection.turn_id``) so payload/context cannot shadow it.
+* The pipeline is **stateless across weave runs** — cross-round memory lives
+  in the stores.
+* ``weave_id`` identifies one joinpoint weave (``weave-{joinpoint.id}``).
+  ``host_round_id`` on the joinpoint is the host agent's dialog round
+  (e.g. OpenClaw ``runId``) and must not be confused with ``weave_id``.
+* Context passed to collaborators is ``payload ∪ extra`` with runtime keys
+  ``weave_id`` / ``host_round_id`` assigned after the merge so payloads
+  cannot shadow them.
 """
 
 from __future__ import annotations
@@ -63,7 +48,7 @@ from ..ports.observer import NullObserver
 from ..weaving import ConcernWeaver
 
 
-class TurnLoop:
+class JoinpointPipeline:
     """Drive a single joinpoint through the full match → weave pipeline."""
 
     def __init__(
@@ -89,10 +74,6 @@ class TurnLoop:
         self._last_vector: ConcernVector | None = None
         self._last_injection: ConcernInjection | None = None
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
     def run(
         self,
         joinpoint: JoinpointEvent,
@@ -100,17 +81,23 @@ class TurnLoop:
         context: dict[str, Any] | None = None,
         return_none_when_empty: bool = False,
     ) -> ConcernInjection | None:
-        turn_id = self._mint_turn_id(joinpoint)
-        ctx = self._build_context(joinpoint, context, turn_id=turn_id)
+        weave_id = self._mint_weave_id(joinpoint)
+        ctx = self._build_context(
+            joinpoint,
+            context,
+            weave_id=weave_id,
+            host_round_id=joinpoint.host_round_id,
+        )
 
         with self._observer.on_span(
-            "opencoat.turn",
-            turn_id=turn_id,
+            "opencoat.weave",
+            weave_id=weave_id,
+            host_round_id=joinpoint.host_round_id or "",
             joinpoint=joinpoint.name,
         ):
             candidates = list(self._scan_candidates(joinpoint, ctx))
             self._observer.on_metric(
-                "opencoat.turn.candidates",
+                "opencoat.weave.candidates",
                 float(len(candidates)),
                 joinpoint=joinpoint.name,
             )
@@ -121,7 +108,8 @@ class TurnLoop:
                 return None
 
             vector = self._coordinator.coordinate(
-                turn_id=turn_id,
+                weave_id=weave_id,
+                host_round_id=joinpoint.host_round_id,
                 candidates=candidates,
                 joinpoint=joinpoint,
                 context=ctx,
@@ -131,7 +119,8 @@ class TurnLoop:
             advices = self._generate_advices(vector, ctx)
             concerns = {c.id: c for c, _ in candidates}
             injection = self._weaver.build(
-                turn_id=turn_id,
+                weave_id=weave_id,
+                host_round_id=joinpoint.host_round_id,
                 vector=vector,
                 concerns=concerns,
                 advices=advices,
@@ -143,10 +132,6 @@ class TurnLoop:
 
             return injection
 
-    # ------------------------------------------------------------------
-    # Read-only views (for the facade's introspection helpers)
-    # ------------------------------------------------------------------
-
     @property
     def last_vector(self) -> ConcernVector | None:
         return self._last_vector
@@ -155,19 +140,11 @@ class TurnLoop:
     def last_injection(self) -> ConcernInjection | None:
         return self._last_injection
 
-    # ------------------------------------------------------------------
-    # Internal — candidate scan
-    # ------------------------------------------------------------------
-
     def _scan_candidates(
         self,
         joinpoint: JoinpointEvent,
         context: dict[str, Any],
     ) -> list[tuple[Concern, float]]:
-        # We materialise the iterator into a list so a slow / lazy backend
-        # cannot stall the loop mid-pipeline. ConcernStore.iter_all is
-        # documented as cheap; if a future backend changes that, the
-        # observer metric below makes the cost visible.
         scanned: list[tuple[Concern, float]] = []
         for concern in self._concern_store.iter_all():
             if concern.pointcut is None:
@@ -187,10 +164,6 @@ class TurnLoop:
             scanned.append((concern, float(result.score)))
         return scanned
 
-    # ------------------------------------------------------------------
-    # Internal — advice generation
-    # ------------------------------------------------------------------
-
     def _generate_advices(
         self,
         vector: ConcernVector,
@@ -200,8 +173,6 @@ class TurnLoop:
         for active in vector.active_concerns:
             concern = self._concern_store.get(active.concern_id)
             if concern is None:
-                # The store may have evicted the concern between scan
-                # and weave; weaver tolerates a missing entry.
                 self._observer.on_log(
                     "warning",
                     "active concern vanished from store between scan and weave",
@@ -211,7 +182,6 @@ class TurnLoop:
             try:
                 advices[active.concern_id] = self._advice_plugin.generate(concern, context)
             except Exception as exc:
-                # take down the turn; the concern is simply skipped by the weaver.
                 self._observer.on_log(
                     "error",
                     "advice plugin raised; skipping concern",
@@ -220,30 +190,12 @@ class TurnLoop:
                 )
         return advices
 
-    # ------------------------------------------------------------------
-    # Internal — DCN telemetry
-    # ------------------------------------------------------------------
-
     def _record_activations(
         self,
         joinpoint: JoinpointEvent,
         vector: ConcernVector,
         injection: ConcernInjection,
     ) -> None:
-        # Activation logging is driven by what *actually reached the host*
-        # (i.e. survived advice generation + the weaver's budget cutoff),
-        # not by the coordinator's intermediate vector. Two reasons:
-        #
-        #   1. A concern that was active in the vector but lost its
-        #      advice (eviction race, plugin error) or got trimmed by
-        #      the weaver budget never influenced the host — logging it
-        #      would create a "phantom" activation that distorts the
-        #      ``history`` pointcut strategy on subsequent turns.
-        #   2. Re-fetching the concern from the store (rather than
-        #      trusting the candidate-scan snapshot) guarantees we never
-        #      ``add_node`` a Concern the host has since deleted. Without
-        #      this, the eviction race would silently revive deleted
-        #      DCN nodes.
         if not injection.injections:
             return
 
@@ -251,9 +203,6 @@ class TurnLoop:
         for cid in _unique_concern_ids(injection):
             concern = self._concern_store.get(cid)
             if concern is None:
-                # The concern made it into the injection (so it was alive
-                # at advice-generation time) but has since been deleted.
-                # Skip the DCN write — don't resurrect a deleted node.
                 self._observer.on_log(
                     "warning",
                     "concern in injection vanished from store; activation skipped",
@@ -261,8 +210,6 @@ class TurnLoop:
                 )
                 continue
             try:
-                # Idempotent — refreshes the in-store snapshot in case
-                # the host upserted in between.
                 self._dcn_store.add_node(concern)
             except Exception as exc:
                 self._observer.on_log(
@@ -287,10 +234,6 @@ class TurnLoop:
                     error=repr(exc),
                 )
 
-    # ------------------------------------------------------------------
-    # Internal — observer events
-    # ------------------------------------------------------------------
-
     def _emit_telemetry(
         self,
         joinpoint: JoinpointEvent,
@@ -298,20 +241,22 @@ class TurnLoop:
         injection: ConcernInjection,
     ) -> None:
         self._observer.on_metric(
-            "opencoat.turn.active_concerns",
+            "opencoat.weave.active_concerns",
             float(len(vector.active_concerns)),
             joinpoint=joinpoint.name,
         )
-        self._observer.on_metric(
-            "opencoat.turn.injection_tokens",
-            float(injection.totals.tokens),
-            joinpoint=joinpoint.name,
-        )
-        self._observer.on_metric(
-            "opencoat.turn.injection_advices",
-            float(injection.totals.advice_count),
-            joinpoint=joinpoint.name,
-        )
+        totals = injection.totals
+        if totals is not None:
+            self._observer.on_metric(
+                "opencoat.weave.injection_tokens",
+                float(totals.tokens),
+                joinpoint=joinpoint.name,
+            )
+            self._observer.on_metric(
+                "opencoat.weave.injection_advices",
+                float(totals.advice_count),
+                joinpoint=joinpoint.name,
+            )
         for escalation in self._coordinator.last_escalations:
             self._observer.on_log(
                 "warning",
@@ -319,47 +264,32 @@ class TurnLoop:
                 **{k: str(v) for k, v in escalation.items()},
             )
 
-    # ------------------------------------------------------------------
-    # Internal — helpers
-    # ------------------------------------------------------------------
-
     @staticmethod
-    def _mint_turn_id(jp: JoinpointEvent) -> str:
-        # If the host already minted a turn id we reuse it so traces
-        # stitch together; otherwise we derive one from the joinpoint id
-        # so the value is reproducible.
-        return jp.turn_id or f"turn-{jp.id}"
+    def _mint_weave_id(jp: JoinpointEvent) -> str:
+        return f"weave-{jp.id}"
 
     @staticmethod
     def _build_context(
         jp: JoinpointEvent,
         extra: dict[str, Any] | None,
         *,
-        turn_id: str,
+        weave_id: str,
+        host_round_id: str | None,
     ) -> dict[str, Any]:
         ctx: dict[str, Any] = {}
         if jp.payload:
             ctx.update(jp.payload)
         if extra:
             ctx.update(extra)
-        # Stable bookkeeping keys callers can lean on without poking the
-        # JoinpointEvent again.
-        #
-        # ``turn_id`` is assigned **after** merging payload + caller context
-        # so it always matches ``ConcernInjection.turn_id``. Payload keys or
-        # ``context=`` entries named ``turn_id`` cannot shadow the runtime
-        # mint — otherwise matcher/advice telemetry drifts from the wire id.
         ctx.setdefault("joinpoint", jp.name)
         ctx.setdefault("joinpoint_id", jp.id)
-        ctx["turn_id"] = turn_id
+        ctx["weave_id"] = weave_id
+        if host_round_id is not None:
+            ctx["host_round_id"] = host_round_id
         return ctx
 
 
 def _unique_concern_ids(injection: ConcernInjection) -> list[str]:
-    """Return the distinct concern ids in ``injection.injections`` in
-    first-seen order. Multiple advices may share a concern (today the
-    weaver emits one each, but the contract permits more); we want to
-    log each concern's activation exactly once."""
     seen: list[str] = []
     seen_set: set[str] = set()
     for inj in injection.injections:
@@ -370,4 +300,7 @@ def _unique_concern_ids(injection: ConcernInjection) -> list[str]:
     return seen
 
 
-__all__ = ["TurnLoop"]
+# Backward-compatible alias (deprecated — use JoinpointPipeline).
+TurnLoop = JoinpointPipeline
+
+__all__ = ["JoinpointPipeline", "TurnLoop"]

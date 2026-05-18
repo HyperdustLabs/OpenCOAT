@@ -415,14 +415,14 @@ class TestCustomScaffoldHostAdapterFilled:
             {
                 "type": "before_tool_call",
                 "agent_session_id": "sess-1",
-                "turn_id": "turn-2",
+                "host_round_id": "turn-2",
                 "payload": {"content": "shell.exec rm -rf /tmp/x"},
             }
         )
         assert jp is not None
         assert jp.name == "before_tool_call"
         assert jp.agent_session_id == "sess-1"
-        assert jp.turn_id == "turn-2"
+        assert jp.host_round_id == "turn-2"
         assert jp.payload == {"content": "shell.exec rm -rf /tmp/x"}
 
     def test_map_host_event_rejects_non_dict_events(self) -> None:
@@ -460,7 +460,7 @@ class TestCustomScaffoldHostAdapterFilled:
 
         adapter = CustomHostAdapter()
         inj = ConcernInjection(
-            turn_id="t-1",
+            weave_id="t-1",
             injections=[
                 Injection(
                     concern_id="c-demo",
@@ -486,7 +486,7 @@ class TestCustomScaffoldHostAdapterFilled:
 
         adapter = CustomHostAdapter()
         inj = ConcernInjection(
-            turn_id="t-2",
+            weave_id="t-2",
             injections=[
                 Injection(
                     concern_id="c-demo",
@@ -514,7 +514,7 @@ class TestCustomScaffoldHostAdapterFilled:
 
         adapter = CustomHostAdapter()
         inj = ConcernInjection(
-            turn_id="t-3",
+            weave_id="t-3",
             injections=[
                 Injection(
                     concern_id="c-guard",
@@ -540,7 +540,7 @@ class TestCustomScaffoldHostAdapterFilled:
 
         adapter = CustomHostAdapter()
         inj = ConcernInjection(
-            turn_id="t-4",
+            weave_id="t-4",
             injections=[
                 Injection(
                     concern_id="c-empty",

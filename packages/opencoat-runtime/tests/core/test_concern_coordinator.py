@@ -55,8 +55,8 @@ def _concern(
 class TestConcernCoordinator:
     def test_empty_candidates_returns_empty_vector(self) -> None:
         coord = ConcernCoordinator(budgets=RuntimeBudgets())
-        vec = coord.coordinate(turn_id="turn-1", candidates=[], joinpoint=_jp())
-        assert vec.turn_id == "turn-1"
+        vec = coord.coordinate(weave_id="turn-1", candidates=[], joinpoint=_jp())
+        assert vec.weave_id == "turn-1"
         assert vec.active_concerns == []
         assert coord.last_escalations == []
 
@@ -65,7 +65,7 @@ class TestConcernCoordinator:
         high = _concern("c-high", priority=0.9, trust=0.9)
         low = _concern("c-low", priority=0.1, trust=0.1)
         vec = coord.coordinate(
-            turn_id="t",
+            weave_id="t",
             candidates=[(low, 0.5), (high, 0.5)],
             joinpoint=_jp(),
         )
@@ -85,7 +85,7 @@ class TestConcernCoordinator:
         )
         victim = _concern("vic")
         vec = coord.coordinate(
-            turn_id="t",
+            weave_id="t",
             candidates=[(victim, 0.9), (suppressor, 0.1)],
             joinpoint=_jp(),
         )
@@ -94,7 +94,7 @@ class TestConcernCoordinator:
     def test_budget_max_active_caps_vector_size(self) -> None:
         coord = ConcernCoordinator(budgets=RuntimeBudgets(max_active_concerns=2))
         candidates = [(_concern(f"c-{i}", priority=0.5), 1.0 - 0.05 * i) for i in range(5)]
-        vec = coord.coordinate(turn_id="t", candidates=candidates, joinpoint=_jp())
+        vec = coord.coordinate(weave_id="t", candidates=candidates, joinpoint=_jp())
         assert len(vec.active_concerns) == 2
 
     def test_active_concern_carries_metadata(self) -> None:
@@ -102,7 +102,7 @@ class TestConcernCoordinator:
         advice = Advice(type=AdviceType.REASONING_GUIDANCE, content="hello")
         concern = _concern("c-1", priority=0.7, advice=advice)
         vec = coord.coordinate(
-            turn_id="t",
+            weave_id="t",
             candidates=[(concern, 0.6)],
             joinpoint=_jp(),
         )
@@ -116,7 +116,7 @@ class TestConcernCoordinator:
         coord = ConcernCoordinator(budgets=RuntimeBudgets())
         advice = Advice(type=AdviceType.ESCALATION_NOTICE, content="alert")
         concern = _concern("c-esc", advice=advice)
-        coord.coordinate(turn_id="t", candidates=[(concern, 0.9)], joinpoint=_jp())
+        coord.coordinate(weave_id="t", candidates=[(concern, 0.9)], joinpoint=_jp())
         assert len(coord.last_escalations) == 1
         assert coord.last_escalations[0]["concern_id"] == "c-esc"
 
@@ -124,7 +124,7 @@ class TestConcernCoordinator:
         budgets = RuntimeBudgets(max_active_concerns=4, max_injection_tokens=100)
         coord = ConcernCoordinator(budgets=budgets)
         vec = coord.coordinate(
-            turn_id="t",
+            weave_id="t",
             candidates=[(_concern("c"), 0.5)],
             joinpoint=_jp(),
         )
@@ -139,7 +139,7 @@ class TestConcernCoordinator:
         c0 = _concern("c-0", priority=0.9, advice=big)
         c1 = _concern("c-1", priority=0.5, advice=big)
         vec = coord.coordinate(
-            turn_id="t",
+            weave_id="t",
             candidates=[(c0, 0.9), (c1, 0.5)],
             joinpoint=_jp(),
         )

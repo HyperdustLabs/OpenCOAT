@@ -14,7 +14,7 @@ the budget can apply token caps without re-implementing top-k logic.
 
 The coordinator is intentionally synchronous and side-effect-free except
 for the resolver's escalation side-channel, which it exposes as a
-read-only property for the turn loop to consume.
+read-only property for the joinpoint pipeline to consume.
 """
 
 from __future__ import annotations
@@ -56,14 +56,15 @@ class ConcernCoordinator:
     def coordinate(
         self,
         *,
-        turn_id: str,
+        weave_id: str,
+        host_round_id: str | None = None,
         candidates: list[tuple[Concern, float]],
         joinpoint: JoinpointEvent,
         context: dict | None = None,
     ) -> ConcernVector:
         if not candidates:
             self._last_escalations = []
-            return self._vector_builder.empty(turn_id)
+            return self._vector_builder.empty(weave_id, host_round_id=host_round_id)
 
         ranked = self._priority.rank(candidates, context=context)
         resolved = self._resolver.resolve(ranked)
@@ -74,7 +75,8 @@ class ConcernCoordinator:
 
         active = [self._to_active(concern, score, joinpoint) for concern, score in capped]
         return self._vector_builder.build(
-            turn_id=turn_id,
+            weave_id=weave_id,
+            host_round_id=host_round_id,
             agent_session_id=joinpoint.agent_session_id,
             active=active,
             ts=datetime.now(UTC),

@@ -155,7 +155,7 @@ def main() -> None:
     try:
         # Scene 1 — prompt folding
         prompt_before = {{"runtime_prompt": {{"active_concerns": ""}}}}
-        host.fire("agent.started", {{"turn_id": "t-1", "payload": {{}}}})
+        host.fire("agent.started", {{"host_round_id": "t-1", "payload": {{}}}})
         prompt_after = installed.apply_to(prompt_before)
         print("PROMPT before:", prompt_before["runtime_prompt"]["active_concerns"] or "<empty>")
         print("PROMPT after :", prompt_after["runtime_prompt"]["active_concerns"])
@@ -164,7 +164,7 @@ def main() -> None:
         tool_call = {{"name": "shell.exec", "arguments": {{"command": "rm -rf /tmp/scratch"}}}}
         host.fire(
             "agent.before_tool",
-            {{"turn_id": "t-1", "payload": {{"content": "shell.exec rm -rf /tmp/scratch"}}}},
+            {{"host_round_id": "t-1", "payload": {{"content": "shell.exec rm -rf /tmp/scratch"}}}},
         )
         outcome = installed.guard_tool_call(tool_call)
         verdict = "BLOCKED" if outcome and outcome.blocked else "allowed"
@@ -172,7 +172,7 @@ def main() -> None:
         print(f"TOOL    : {{verdict}} {{reason}}")
 
         # Scene 3 — memory write
-        host.fire("agent.memory_write", {{"turn_id": "t-1", "payload": {{"key": "k", "value": "v"}}}})
+        host.fire("agent.memory_write", {{"host_round_id": "t-1", "payload": {{"key": "k", "value": "v"}}}})
         memory_after = installed.apply_to({{"memory_write": {{"policy_note": ""}}}})
         print("MEMORY  :", memory_after["memory_write"]["policy_note"])
     finally:
@@ -259,7 +259,7 @@ def _run_scenes(host: _FakeHost, installed: Any, *, stream: Any = None) -> int:
     # ------------------------------------------------------------------
     _print_scene_header(1, "PROMPT FOLDING", "demo-prompt-prefix")
     prompt_before: dict[str, Any] = {"runtime_prompt": {"active_concerns": ""}}
-    host.fire("agent.started", {"turn_id": "demo-t1", "payload": {}})
+    host.fire("agent.started", {"host_round_id": "demo-t1", "payload": {}})
     prompt_after = installed.apply_to(prompt_before)
     before_val = prompt_before["runtime_prompt"]["active_concerns"] or '""'
     after_val = prompt_after["runtime_prompt"].get("active_concerns", "")
@@ -287,7 +287,7 @@ def _run_scenes(host: _FakeHost, installed: Any, *, stream: Any = None) -> int:
         # ``demo-tool-block`` matches keywords against payload
         # text/content/raw_text/token, so we mirror the command line
         # into ``content`` so the matcher sees it.
-        {"turn_id": "demo-t1", "payload": {"content": "shell.exec rm -rf /tmp/scratch"}},
+        {"host_round_id": "demo-t1", "payload": {"content": "shell.exec rm -rf /tmp/scratch"}},
     )
     outcome = installed.guard_tool_call(tool_call)
     print("  fire event : agent.before_tool (payload includes 'rm -rf')", file=out)
@@ -312,7 +312,7 @@ def _run_scenes(host: _FakeHost, installed: Any, *, stream: Any = None) -> int:
     memory_before: dict[str, Any] = {"memory_write": {"policy_note": ""}}
     host.fire(
         "agent.memory_write",
-        {"turn_id": "demo-t1", "payload": {"key": "preferences.tone", "value": "concise"}},
+        {"host_round_id": "demo-t1", "payload": {"key": "preferences.tone", "value": "concise"}},
     )
     memory_after = installed.apply_to(memory_before)
     before_note = memory_before["memory_write"]["policy_note"] or '""'

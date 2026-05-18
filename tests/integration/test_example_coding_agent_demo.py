@@ -1,7 +1,7 @@
 """Smoke + behavioural tests for ``examples/02_coding_agent_demo``.
 
 This is the canonical M2 exit-criterion check: the same end-to-end
-turn loop as the M1 example, plus
+joinpoint pipeline as the M1 example, plus
 
 * env-driven provider selection (stub fallback for hermetic CI),
 * a real :meth:`LLMClient.chat` call in the response path (against

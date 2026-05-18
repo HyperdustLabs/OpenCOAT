@@ -99,12 +99,12 @@ def run_demo(*, session_id: str = "demo-openclaw-session") -> OpenClawDemoReport
         ),
     )
     try:
-        host.fire("agent.started", {"agent_session_id": session_id, "turn_id": "t-0"})
+        host.fire("agent.started", {"agent_session_id": session_id, "host_round_id": "t-0"})
         host.fire(
             "agent.user_message",
             {
                 "agent_session_id": session_id,
-                "turn_id": "t-1",
+                "host_round_id": "t-1",
                 "payload": {"text": "What is the OpenCOAT runtime?"},
             },
         )
@@ -112,7 +112,7 @@ def run_demo(*, session_id: str = "demo-openclaw-session") -> OpenClawDemoReport
             "agent.memory_write",
             {
                 "agent_session_id": session_id,
-                "turn_id": "t-2",
+                "host_round_id": "t-2",
                 "payload": {
                     "key": "episodic.openclaw-demo",
                     "value": {"note": "user asked about OpenCOAT"},
@@ -148,7 +148,7 @@ def _format_report(report: OpenClawDemoReport) -> str:
     if inj is None or not inj.injections:
         lines.append("last injection: <none>")
     else:
-        lines.append(f"last injection turn_id={inj.turn_id!r} rows={len(inj.injections)}")
+        lines.append(f"last injection weave_id={inj.weave_id!r} rows={len(inj.injections)}")
         for row in inj.injections:
             lines.append(f"  • target={row.target!r} mode={row.mode!r}")
             lines.append(f"      {row.content}")

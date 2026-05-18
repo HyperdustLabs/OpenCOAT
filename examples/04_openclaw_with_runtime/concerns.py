@@ -5,7 +5,7 @@ Two narrow rules:
 * **User path** — ``on_user_input`` when the user text mentions ``OpenCOAT``
   (or the older spelling ``COAT``).
 * **Memory path** — ``before_memory_write`` on every memory write so the
-  turn loop produces visible injections when the host fires
+  joinpoint pipeline produces visible injections when the host fires
   ``agent.memory_write``.
 """
 

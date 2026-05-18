@@ -19,7 +19,7 @@ from opencoat_runtime_protocol.envelopes import ActiveConcern, WeavingPolicy
 
 def _vector(*active: ActiveConcern) -> ConcernVector:
     return ConcernVector(
-        turn_id="t",
+        weave_id="t",
         agent_session_id="sess-1",
         ts=datetime(2026, 5, 8, tzinfo=UTC),
         active_concerns=list(active),
@@ -49,7 +49,7 @@ class TestConcernWeaverDefaults:
         weaver = ConcernWeaver(budgets=RuntimeBudgets())
         vector = _vector(_active("c-1"))
         out = weaver.build(
-            turn_id="t",
+            weave_id="t",
             vector=vector,
             concerns={"c-1": _concern("c-1")},
             advices={"c-1": _advice(text="be careful")},
@@ -70,7 +70,7 @@ class TestConcernWeaverDefaults:
             target="user_message.span:risky",
         )
         out = weaver.build(
-            turn_id="t",
+            weave_id="t",
             vector=_vector(_active("c-1")),
             concerns={"c-1": _concern("c-1", policy=policy)},
             advices={"c-1": _advice()},
@@ -83,7 +83,7 @@ class TestConcernWeaverDefaults:
     def test_tool_guard_advice_defaults_to_block_and_tool_level(self) -> None:
         weaver = ConcernWeaver(budgets=RuntimeBudgets())
         out = weaver.build(
-            turn_id="t",
+            weave_id="t",
             vector=_vector(_active("c-1")),
             concerns={"c-1": _concern("c-1")},
             advices={"c-1": _advice(advice_type=AdviceType.TOOL_GUARD, text="no PII")},
@@ -102,7 +102,7 @@ class TestConcernWeaverOrdering:
             _active("c-mid", priority=0.5),
         )
         out = weaver.build(
-            turn_id="t",
+            weave_id="t",
             vector=vector,
             concerns={cid: _concern(cid) for cid in ["c-low", "c-high", "c-mid"]},
             advices={cid: _advice(cid) for cid in ["c-low", "c-high", "c-mid"]},
@@ -120,7 +120,7 @@ class TestConcernWeaverOrdering:
             _active("c-b", priority=0.5),
         )
         out = weaver.build(
-            turn_id="t",
+            weave_id="t",
             vector=vector,
             concerns={cid: _concern(cid) for cid in ["c-a", "c-b"]},
             advices={cid: _advice(cid) for cid in ["c-a", "c-b"]},
@@ -143,7 +143,7 @@ class TestConcernWeaverOrdering:
             _active("c-a", score=0.1),
         )
         out = weaver.build(
-            turn_id="t",
+            weave_id="t",
             vector=vector,
             concerns={cid: _concern(cid) for cid in ["c-z", "c-a"]},
             advices={cid: _advice(cid) for cid in ["c-z", "c-a"]},
@@ -163,7 +163,7 @@ class TestConcernWeaverOrdering:
             _active("c-a", score=0.1),
         )
         out = weaver.build(
-            turn_id="t",
+            weave_id="t",
             vector=vector,
             concerns={cid: _concern(cid) for cid in ["c-z", "c-a"]},
             advices={
@@ -183,7 +183,7 @@ class TestConcernWeaverOrdering:
             _active("c-high-pri", score=0.5, priority=0.9),
         )
         out = weaver.build(
-            turn_id="t",
+            weave_id="t",
             vector=vector,
             concerns={cid: _concern(cid) for cid in ["c-low-pri", "c-high-pri"]},
             advices={cid: _advice(cid) for cid in ["c-low-pri", "c-high-pri"]},
@@ -194,7 +194,7 @@ class TestConcernWeaverOrdering:
         weaver = ConcernWeaver(budgets=RuntimeBudgets())
         vector = _vector(_active("c-1"), _active("c-2"))
         out = weaver.build(
-            turn_id="t",
+            weave_id="t",
             vector=vector,
             concerns={"c-1": _concern("c-1")},  # c-2 missing
             advices={"c-1": _advice("c-1")},
@@ -207,7 +207,7 @@ class TestConcernWeaverTruncation:
         weaver = ConcernWeaver(budgets=RuntimeBudgets())
         policy = WeavingPolicy(max_tokens=2)  # ~8 chars budget
         out = weaver.build(
-            turn_id="t",
+            weave_id="t",
             vector=_vector(_active("c-1")),
             concerns={"c-1": _concern("c-1", policy=policy)},
             advices={"c-1": _advice(text="x" * 200)},
@@ -220,7 +220,7 @@ class TestConcernWeaverTruncation:
         weaver = ConcernWeaver(budgets=RuntimeBudgets())
         policy = WeavingPolicy(max_tokens=200)
         out = weaver.build(
-            turn_id="t",
+            weave_id="t",
             vector=_vector(_active("c-1")),
             concerns={"c-1": _concern("c-1", policy=policy)},
             advices={"c-1": _advice(text="x" * 200, max_tokens=2)},
@@ -230,7 +230,7 @@ class TestConcernWeaverTruncation:
     def test_short_content_passes_through_unchanged(self) -> None:
         weaver = ConcernWeaver(budgets=RuntimeBudgets())
         out = weaver.build(
-            turn_id="t",
+            weave_id="t",
             vector=_vector(_active("c-1")),
             concerns={"c-1": _concern("c-1")},
             advices={"c-1": _advice(text="hi")},
@@ -256,14 +256,14 @@ class TestConcernWeaverBudget:
             "c-mid": _advice("c-mid", text="x" * 200),  # truncated to 50; exceeds remainder
             "c-low": _advice("c-low", text="x" * 16),  # ~4 tokens — fits but must not slip past
         }
-        out = weaver.build(turn_id="t", vector=vector, concerns=concerns, advices=advices)
+        out = weaver.build(weave_id="t", vector=vector, concerns=concerns, advices=advices)
         assert [i.concern_id for i in out.injections] == ["c-high"]
 
     def test_first_oversized_injection_is_always_kept(self) -> None:
         budgets = RuntimeBudgets(max_active_concerns=10, max_injection_tokens=2)
         weaver = ConcernWeaver(budgets=budgets)
         out = weaver.build(
-            turn_id="t",
+            weave_id="t",
             vector=_vector(_active("c-1")),
             concerns={"c-1": _concern("c-1")},
             advices={"c-1": _advice(text="x" * 100)},
@@ -276,13 +276,13 @@ class TestConcernWeaverBudget:
         vector = _vector(*[_active(f"c-{i}", priority=1.0 - 0.1 * i) for i in range(5)])
         concerns = {f"c-{i}": _concern(f"c-{i}") for i in range(5)}
         advices = {f"c-{i}": _advice(f"c-{i}") for i in range(5)}
-        out = weaver.build(turn_id="t", vector=vector, concerns=concerns, advices=advices)
+        out = weaver.build(weave_id="t", vector=vector, concerns=concerns, advices=advices)
         assert {i.concern_id for i in out.injections} == {"c-0", "c-1"}
 
     def test_totals_track_tokens_and_counts(self) -> None:
         weaver = ConcernWeaver(budgets=RuntimeBudgets())
         out = weaver.build(
-            turn_id="t",
+            weave_id="t",
             vector=_vector(_active("c-1"), _active("c-2")),
             concerns={"c-1": _concern("c-1"), "c-2": _concern("c-2")},
             advices={"c-1": _advice(text="abcd"), "c-2": _advice(text="efgh")},
@@ -297,19 +297,19 @@ class TestConcernWeaverEnvelope:
     def test_carries_turn_and_session_ids_from_vector(self) -> None:
         weaver = ConcernWeaver(budgets=RuntimeBudgets())
         out = weaver.build(
-            turn_id="turn-99",
+            weave_id="turn-99",
             vector=_vector(_active("c-1")),
             concerns={"c-1": _concern("c-1")},
             advices={"c-1": _advice()},
         )
-        assert out.turn_id == "turn-99"
+        assert out.weave_id == "turn-99"
         assert out.agent_session_id == "sess-1"
         assert out.ts is not None and out.ts.tzinfo is not None
 
     def test_empty_vector_produces_empty_injection_with_zero_totals(self) -> None:
         weaver = ConcernWeaver(budgets=RuntimeBudgets())
         out = weaver.build(
-            turn_id="t",
+            weave_id="t",
             vector=_vector(),
             concerns={},
             advices={},

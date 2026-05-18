@@ -80,7 +80,7 @@ export function buildJoinpoint(
     name,
     host: "openclaw",
     agent_session_id: session,
-    turn_id: ctx.runId ?? `turn-${id}`,
+    host_round_id: ctx.runId,
     ts: new Date().toISOString(),
     payload,
   };

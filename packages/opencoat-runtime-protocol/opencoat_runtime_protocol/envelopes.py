@@ -12,7 +12,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # ---------------------------------------------------------------------------
 # Enumerations (mirror schema enums)
@@ -146,9 +146,20 @@ class JoinpointEvent(_Base):
     name: str
     host: str
     agent_session_id: str | None = None
-    turn_id: str | None = None
+    #: Host agent dialog round (e.g. OpenClaw ``runId``). Not the OpenCOAT weave id.
+    host_round_id: str | None = None
     ts: datetime
     payload: dict[str, Any] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_legacy_turn_id(cls, data: Any) -> Any:
+        if isinstance(data, dict) and data.get("turn_id") is not None:
+            data = dict(data)
+            if data.get("host_round_id") is None:
+                data["host_round_id"] = data["turn_id"]
+            data.pop("turn_id", None)
+        return data
 
 
 # ---------------------------------------------------------------------------
@@ -381,12 +392,25 @@ class VectorBudget(_Base):
 
 
 class ConcernVector(_Base):
-    turn_id: str
+    #: One joinpoint weave run (``weave-{joinpoint.id}`` when minted by the runtime).
+    weave_id: str
     agent_session_id: str | None = None
+    #: Optional host dialog round correlated with this weave.
+    host_round_id: str | None = None
     ts: datetime | None = None
-    schema_version: str = "0.1.0"
+    schema_version: str = "0.2.0"
     active_concerns: list[ActiveConcern] = Field(default_factory=list)
     budget: VectorBudget | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_legacy_turn_id(cls, data: Any) -> Any:
+        if isinstance(data, dict) and data.get("turn_id") is not None:
+            data = dict(data)
+            if data.get("weave_id") is None:
+                data["weave_id"] = data["turn_id"]
+            data.pop("turn_id", None)
+        return data
 
 
 # ---------------------------------------------------------------------------
@@ -411,9 +435,20 @@ class InjectionTotals(_Base):
 
 
 class ConcernInjection(_Base):
-    turn_id: str
+    weave_id: str
     agent_session_id: str | None = None
+    host_round_id: str | None = None
     ts: datetime | None = None
-    schema_version: str = "0.1.0"
+    schema_version: str = "0.2.0"
     injections: list[Injection] = Field(default_factory=list)
     totals: InjectionTotals | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_legacy_turn_id(cls, data: Any) -> Any:
+        if isinstance(data, dict) and data.get("turn_id") is not None:
+            data = dict(data)
+            if data.get("weave_id") is None:
+                data["weave_id"] = data["turn_id"]
+            data.pop("turn_id", None)
+        return data

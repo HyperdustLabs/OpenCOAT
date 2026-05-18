@@ -28,7 +28,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class OpenClawEventName(StrEnum):
@@ -51,7 +51,7 @@ class OpenClawEvent(BaseModel):
 
     Required: ``event_name``.
     Optional / auto-filled: ``id``, ``ts``, ``agent_session_id``,
-    ``turn_id``, ``payload``.
+    ``host_round_id``, ``payload``. Legacy wire alias: ``turn_id``.
     """
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
@@ -60,8 +60,18 @@ class OpenClawEvent(BaseModel):
     id: str | None = None
     ts: datetime | None = None
     agent_session_id: str | None = None
-    turn_id: str | None = None
+    host_round_id: str | None = None
     payload: dict[str, Any] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_legacy_turn_id(cls, data: Any) -> Any:
+        if isinstance(data, dict) and data.get("turn_id") is not None:
+            data = dict(data)
+            if data.get("host_round_id") is None:
+                data["host_round_id"] = data["turn_id"]
+            data.pop("turn_id", None)
+        return data
 
 
 __all__ = ["OpenClawEvent", "OpenClawEventName"]

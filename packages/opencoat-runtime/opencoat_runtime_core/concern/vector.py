@@ -29,22 +29,25 @@ class ConcernVectorBuilder:
     def build(
         self,
         *,
-        turn_id: str,
+        weave_id: str,
+        host_round_id: str | None = None,
         agent_session_id: str | None = None,
         active: list[ActiveConcern],
         ts: datetime | None = None,
     ) -> ConcernVector:
         return ConcernVector(
-            turn_id=turn_id,
+            weave_id=weave_id,
+            host_round_id=host_round_id,
             agent_session_id=agent_session_id,
             ts=ts or datetime.now(UTC),
             active_concerns=list(active),
             budget=self._budget_envelope(),
         )
 
-    def empty(self, turn_id: str) -> ConcernVector:
+    def empty(self, weave_id: str, *, host_round_id: str | None = None) -> ConcernVector:
         return ConcernVector(
-            turn_id=turn_id,
+            weave_id=weave_id,
+            host_round_id=host_round_id,
             ts=datetime.now(UTC),
             active_concerns=[],
             budget=self._budget_envelope(),

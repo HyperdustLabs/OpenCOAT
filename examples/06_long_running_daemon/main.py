@@ -143,7 +143,7 @@ def _demo_joinpoint(
     level: int,
     text: str,
     session_id: str,
-    turn_id: str,
+    weave_id: str,
     counter: int,
 ) -> dict[str, Any]:
     """Build a JoinpointEvent wire payload for `joinpoint.submit`."""
@@ -154,7 +154,7 @@ def _demo_joinpoint(
         "name": name,
         "host": "examples.06_long_running_daemon",
         "agent_session_id": session_id,
-        "turn_id": turn_id,
+        "host_round_id": weave_id,
         "ts": ts,
         "payload": {"text": text, "raw_text": text},
     }
@@ -174,7 +174,7 @@ def _drive_joinpoints(client: HttpRpcClient, *, session_id: str) -> int:
             level=level,
             text=text,
             session_id=session_id,
-            turn_id=f"t-{i:02d}",
+            weave_id=f"t-{i:02d}",
             counter=i,
         )
         inj = client.call("joinpoint.submit", {"joinpoint": jp, "return_none_when_empty": True})

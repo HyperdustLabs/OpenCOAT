@@ -171,10 +171,10 @@ class TestRuntimeDispatch:
         runtime = _build_runtime()
         install_hooks(host, runtime=runtime)
 
-        host.fire("agent.user_message", {"turn_id": "t-1", "payload": {"text": "hi"}})
+        host.fire("agent.user_message", {"host_round_id": "t-1", "payload": {"text": "hi"}})
 
         # Snapshot bumps pending_event_count? No — on_joinpoint is the
-        # turn loop, not the event loop. We rely on the fact that an
+        # joinpoint pipeline, not the event loop. We rely on the fact that an
         # active turn has a last-vector (possibly None when no concerns
         # matched, but the call should not raise).
         snapshot = runtime.snapshot()
@@ -191,7 +191,7 @@ class TestRuntimeDispatch:
             runtime=runtime,
             event_names=("agent.custom_x",),
         )
-        host.fire("agent.custom_x", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.custom_x", {"host_round_id": "t-1", "payload": {}})
 
     def test_callback_injects_event_name_when_payload_omits_it(self) -> None:
         """Real OpenClaw delivers the payload *without* echoing the
@@ -201,7 +201,7 @@ class TestRuntimeDispatch:
         runtime = _build_runtime()
         install_hooks(host, runtime=runtime)
         # No event_name in payload — must not raise.
-        host.fire("agent.user_message", {"turn_id": "t-1"})
+        host.fire("agent.user_message", {"host_round_id": "t-1"})
 
     def test_invalid_envelope_field_propagates_validation_error(self) -> None:
         """Type-invalid envelope fields (``ts`` not a datetime, etc.)
@@ -215,7 +215,7 @@ class TestRuntimeDispatch:
             host.fire(
                 "agent.user_message",
                 # ``ts`` must parse as a datetime — bool is not coercible.
-                {"turn_id": "t-1", "ts": True},
+                {"host_round_id": "t-1", "ts": True},
             )
 
     def test_unknown_flat_fields_are_tucked_under_payload(self) -> None:
@@ -228,11 +228,11 @@ class TestRuntimeDispatch:
         install_hooks(host, runtime=runtime)
         host.fire(
             "agent.user_message",
-            {"turn_id": "t-1", "text": "hello"},
+            {"host_round_id": "t-1", "text": "hello"},
         )
 
     def test_envelope_shaped_payload_is_accepted_as_is(self) -> None:
-        """When the host already emits ``{turn_id, payload: {...}}``
+        """When the host already emits ``{weave_id, payload: {...}}``
         the callback only fills in ``event_name`` and leaves the
         envelope intact."""
         host = FakeHost()
@@ -240,7 +240,7 @@ class TestRuntimeDispatch:
         install_hooks(host, runtime=runtime)
         host.fire(
             "agent.user_message",
-            {"turn_id": "t-1", "payload": {"text": "hi"}},
+            {"host_round_id": "t-1", "payload": {"text": "hi"}},
         )
 
 
@@ -261,7 +261,7 @@ class TestMemoryBridgeSidechannel:
         host.fire(
             "agent.memory_write",
             {
-                "turn_id": "t-1",
+                "host_round_id": "t-1",
                 "payload": {
                     "key": "episodic.q42",
                     "value": "42",
@@ -288,7 +288,7 @@ class TestMemoryBridgeSidechannel:
         host.fire(
             "agent.memory_write",
             {
-                "turn_id": "t-1",
+                "host_round_id": "t-1",
                 "payload": {"key": "k", "concern_id": "c-archived"},
             },
         )
@@ -301,7 +301,7 @@ class TestMemoryBridgeSidechannel:
         install_hooks(host, runtime=runtime)  # bridge=None
         host.fire(
             "agent.memory_write",
-            {"turn_id": "t-1", "payload": {"key": "k"}},
+            {"host_round_id": "t-1", "payload": {"key": "k"}},
         )
 
     def test_non_memory_events_do_not_touch_bridge(self) -> None:
@@ -317,8 +317,8 @@ class TestMemoryBridgeSidechannel:
                 return super().sync(memory_event)
 
         install_hooks(host, runtime=runtime, bridge=_BridgeSpy())
-        host.fire("agent.user_message", {"turn_id": "t-1", "payload": {"text": "hi"}})
-        host.fire("agent.before_tool", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.user_message", {"host_round_id": "t-1", "payload": {"text": "hi"}})
+        host.fire("agent.before_tool", {"host_round_id": "t-1", "payload": {}})
         assert calls == []
 
     def test_memory_event_with_flat_payload_falls_back(self) -> None:
@@ -443,9 +443,9 @@ class _FakeRuntime:
         return self._responses.get(jp.name)
 
 
-def _injection_with(target: str, content: str, *, turn_id: str = "t-1") -> ConcernInjection:
+def _injection_with(target: str, content: str, *, weave_id: str = "t-1") -> ConcernInjection:
     return ConcernInjection(
-        turn_id=turn_id,
+        weave_id=weave_id,
         injections=[
             Injection(
                 concern_id="c-test",
@@ -457,9 +457,9 @@ def _injection_with(target: str, content: str, *, turn_id: str = "t-1") -> Conce
     )
 
 
-def _tool_guard_injection(*, turn_id: str = "t-1") -> ConcernInjection:
+def _tool_guard_injection(*, weave_id: str = "t-1") -> ConcernInjection:
     return ConcernInjection(
-        turn_id=turn_id,
+        weave_id=weave_id,
         injections=[
             Injection(
                 concern_id="c-guard",
@@ -489,7 +489,7 @@ class TestPendingBufferCapture:
             {"on_user_input": _injection_with("runtime_prompt.active_concerns", "be concise")}
         )
         installed = install_hooks(host, runtime=runtime)
-        host.fire("agent.user_message", {"turn_id": "t-1", "payload": {"text": "hi"}})
+        host.fire("agent.user_message", {"host_round_id": "t-1", "payload": {"text": "hi"}})
 
         assert len(installed.pending) == 1
         entry = installed.pending[0]
@@ -503,16 +503,16 @@ class TestPendingBufferCapture:
         no-op at apply_to time and would muddy ``pending`` snapshots.
         """
         host = FakeHost()
-        runtime = _FakeRuntime({"on_user_input": ConcernInjection(turn_id="t-1", injections=[])})
+        runtime = _FakeRuntime({"on_user_input": ConcernInjection(weave_id="t-1", injections=[])})
         installed = install_hooks(host, runtime=runtime)
-        host.fire("agent.user_message", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.user_message", {"host_round_id": "t-1", "payload": {}})
         assert installed.pending == ()
 
     def test_none_response_is_dropped(self) -> None:
         host = FakeHost()
         runtime = _FakeRuntime({})  # every joinpoint → None
         installed = install_hooks(host, runtime=runtime)
-        host.fire("agent.user_message", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.user_message", {"host_round_id": "t-1", "payload": {}})
         assert installed.pending == ()
 
     def test_pending_property_returns_tuple_not_internal_list(self) -> None:
@@ -525,7 +525,7 @@ class TestPendingBufferCapture:
             {"on_user_input": _injection_with("runtime_prompt.active_concerns", "x")}
         )
         installed = install_hooks(host, runtime=runtime)
-        host.fire("agent.user_message", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.user_message", {"host_round_id": "t-1", "payload": {}})
         snap = installed.pending
         assert isinstance(snap, tuple)
         # Even if a caller tries to clear the snapshot, the live buffer
@@ -541,7 +541,7 @@ class TestApplyTo:
             {"on_user_input": _injection_with("runtime_prompt.active_concerns", "be precise")}
         )
         installed = install_hooks(host, runtime=runtime)
-        host.fire("agent.user_message", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.user_message", {"host_round_id": "t-1", "payload": {}})
 
         out = installed.apply_to({"runtime_prompt": {"active_concerns": ""}})
         assert out == {"runtime_prompt": {"active_concerns": "be precise"}}
@@ -550,7 +550,7 @@ class TestApplyTo:
         host = FakeHost()
         runtime = _FakeRuntime({"on_user_input": _injection_with("runtime_prompt.note", "once")})
         installed = install_hooks(host, runtime=runtime)
-        host.fire("agent.user_message", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.user_message", {"host_round_id": "t-1", "payload": {}})
         assert len(installed.pending) == 1
 
         first = installed.apply_to({})
@@ -565,7 +565,7 @@ class TestApplyTo:
         host = FakeHost()
         runtime = _FakeRuntime({"on_user_input": _injection_with("runtime_prompt.note", "twice")})
         installed = install_hooks(host, runtime=runtime)
-        host.fire("agent.user_message", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.user_message", {"host_round_id": "t-1", "payload": {}})
 
         first = installed.apply_to({}, drain=False)
         second = installed.apply_to({}, drain=False)
@@ -583,7 +583,7 @@ class TestApplyTo:
         )
         installed = install_hooks(host, runtime=runtime)
         host.fire("agent.started", {})
-        host.fire("agent.user_message", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.user_message", {"host_round_id": "t-1", "payload": {}})
 
         # Only fold runtime_start injections — on_user_input stays buffered.
         out = installed.apply_to({}, joinpoint="runtime_start")
@@ -598,7 +598,7 @@ class TestApplyTo:
             {"on_user_input": _injection_with("runtime_prompt.note", "from-empty")}
         )
         installed = install_hooks(host, runtime=runtime)
-        host.fire("agent.user_message", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.user_message", {"host_round_id": "t-1", "payload": {}})
 
         out = installed.apply_to(None)
         assert out == {"runtime_prompt": {"note": "from-empty"}}
@@ -613,7 +613,7 @@ class TestApplyTo:
         host = FakeHost()
         runtime = _FakeRuntime({"before_tool_call": _tool_guard_injection()})
         installed = install_hooks(host, runtime=runtime)
-        host.fire("agent.before_tool", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.before_tool", {"host_round_id": "t-1", "payload": {}})
 
         out = installed.apply_to({"runtime_prompt": {"active_concerns": ""}})
         # ``tool_call.*`` row didn't leak into the prompt context.
@@ -673,7 +673,7 @@ class TestApplyTo:
         host = FakeHost()
         runtime = _FakeRuntime({"on_user_input": _injection_with("runtime_prompt.note", "n")})
         installed = install_hooks(host, runtime=runtime)
-        host.fire("agent.user_message", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.user_message", {"host_round_id": "t-1", "payload": {}})
         assert len(installed.pending) == 1
 
         original: dict[str, Any] = {"runtime_prompt": {"active_concerns": "kept"}}
@@ -692,7 +692,7 @@ class TestApplyTo:
         host = FakeHost()
         runtime = _FakeRuntime({"before_tool_call": _tool_guard_injection()})
         installed = install_hooks(host, runtime=runtime)
-        host.fire("agent.before_tool", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.before_tool", {"host_round_id": "t-1", "payload": {}})
         assert len(installed.pending) == 1
 
         original: dict[str, Any] = {"runtime_prompt": {"active_concerns": "kept"}}
@@ -707,7 +707,7 @@ class TestGuardToolCall:
         host = FakeHost()
         runtime = _FakeRuntime({"before_tool_call": _tool_guard_injection()})
         installed = install_hooks(host, runtime=runtime)
-        host.fire("agent.before_tool", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.before_tool", {"host_round_id": "t-1", "payload": {}})
 
         outcome = installed.guard_tool_call(
             {"name": "shell.exec", "arguments": {"command": "rm -rf /"}}
@@ -720,7 +720,7 @@ class TestGuardToolCall:
         host = FakeHost()
         runtime = _FakeRuntime({"on_user_input": _injection_with("runtime_prompt.note", "n")})
         installed = install_hooks(host, runtime=runtime)
-        host.fire("agent.user_message", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.user_message", {"host_round_id": "t-1", "payload": {}})
 
         outcome = installed.guard_tool_call({"name": "x", "arguments": {}})
         assert outcome is None
@@ -731,7 +731,7 @@ class TestGuardToolCall:
         host = FakeHost()
         runtime = _FakeRuntime({"before_tool_call": _tool_guard_injection()})
         installed = install_hooks(host, runtime=runtime)
-        host.fire("agent.before_tool", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.before_tool", {"host_round_id": "t-1", "payload": {}})
 
         assert installed.guard_tool_call({"name": "x", "arguments": {}}) is not None
         # Second call sees an empty buffer.
@@ -742,7 +742,7 @@ class TestGuardToolCall:
         host = FakeHost()
         runtime = _FakeRuntime({"before_tool_call": _tool_guard_injection()})
         installed = install_hooks(host, runtime=runtime)
-        host.fire("agent.before_tool", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.before_tool", {"host_round_id": "t-1", "payload": {}})
 
         first = installed.guard_tool_call({"name": "x", "arguments": {"command": "x"}}, drain=False)
         second = installed.guard_tool_call(
@@ -760,21 +760,21 @@ class TestGuardToolCall:
         against the most-recently-emitted advice.
         """
         host = FakeHost()
-        seq = [_tool_guard_injection(turn_id=f"t-{i}") for i in range(3)]
+        seq = [_tool_guard_injection(weave_id=f"t-{i}") for i in range(3)]
         runtime = _FakeRuntime({"before_tool_call": seq[0]})
         installed = install_hooks(host, runtime=runtime)
 
         # Three consecutive before_tool_call events. We push them via
         # the same response slot by re-binding the runtime's mapping.
-        host.fire("agent.before_tool", {"turn_id": "t-0", "payload": {}})
+        host.fire("agent.before_tool", {"host_round_id": "t-0", "payload": {}})
         runtime._responses["before_tool_call"] = seq[1]
-        host.fire("agent.before_tool", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.before_tool", {"host_round_id": "t-1", "payload": {}})
         runtime._responses["before_tool_call"] = seq[2]
-        host.fire("agent.before_tool", {"turn_id": "t-2", "payload": {}})
+        host.fire("agent.before_tool", {"host_round_id": "t-2", "payload": {}})
 
-        # First guard_tool_call should consume the newest entry — turn_id t-2.
+        # First guard_tool_call should consume the newest entry — weave_id t-2.
         installed.guard_tool_call({"name": "x", "arguments": {}})
-        remaining = [e.injection.turn_id for e in installed.pending]
+        remaining = [e.injection.weave_id for e in installed.pending]
         assert remaining == ["t-0", "t-1"]
 
 
@@ -783,7 +783,7 @@ class TestClearPending:
         host = FakeHost()
         runtime = _FakeRuntime({"on_user_input": _injection_with("runtime_prompt.note", "drop me")})
         installed = install_hooks(host, runtime=runtime)
-        host.fire("agent.user_message", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.user_message", {"host_round_id": "t-1", "payload": {}})
 
         assert len(installed.pending) == 1
         installed.clear_pending()
@@ -798,7 +798,7 @@ class TestClearPending:
             {"on_user_input": _injection_with("runtime_prompt.note", "still here")}
         )
         installed = install_hooks(host, runtime=runtime)
-        host.fire("agent.user_message", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.user_message", {"host_round_id": "t-1", "payload": {}})
 
         assert len(installed.pending) == 1
         installed.uninstall()
@@ -830,7 +830,7 @@ class TestEndToEndWithRealRuntime:
         installed = install_hooks(host, runtime=runtime)
 
         before = {"runtime_prompt": {"active_concerns": ""}}
-        host.fire("agent.started", {"turn_id": "t-1", "payload": {}})
+        host.fire("agent.started", {"host_round_id": "t-1", "payload": {}})
 
         # Buffer should now hold the session-start injection.
         assert len(installed.pending) == 1
@@ -855,7 +855,7 @@ class TestEndToEndWithRealRuntime:
 
         # ``agent.user_message`` maps to ``on_user_input``, not
         # ``runtime_start`` — the session-start concern shouldn't fire.
-        host.fire("agent.user_message", {"turn_id": "t-1", "payload": {"text": "hello"}})
+        host.fire("agent.user_message", {"host_round_id": "t-1", "payload": {"text": "hello"}})
 
         out = installed.apply_to({"runtime_prompt": {"active_concerns": "base"}})
         assert out == {"runtime_prompt": {"active_concerns": "base"}}

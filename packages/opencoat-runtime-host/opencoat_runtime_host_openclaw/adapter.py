@@ -101,7 +101,7 @@ class OpenClawAdapter(HostAdapter):
             name=joinpoint_name,
             host=_HOST_NAME,
             agent_session_id=oc.agent_session_id,
-            turn_id=oc.turn_id,
+            host_round_id=oc.host_round_id,
             ts=oc.ts or datetime.now(tz=UTC),
             payload=oc.payload,
         )

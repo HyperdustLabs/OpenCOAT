@@ -5,9 +5,10 @@
   "description": "Sparse activation snapshot of the DCN for the current turn (v0.1 §17). Not an embedding — a structured runtime activation state.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["turn_id", "active_concerns"],
+  "required": ["weave_id", "active_concerns"],
   "properties": {
-    "turn_id":          { "type": "string" },
+    "weave_id":          { "type": "string", "description": "One joinpoint weave run (weave-{joinpoint.id})." },
+    "host_round_id":     { "type": "string", "description": "Optional host dialog round." },
     "agent_session_id": { "type": "string" },
     "ts":               { "type": "string", "format": "date-time" },
     "schema_version":   { "type": "string", "default": "0.1.0" },

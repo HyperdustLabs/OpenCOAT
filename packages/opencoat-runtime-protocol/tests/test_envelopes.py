@@ -143,7 +143,7 @@ def test_joinpoint_event() -> None:
         name="before_response",
         host="openclaw",
         agent_session_id="s-1",
-        turn_id="t-1",
+        host_round_id="round-1",
         ts=datetime.now(UTC),
         payload={"kind": "lifecycle", "stage": "before_response", "data": {}},
     )
@@ -187,7 +187,7 @@ def test_copr_tree() -> None:
 
 def test_concern_vector_and_injection_roundtrip() -> None:
     vec = ConcernVector(
-        turn_id="t-1",
+        weave_id="t-1",
         active_concerns=[
             ActiveConcern(
                 concern_id="c-1",
@@ -200,7 +200,7 @@ def test_concern_vector_and_injection_roundtrip() -> None:
     _validate("concern_vector.schema.json", vec.model_dump(mode="json", exclude_none=True))
 
     inj = ConcernInjection(
-        turn_id="t-1",
+        weave_id="t-1",
         injections=[
             Injection(
                 concern_id="c-1",

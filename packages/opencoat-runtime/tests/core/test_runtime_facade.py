@@ -208,7 +208,7 @@ class TestSnapshot:
         assert isinstance(snap, RuntimeSnapshot)
         assert snap.concern_count == 1
         assert snap.active_concern_count == 1
-        # The DCN was written by the turn loop's activation logger.
+        # The DCN was written by the joinpoint pipeline's activation logger.
         assert snap.dcn_node_count >= 1
         assert snap.pending_event_count == 0
 

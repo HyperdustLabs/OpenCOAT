@@ -21,7 +21,7 @@ def injector() -> OpenClawInjector:
 class TestOpenClawInjector:
     def test_insert_appends_with_newline(self, injector: OpenClawInjector) -> None:
         inj = ConcernInjection(
-            turn_id="t",
+            weave_id="t",
             injections=[
                 Injection(
                     concern_id="c-a",
@@ -36,7 +36,7 @@ class TestOpenClawInjector:
 
     def test_insert_creates_missing_path(self, injector: OpenClawInjector) -> None:
         inj = ConcernInjection(
-            turn_id="t",
+            weave_id="t",
             injections=[
                 Injection(
                     concern_id="c-b",
@@ -51,7 +51,7 @@ class TestOpenClawInjector:
 
     def test_replace_overwrites(self, injector: OpenClawInjector) -> None:
         inj = ConcernInjection(
-            turn_id="t",
+            weave_id="t",
             injections=[
                 Injection(
                     concern_id="c-c",
@@ -66,7 +66,7 @@ class TestOpenClawInjector:
 
     def test_block_sets_content(self, injector: OpenClawInjector) -> None:
         inj = ConcernInjection(
-            turn_id="t",
+            weave_id="t",
             injections=[
                 Injection(
                     concern_id="c-d",
@@ -81,7 +81,7 @@ class TestOpenClawInjector:
 
     def test_skips_runtime_prompt_when_config_disabled(self) -> None:
         inj = ConcernInjection(
-            turn_id="t",
+            weave_id="t",
             injections=[
                 Injection(
                     concern_id="c-e",
@@ -99,7 +99,7 @@ class TestOpenClawInjector:
         nested = {"runtime_prompt": {"output_format": "x"}}
         original = copy.deepcopy(nested)
         inj = ConcernInjection(
-            turn_id="t",
+            weave_id="t",
             injections=[
                 Injection(
                     concern_id="c-f",
@@ -116,7 +116,7 @@ class TestOpenClawInjector:
         """JSON round-trip leaves ``mode`` as plain strings — accept both."""
         inj = ConcernInjection.model_validate(
             {
-                "turn_id": "t",
+                "weave_id": "t",
                 "injections": [
                     {
                         "concern_id": "c-g",
@@ -139,7 +139,7 @@ class TestWildcardTargets:
     def test_trailing_wildcard_applies_to_every_existing_key(self) -> None:
         injector = OpenClawInjector()
         inj = ConcernInjection(
-            turn_id="t",
+            weave_id="t",
             injections=[
                 Injection(
                     concern_id="c-tool-guard",
@@ -159,7 +159,7 @@ class TestWildcardTargets:
     def test_trailing_wildcard_appends_on_string_leaves(self) -> None:
         injector = OpenClawInjector()
         inj = ConcernInjection(
-            turn_id="t",
+            weave_id="t",
             injections=[
                 Injection(
                     concern_id="c-arg-warn",
@@ -182,7 +182,7 @@ class TestWildcardTargets:
         """Drop the injection rather than write a literal ``"*"`` key."""
         injector = OpenClawInjector()
         inj = ConcernInjection(
-            turn_id="t",
+            weave_id="t",
             injections=[
                 Injection(
                     concern_id="c-empty",
@@ -199,7 +199,7 @@ class TestWildcardTargets:
     def test_midpath_wildcard_recurses_into_dict_children(self) -> None:
         injector = OpenClawInjector()
         inj = ConcernInjection(
-            turn_id="t",
+            weave_id="t",
             injections=[
                 Injection(
                     concern_id="c-mid",
