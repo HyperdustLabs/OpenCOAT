@@ -35,6 +35,7 @@ from opencoat_runtime_protocol import (
     JoinpointEvent,
 )
 
+from ..concern.executable import has_executable_pointcut, primary_pointcut
 from ..config import RuntimeConfig
 from ..coordinator import ConcernCoordinator
 from ..ports import (
@@ -218,10 +219,12 @@ class JoinpointPipeline:
     ) -> list[tuple[Concern, float]]:
         scanned: list[tuple[Concern, float]] = []
         for concern in self._concern_store.iter_all():
-            if concern.pointcut is None:
+            if not has_executable_pointcut(concern):
                 continue
+            pc = primary_pointcut(concern)
+            assert pc is not None
             try:
-                result = self._matcher.match(concern.pointcut, joinpoint, context)
+                result = self._matcher.match(pc, joinpoint, context)
             except Exception as exc:
                 self._observer.on_log(
                     "warning",
@@ -244,8 +247,10 @@ class JoinpointPipeline:
     ) -> list[tuple[Concern, float, JoinpointEvent]]:
         best: dict[str, tuple[Concern, float, JoinpointEvent]] = {}
         for concern in self._concern_store.iter_all():
-            if concern.pointcut is None:
+            if not has_executable_pointcut(concern):
                 continue
+            pc = primary_pointcut(concern)
+            assert pc is not None
             for jp in joinpoints:
                 ctx = self._build_context(
                     jp,
@@ -254,7 +259,7 @@ class JoinpointPipeline:
                     host_round_id=host_round_id,
                 )
                 try:
-                    result = self._matcher.match(concern.pointcut, jp, ctx)
+                    result = self._matcher.match(pc, jp, ctx)
                 except Exception as exc:
                     self._observer.on_log(
                         "warning",

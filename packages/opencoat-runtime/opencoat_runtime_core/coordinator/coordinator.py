@@ -100,13 +100,17 @@ class ConcernCoordinator:
         score: float,
         joinpoint: JoinpointEvent,
     ) -> ActiveConcern:
-        priority = concern.weaving_policy.priority if concern.weaving_policy is not None else None
+        from ..concern.executable import primary_advice, primary_weaving
+
+        weaving = primary_weaving(concern)
+        advice = primary_advice(concern)
+        priority = weaving.priority if weaving is not None else None
         confidence = (
             concern.activation_state.score
             if concern.activation_state is not None and concern.activation_state.score is not None
             else None
         )
-        injection_mode = concern.advice.type if concern.advice is not None else None
+        injection_mode = advice.type if advice is not None else None
         return ActiveConcern(
             concern_id=concern.id,
             activation_score=clamp01(score),

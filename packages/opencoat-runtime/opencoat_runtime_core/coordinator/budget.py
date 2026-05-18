@@ -69,14 +69,17 @@ class BudgetController:
         the LLM. The estimate is an upper bound on what the weaver might
         emit — better to undershoot the budget than to truncate prompts.
         """
-        if concern.advice is None:
+        from ..concern.executable import primary_advice
+
+        advice = primary_advice(concern)
+        if advice is None:
             return 0
-        chars = len(concern.advice.content)
-        if concern.advice.rationale:
-            chars += len(concern.advice.rationale)
+        chars = len(advice.content)
+        if advice.rationale:
+            chars += len(advice.rationale)
         if chars <= 0:
             return 0
-        cap = concern.advice.max_tokens
+        cap = advice.max_tokens
         # ceiling division
         estimated = (chars + _AVG_CHARS_PER_TOKEN - 1) // _AVG_CHARS_PER_TOKEN
         if cap is not None:

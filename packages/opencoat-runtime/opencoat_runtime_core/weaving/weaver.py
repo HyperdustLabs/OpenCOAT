@@ -146,7 +146,9 @@ class ConcernWeaver:
         concern: Concern,
         advice: Advice,
     ) -> Injection | None:
-        policy = concern.weaving_policy or WeavingPolicy()
+        from ..concern.executable import primary_weaving
+
+        policy = primary_weaving(concern) or WeavingPolicy()
         advice_type = AdviceType(advice.type)
 
         target = policy.target or DEFAULT_TARGET[advice_type]
