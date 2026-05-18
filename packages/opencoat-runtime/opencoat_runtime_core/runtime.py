@@ -28,6 +28,7 @@ from opencoat_runtime_protocol import (
 from .advice import AdviceGenerator
 from .config import RuntimeConfig
 from .coordinator import ConcernCoordinator
+from .joinpoint.discovery import JoinpointDiscovery
 from .loops import EventLoop, HeartbeatLoop, HeartbeatReport, JoinpointPipeline
 from .pointcut.matcher import PointcutMatcher
 from .ports import (
@@ -41,6 +42,7 @@ from .ports import (
 )
 from .ports.observer import NullObserver
 from .weaving import ConcernWeaver
+from .weaving.merge import merge_injections
 
 # ---------------------------------------------------------------------------
 # Reports / events at the facade boundary
@@ -125,6 +127,10 @@ class OpenCOATRuntime:
             dcn_store=dcn_store,
             observer=self._observer,
         )
+        auto = self._config.joinpoint_automation
+        self._joinpoint_discovery = JoinpointDiscovery(
+            max_discovered=auto.max_discovered_joinpoints,
+        )
 
     # --- public API --------------------------------------------------------
 
@@ -160,6 +166,12 @@ class OpenCOATRuntime:
         return_none_when_empty: bool = False,
     ) -> ConcernInjection | None:
         """Joinpoint pipeline: ingest a joinpoint, return an injection (or None)."""
+        if self._should_expand_prompt_surface(jp):
+            return self._run_joinpoint_surface(
+                jp,
+                context=context,
+                return_none_when_empty=return_none_when_empty,
+            )
         return self._joinpoint_pipeline.run(
             jp,
             context=context,
@@ -179,8 +191,22 @@ class OpenCOATRuntime:
         return self._event_loop.drain()
 
     def tick(self, now: datetime | None = None) -> HeartbeatReport:
-        """Heartbeat-loop: drive long-term DCN maintenance."""
-        return self._heartbeat_loop.tick(now)
+        """Heartbeat-loop: maintenance, optional event weave, and ``runtime_tick``."""
+        report = self._heartbeat_loop.tick(now)
+        auto = self._config.joinpoint_automation
+        # Drain queued host events before ``runtime_tick`` so an empty tick weave
+        # does not clear a successful event injection (``return_none_when_empty``).
+        if auto.process_events_on_tick:
+            for event in self.drain_events():
+                self._weave_runtime_event(event)
+        if auto.weave_on_tick:
+            tick_jp = self._joinpoint_discovery.runtime_tick_joinpoint(report)
+            self._joinpoint_pipeline.run(
+                tick_jp,
+                return_none_when_empty=True,
+                preserve_last_on_empty=True,
+            )
+        return report
 
     def current_vector(self) -> ConcernVector | None:
         """Return the most recently-computed Concern Vector, if any."""
@@ -209,6 +235,49 @@ class OpenCOATRuntime:
         )
 
     # --- internal helpers --------------------------------------------------
+
+    def _should_expand_prompt_surface(self, jp: JoinpointEvent) -> bool:
+        auto = self._config.joinpoint_automation
+        if not auto.expand_prompt_surface:
+            return False
+        payload = jp.payload or {}
+        if payload.get("expand") is False:
+            return False
+        if payload.get("expand") is True:
+            return True
+        return "messages" in payload or "copr" in payload
+
+    def _run_joinpoint_surface(
+        self,
+        root: JoinpointEvent,
+        *,
+        context: dict[str, Any] | None,
+        return_none_when_empty: bool,
+    ) -> ConcernInjection | None:
+        joinpoints = self._joinpoint_discovery.expand(root)
+        batch_weave_id = f"weave-{root.id}"
+        merged: ConcernInjection | None = None
+        for child in joinpoints:
+            inj = self._joinpoint_pipeline.run(
+                child,
+                context=context,
+                return_none_when_empty=True,
+            )
+            merged = merge_injections(
+                merged,
+                inj,
+                weave_id=batch_weave_id,
+                host_round_id=root.host_round_id,
+            )
+        if merged is None and return_none_when_empty:
+            return None
+        return merged
+
+    def _weave_runtime_event(self, event: dict[str, Any]) -> None:
+        jp = self._joinpoint_discovery.joinpoint_from_event(event)
+        if jp is None:
+            return
+        self.on_joinpoint(jp, return_none_when_empty=True)
 
     def _dcn_inventory(self) -> tuple[int, int]:
         """Best-effort node / edge counts from the DCN store.

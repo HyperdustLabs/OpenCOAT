@@ -12,7 +12,10 @@ still exercising the real hook wiring.
 For a **real** OpenClaw gateway (Telegram, CLI, …), use the TypeScript bridge
 in [`integrations/openclaw-opencoat-bridge/`](../../integrations/openclaw-opencoat-bridge/README.md)
 — it calls `joinpoint.submit` on the daemon from `message_received`,
-`before_prompt_build`, and `before_tool_call`.
+`before_prompt_build`, and `before_tool_call`. The bridge forwards **`messages[]`**
+on `before_prompt_build` so the daemon can discover **`user_message`** /
+`assistant_message` joinpoints without the host emitting each one; see the
+bridge README use case *「only weave on the user line」*.
 
 ## What it does
 

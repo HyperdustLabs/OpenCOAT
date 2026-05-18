@@ -26,6 +26,21 @@ class RuntimeLoops(BaseModel):
     heartbeat_interval_seconds: float = Field(default=30.0, gt=0.0)
 
 
+class JoinpointAutomation(BaseModel):
+    """Joinpoint discovery and runtime-sourced weave triggers (JP automation P1/P2)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: Emit ``runtime_tick`` and run the joinpoint pipeline on :meth:`tick`.
+    weave_on_tick: bool = Field(default=True)
+    #: Drain the event queue on :meth:`tick` and weave mapped lifecycle joinpoints.
+    process_events_on_tick: bool = Field(default=True)
+    #: Expand ``messages`` / ``copr`` payloads into message- and section-level JPs.
+    expand_prompt_surface: bool = Field(default=True)
+    #: Cap discovered child joinpoints per coarse host submit (JP explosion guard).
+    max_discovered_joinpoints: int = Field(default=64, ge=1)
+
+
 class RuntimeConfig(BaseModel):
     """Top-level runtime configuration.
 
@@ -38,3 +53,4 @@ class RuntimeConfig(BaseModel):
     schema_version: str = "0.2"
     loops: RuntimeLoops = Field(default_factory=RuntimeLoops)
     budgets: RuntimeBudgets = Field(default_factory=RuntimeBudgets)
+    joinpoint_automation: JoinpointAutomation = Field(default_factory=JoinpointAutomation)

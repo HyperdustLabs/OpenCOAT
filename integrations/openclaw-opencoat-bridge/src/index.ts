@@ -7,8 +7,8 @@
  * `{ block: true, blockReason }` on `before_tool_call`.
  *
  * Hook → joinpoint mapping (v0.2 §4.7.1 analogue):
- *   message_received     → on_user_input
- *   before_prompt_build  → before_response
+ *   message_received     → on_user_input   (+ messages[] for COPR discovery)
+ *   before_prompt_build  → before_response (+ messages[] from the hook)
  *   before_tool_call     → before_tool_call
  *   session_start        → runtime_start
  */
@@ -20,6 +20,7 @@ import {
   submitJoinpoint,
   textPayload,
 } from "./daemon.js";
+import { promptPayload } from "./messages.js";
 import { foldPromptInjection, guardToolCall, mergeInjections } from "./injector.js";
 import type { AgentHookCtx, BridgeConfig, ConcernInjection } from "./types.js";
 
@@ -68,23 +69,6 @@ async function emit(
   return inj;
 }
 
-function messageTextFromHistory(messages: unknown[]): string {
-  const parts: string[] = [];
-  const slice = messages.length > 48 ? messages.slice(-48) : messages;
-  for (const m of slice) {
-    if (!m || typeof m !== "object") continue;
-    const msg = m as Record<string, unknown>;
-    for (const key of ["content", "text", "raw_text"]) {
-      const v = msg[key];
-      if (typeof v === "string" && v.trim()) {
-        parts.push(v.trim());
-        break;
-      }
-    }
-  }
-  return parts.join("\n\n");
-}
-
 export default function register(api: PluginApi): void {
   const cfg = resolveConfig(api.pluginConfig);
 
@@ -99,7 +83,10 @@ export default function register(api: PluginApi): void {
         cfg,
         api,
         "on_user_input",
-        textPayload(content),
+        promptPayload({
+          parts: [content],
+          messages: [{ role: "user", content }],
+        }),
         c,
       );
       rememberInjection(runKey(c), inj);
@@ -118,9 +105,11 @@ export default function register(api: PluginApi): void {
     const run = runKey(c);
 
     const prompt = typeof e?.prompt === "string" ? e.prompt : "";
-    const history =
-      Array.isArray(e?.messages) ? messageTextFromHistory(e.messages) : "";
-    const payload = textPayload(prompt, history);
+    const messages = Array.isArray(e?.messages) ? e.messages : undefined;
+    const payload = promptPayload({
+      parts: prompt ? [prompt] : [],
+      messages,
+    });
 
     try {
       const inj = await emit(cfg, api, "before_response", payload, c);

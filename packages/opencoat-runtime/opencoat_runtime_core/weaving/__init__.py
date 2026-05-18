@@ -5,8 +5,9 @@
 :meth:`build`.
 """
 
+from .merge import merge_injections
 from .operations import OPERATIONS
 from .targets import WEAVING_TARGETS
 from .weaver import ConcernWeaver
 
-__all__ = ["OPERATIONS", "WEAVING_TARGETS", "ConcernWeaver"]
+__all__ = ["OPERATIONS", "WEAVING_TARGETS", "ConcernWeaver", "merge_injections"]

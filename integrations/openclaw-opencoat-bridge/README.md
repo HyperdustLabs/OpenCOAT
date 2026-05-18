@@ -75,10 +75,141 @@ curl -sS http://127.0.0.1:7878/rpc -H 'Content-Type: application/json' \
 | `enabled` | `true` | Set `false` to no-op (hooks still register) |
 | `logActivations` | `false` | Log matched concern ids per joinpoint |
 
+## Prompt-code / messages passthrough
+
+`before_prompt_build` forwards the hook’s `messages[]` (OpenAI-style roles and
+`content`) on the joinpoint payload so the daemon can run **JoinpointDiscovery**
+(message / `runtime_prompt.*` section joinpoints). `message_received` sends a
+single `{ role: "user", content }` row the same way.
+
+Keyword pointcuts still work: flattened text is duplicated in `text` /
+`raw_text` for matchers that do not yet target `user_message`.
+
+## User stories
+
+| ID | Story | Acceptance |
+| --- | --- | --- |
+| **US-1** | As an **OpenClaw operator**, I want the gateway bridge to pass **`messages[]`** on `before_prompt_build`, so that the daemon can discover **message-level joinpoints** without me emitting one RPC per row. | Payload includes `messages`; daemon expands `user_message` / `assistant_message`; DCN activations can show ids like `jp-oc-…#msg:0`. |
+| **US-2** | As a **policy author**, I want concerns to target **`user_message`** only, so that **assistant history** in the same prompt does not false-trigger keyword guards. | Concern with `joinpoints: ["user_message"]` + keywords weaves on user lines only; same keywords on `before_response` alone can still match flattened history (documented counter-example). |
+| **US-3** | As a **platform engineer**, I want **one** `joinpoint.submit` per prompt build, so that I keep OpenClaw hooks thin while OpenCOAT performs **JoinpointDiscovery** (AspectJ-style surface → many join points). | Bridge calls submit once per `before_prompt_build`; runtime merges injections; host still only `prependSystemContext` at coarse boundary. |
+| **US-4** | As an **auditor**, I want activations tied to **stable child joinpoint ids** (`parent#msg:N`), so that I can tell which message row triggered a concern in replay and DCN logs. | `dcn.activation_log` shows `joinpoint_id` suffix `#msg:` / `#sec:` after a live or smoke submit with `messages`. |
+
+Narrative walkthrough for **US-2** (setup + curl + live chat): see the use case below.
+
+## Use case: only weave on the **user** line (not the whole transcript)
+
+**Problem.** A concern with `joinpoints: ["before_response"]` and
+`match.any_keywords: ["rm", "shell"]` scans the **flattened** prompt text. If the
+assistant’s earlier reply already mentioned `rm -rf`, the next turn can false-positive
+even when the user’s new message is harmless.
+
+**Approach.** Point at the **`user_message`** joinpoint (message layer). The bridge
+sends structured `messages[]`; the daemon expands one coarse `before_response`
+submit into per-role joinpoints — you do not emit each one from TypeScript.
+
+```text
+OpenClaw before_prompt_build
+  messages: [ system, user, assistant, user ]
+       │
+       ▼
+Bridge payload: { text, raw_text, messages: [...] }
+       │
+       ▼
+Daemon JoinpointDiscovery (one joinpoint.submit)
+  before_response          ← lifecycle (optional match)
+  user_message  (×2)     ← one JP per user row
+  assistant_message        ← per assistant row
+  system_message           ← per system row
+       │
+       ▼
+Pointcut joinpoints: ["user_message"]  →  only user rows activate
+```
+
+### 1. Seed a message-level concern
+
+```bash
+opencoat runtime up
+
+curl -sS http://127.0.0.1:7878/rpc -H 'Content-Type: application/json' -d '{
+  "jsonrpc": "2.0",
+  "method": "concern.upsert",
+  "id": 1,
+  "params": {
+    "concern": {
+      "id": "user-shell-guard",
+      "name": "User shell guard",
+      "description": "Warn when the user asks for destructive shell",
+      "pointcut": {
+        "joinpoints": ["user_message"],
+        "match": { "any_keywords": ["rm", "rf", "shell"] }
+      },
+      "advice": {
+        "type": "response_requirement",
+        "content": "Do not suggest rm -rf or recursive deletes."
+      }
+    }
+  }
+}'
+```
+
+### 2. Simulate what the bridge sends (smoke test without Telegram)
+
+Same shape as `before_prompt_build` after messages passthrough:
+
+```bash
+curl -sS http://127.0.0.1:7878/rpc -H 'Content-Type: application/json' -d '{
+  "jsonrpc": "2.0",
+  "method": "joinpoint.submit",
+  "id": 2,
+  "params": {
+    "joinpoint": {
+      "id": "jp-smoke-messages",
+      "level": 1,
+      "name": "before_response",
+      "host": "openclaw",
+      "agent_session_id": "demo",
+      "host_round_id": "run-1",
+      "ts": "2026-05-15T12:00:00+00:00",
+      "payload": {
+        "messages": [
+          { "role": "assistant", "content": "Earlier I mentioned rm -rf in an example." },
+          { "role": "user", "content": "How do I list files in shell?" }
+        ]
+      }
+    }
+  }
+}' | python3 -m json.tool
+```
+
+**Expected:** `user-shell-guard` appears in `injections` (user line matches `shell`).
+The assistant line does **not** satisfy `user_message` even though `rm` appears in
+the flattened `text` field.
+
+**Counter-example:** repeat with only `joinpoints: ["before_response"]` on the same
+concern — the assistant’s `rm -rf` in flattened history can activate the concern.
+
+### 3. Live OpenClaw
+
+1. Install bridge + restart gateway (see above).
+2. Chat: `How do I delete temp files in shell safely?` (hits `user_message`).
+3. Enable `logActivations: true` in plugin config to see concern ids on
+   `before_response`.
+4. Confirm DCN rows use child ids such as `jp-oc-…#msg:1`, not only manual curl ids:
+
+```bash
+curl -sS http://127.0.0.1:7878/rpc -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"dcn.activation_log","params":{"concern_id":"user-shell-guard","limit":5},"id":3}' \
+  | python3 -m json.tool
+```
+
+Requires a runtime build with **JoinpointDiscovery** (`expand_prompt_surface`
+on by default). Older daemons ignore `messages` and only match lifecycle names.
+
 ## Limitations (v0.1 bridge)
 
 - Prompt folding uses `prependSystemContext` only (not full dotted-path injector parity with Python `OpenClawInjector`).
 - `before_memory_write` / memory bridge not wired yet.
 - Double joinpoint fire (`on_user_input` + `before_response`) is intentional when concerns list both.
+- Section discovery depends on hosts passing `sections` on message objects (uncommon today); message-level JPs always apply when `messages` is present.
 
 See also: [`examples/04_openclaw_with_runtime/README.md`](../../examples/04_openclaw_with_runtime/README.md) (toy bus) and [`docs/design/v0.2-system-design.md`](../../docs/design/v0.2-system-design.md) §4.7.1.

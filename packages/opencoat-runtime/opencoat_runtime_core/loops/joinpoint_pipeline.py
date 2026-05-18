@@ -80,6 +80,7 @@ class JoinpointPipeline:
         *,
         context: dict[str, Any] | None = None,
         return_none_when_empty: bool = False,
+        preserve_last_on_empty: bool = False,
     ) -> ConcernInjection | None:
         weave_id = self._mint_weave_id(joinpoint)
         ctx = self._build_context(
@@ -103,8 +104,9 @@ class JoinpointPipeline:
             )
 
             if not candidates and return_none_when_empty:
-                self._last_vector = None
-                self._last_injection = None
+                if not preserve_last_on_empty:
+                    self._last_vector = None
+                    self._last_injection = None
                 return None
 
             vector = self._coordinator.coordinate(
