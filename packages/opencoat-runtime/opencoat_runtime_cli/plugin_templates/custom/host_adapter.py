@@ -223,9 +223,7 @@ class CustomHostAdapter(HostAdapter):
             host=str(event.get("host") or self._host_name),
             agent_session_id=event.get("agent_session_id"),
             host_round_id=(
-                event.get("host_round_id")
-                or event.get("turn_id")
-                or event.get("weave_id")
+                event.get("host_round_id") or event.get("turn_id") or event.get("weave_id")
             ),
             ts=_coerce_ts(event.get("ts")),
             payload=_build_payload(event),
