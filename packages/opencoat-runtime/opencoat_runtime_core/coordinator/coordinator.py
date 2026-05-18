@@ -33,6 +33,9 @@ from .budget import BudgetController
 from .priority import PriorityRanker
 from .topk import TopKSelector
 
+# ``(concern, score)`` or ``(concern, score, matched_joinpoint)`` for batch surfaces.
+CandidateTuple = tuple[Concern, float] | tuple[Concern, float, JoinpointEvent]
+
 
 class ConcernCoordinator:
     def __init__(
@@ -58,7 +61,7 @@ class ConcernCoordinator:
         *,
         weave_id: str,
         host_round_id: str | None = None,
-        candidates: list[tuple[Concern, float]],
+        candidates: list[CandidateTuple],
         joinpoint: JoinpointEvent,
         context: dict | None = None,
     ) -> ConcernVector:
@@ -66,14 +69,18 @@ class ConcernCoordinator:
             self._last_escalations = []
             return self._vector_builder.empty(weave_id, host_round_id=host_round_id)
 
-        ranked = self._priority.rank(candidates, context=context)
+        scored, match_jps = _split_candidates(candidates, joinpoint)
+        ranked = self._priority.rank(scored, context=context)
         resolved = self._resolver.resolve(ranked)
         self._last_escalations = list(self._resolver.last_escalations)
 
         budgeted = self._budget.enforce(resolved)
         capped = self._topk.select(budgeted, self._budgets.max_active_concerns)
 
-        active = [self._to_active(concern, score, joinpoint) for concern, score in capped]
+        active = [
+            self._to_active(concern, score, match_jps.get(concern.id, joinpoint))
+            for concern, score in capped
+        ]
         return self._vector_builder.build(
             weave_id=weave_id,
             host_round_id=host_round_id,
@@ -108,3 +115,21 @@ class ConcernCoordinator:
             injection_mode=injection_mode,
             matched_joinpoint=joinpoint.name,
         )
+
+
+def _split_candidates(
+    candidates: list[CandidateTuple],
+    default_joinpoint: JoinpointEvent,
+) -> tuple[list[tuple[Concern, float]], dict[str, JoinpointEvent]]:
+    scored: list[tuple[Concern, float]] = []
+    match_jps: dict[str, JoinpointEvent] = {}
+    for item in candidates:
+        if len(item) == 3:
+            concern, score, jp = item
+            scored.append((concern, score))
+            match_jps[concern.id] = jp
+        else:
+            concern, score = item
+            scored.append((concern, score))
+            match_jps[concern.id] = default_joinpoint
+    return scored, match_jps

@@ -80,6 +80,7 @@ class JoinpointPipeline:
         *,
         context: dict[str, Any] | None = None,
         return_none_when_empty: bool = False,
+        preserve_last_on_empty: bool = False,
     ) -> ConcernInjection | None:
         weave_id = self._mint_weave_id(joinpoint)
         ctx = self._build_context(
@@ -103,8 +104,9 @@ class JoinpointPipeline:
             )
 
             if not candidates and return_none_when_empty:
-                self._last_vector = None
-                self._last_injection = None
+                if not preserve_last_on_empty:
+                    self._last_vector = None
+                    self._last_injection = None
                 return None
 
             vector = self._coordinator.coordinate(
@@ -130,6 +132,75 @@ class JoinpointPipeline:
             self._record_activations(joinpoint, vector, injection)
             self._emit_telemetry(joinpoint, vector, injection)
 
+            return injection
+
+    def run_surface(
+        self,
+        root: JoinpointEvent,
+        joinpoints: list[JoinpointEvent],
+        *,
+        context: dict[str, Any] | None = None,
+        return_none_when_empty: bool = False,
+    ) -> ConcernInjection | None:
+        """Batch match + single weave for an expanded prompt surface (P3)."""
+        weave_id = f"weave-{root.id}"
+        base_ctx = dict(context or {})
+
+        with self._observer.on_span(
+            "opencoat.weave.surface",
+            weave_id=weave_id,
+            host_round_id=root.host_round_id or "",
+            joinpoint=root.name,
+            joinpoint_count=str(len(joinpoints)),
+        ):
+            candidates = self._scan_candidates_surface(
+                joinpoints, weave_id, root.host_round_id, base_ctx
+            )
+            self._observer.on_metric(
+                "opencoat.weave.candidates",
+                float(len(candidates)),
+                joinpoint=root.name,
+            )
+
+            if not candidates and return_none_when_empty:
+                self._last_vector = None
+                self._last_injection = None
+                return None
+
+            ctx = self._build_context(
+                root,
+                base_ctx,
+                weave_id=weave_id,
+                host_round_id=root.host_round_id,
+            )
+            vector = self._coordinator.coordinate(
+                weave_id=weave_id,
+                host_round_id=root.host_round_id,
+                candidates=candidates,
+                joinpoint=root,
+                context=ctx,
+            )
+            self._last_vector = vector
+
+            advices = self._generate_advices(vector, ctx)
+            concerns = {c.id: c for c, _, _ in candidates}
+            injection = self._weaver.build(
+                weave_id=weave_id,
+                host_round_id=root.host_round_id,
+                vector=vector,
+                concerns=concerns,
+                advices=advices,
+            )
+            self._last_injection = injection
+
+            activation_jps = {c.id: jp.id for c, _, jp in candidates}
+            self._record_activations(
+                root,
+                vector,
+                injection,
+                activation_joinpoint_ids=activation_jps,
+            )
+            self._emit_telemetry(root, vector, injection)
             return injection
 
     @property
@@ -164,6 +235,42 @@ class JoinpointPipeline:
             scanned.append((concern, float(result.score)))
         return scanned
 
+    def _scan_candidates_surface(
+        self,
+        joinpoints: list[JoinpointEvent],
+        weave_id: str,
+        host_round_id: str | None,
+        base_context: dict[str, Any],
+    ) -> list[tuple[Concern, float, JoinpointEvent]]:
+        best: dict[str, tuple[Concern, float, JoinpointEvent]] = {}
+        for concern in self._concern_store.iter_all():
+            if concern.pointcut is None:
+                continue
+            for jp in joinpoints:
+                ctx = self._build_context(
+                    jp,
+                    base_context,
+                    weave_id=weave_id,
+                    host_round_id=host_round_id,
+                )
+                try:
+                    result = self._matcher.match(concern.pointcut, jp, ctx)
+                except Exception as exc:
+                    self._observer.on_log(
+                        "warning",
+                        "matcher raised; treating as miss",
+                        concern_id=concern.id,
+                        error=repr(exc),
+                    )
+                    continue
+                if not result.matched:
+                    continue
+                score = float(result.score)
+                prev = best.get(concern.id)
+                if prev is None or score > prev[1]:
+                    best[concern.id] = (concern, score, jp)
+        return list(best.values())
+
     def _generate_advices(
         self,
         vector: ConcernVector,
@@ -195,11 +302,14 @@ class JoinpointPipeline:
         joinpoint: JoinpointEvent,
         vector: ConcernVector,
         injection: ConcernInjection,
+        *,
+        activation_joinpoint_ids: dict[str, str] | None = None,
     ) -> None:
         if not injection.injections:
             return
 
         scores = {a.concern_id: a.activation_score for a in vector.active_concerns}
+        jp_ids = activation_joinpoint_ids or {}
         for cid in _unique_concern_ids(injection):
             concern = self._concern_store.get(cid)
             if concern is None:
@@ -222,7 +332,7 @@ class JoinpointPipeline:
             try:
                 self._dcn_store.log_activation(
                     concern_id=cid,
-                    joinpoint_id=joinpoint.id,
+                    joinpoint_id=jp_ids.get(cid, joinpoint.id),
                     score=float(scores.get(cid, 0.0)),
                     ts=vector.ts,
                 )

@@ -69,6 +69,17 @@ _PROMPT_SECTION = (
     CatalogEntry("runtime_prompt.reasoning_guidance", JoinpointLevel.PROMPT_SECTION),
 )
 
+# v0.1 §12.7–§12.8 — Span / token (P4 discovery)
+_SPAN_TOKEN = (
+    CatalogEntry("semantic_span", JoinpointLevel.SEMANTIC_SPAN, "COPR semantic span"),
+    CatalogEntry("token", JoinpointLevel.TOKEN, "visible token in prompt text"),
+)
+
+# AspectJ-style adviceexecution — meta / concern-of-concern (P4)
+_ADVICEEXECUTION = (
+    CatalogEntry("adviceexecution", JoinpointLevel.LIFECYCLE, "after advice was applied"),
+)
+
 
 class JoinpointCatalog:
     """In-memory registry of joinpoint names. Hosts may add custom entries."""
@@ -95,5 +106,7 @@ class JoinpointCatalog:
         return len(self._entries)
 
 
-JOINPOINT_CATALOG = JoinpointCatalog(_RUNTIME + _LIFECYCLE + _MESSAGE + _PROMPT_SECTION)
+JOINPOINT_CATALOG = JoinpointCatalog(
+    _RUNTIME + _LIFECYCLE + _MESSAGE + _PROMPT_SECTION + _SPAN_TOKEN + _ADVICEEXECUTION
+)
 """Default catalog populated with the names from v0.1 §12.3–§12.6."""
