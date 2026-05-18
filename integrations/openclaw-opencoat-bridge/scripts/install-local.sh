@@ -5,8 +5,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # Plugin id in config uses @scope/name; filesystem dir must not contain '/'.
-EXT_ID="@hyperdust/opencoat-bridge"
-INSTALL_DIR="${HOME}/.openclaw/extensions/@hyperdust-opencoat-bridge"
+EXT_ID="@hyperdustlabs/opencoat-bridge"
+INSTALL_DIR="${HOME}/.openclaw/extensions/@hyperdustlabs-opencoat-bridge"
 CONFIG="${HOME}/.openclaw/openclaw.json"
 
 echo "Building bridge at ${ROOT}..."

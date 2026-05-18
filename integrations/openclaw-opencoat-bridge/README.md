@@ -36,12 +36,12 @@ openclaw gateway restart
 ```
 
 OpenClaw requires scoped plugin ids in `**@scope/name**` form. The on-disk folder is
-flat (no slash), e.g. `~/.openclaw/extensions/@hyperdust-opencoat-bridge`.
+flat (no slash), e.g. `~/.openclaw/extensions/@hyperdustlabs-opencoat-bridge`.
 
 Verify:
 
 ```bash
-openclaw plugins list   # @hyperdust/opencoat-bridge → loaded
+openclaw plugins list   # @hyperdustlabs/opencoat-bridge → loaded
 grep opencoat-bridge ~/.openclaw/logs/gateway.log   # [opencoat-bridge] registered
 ```
 
@@ -53,9 +53,10 @@ openclaw plugins install -l /path/to/COAT/integrations/openclaw-opencoat-bridge
 openclaw gateway restart
 ```
 
-Manual `plugins.entries` key must be `**@hyperdust/opencoat-bridge**` (with slash),
-not `@hyperdust-opencoat-bridge`. Set `daemonUrl` in plugin config (not `process.env`
-in the plugin — OpenClaw blocks env+network patterns at install time).
+Manual `plugins.entries` key must be `**@hyperdustlabs/opencoat-bridge**` (with slash),
+not `@hyperdustlabs-opencoat-bridge`. Remove legacy `@hyperdust/*` entries. Set
+`daemonUrl` in plugin config (not `process.env` in the plugin — OpenClaw blocks
+env+network patterns at install time).
 
 ## Verify
 

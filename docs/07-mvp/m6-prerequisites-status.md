@@ -10,7 +10,7 @@ Tracking for [§5A prerequisites](./post-m5-roadmap.md#5a-m6-split-4-prs). Updat
 
 ## P2 — Live OpenClaw (2026-05-18)
 
-Environment: OpenCOAT daemon on `:7878` (repo `packages/opencoat-runtime` via pipx editable), B.AI `gpt-5.2`, OpenClaw gateway `:18789`, bridge `@hyperdust/opencoat-bridge` with `allowPromptInjection` + `logActivations`.
+Environment: OpenCOAT daemon on `:7878` (repo `packages/opencoat-runtime` via pipx editable), B.AI `gpt-5.2`, OpenClaw gateway `:18789`, bridge `@hyperdustlabs/opencoat-bridge` with `allowPromptInjection` + `logActivations`.
 
 | Check | Result |
 | --- | --- |

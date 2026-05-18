@@ -1,6 +1,6 @@
 {
-  "id": "@hyperdust/opencoat-bridge",
-  "name": "@hyperdust/opencoat-bridge",
+  "id": "@hyperdustlabs/opencoat-bridge",
+  "name": "@hyperdustlabs/opencoat-bridge",
   "version": "0.1.0",
   "type": "module",
   "configSchema": {
