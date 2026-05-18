@@ -156,7 +156,49 @@ def test_collect_interactive_auto_writes_model_to_yaml(tmp_path: Path) -> None:
             yaml_path=yaml_path,
         )
     assert provider == "auto"
-    assert llm["model"] == "gpt-4o"
+    assert "model" not in llm
+    assert env_updates["OPENAI_MODEL"] == "gpt-4o"
+
+
+def test_collect_interactive_auto_dual_credentials_keeps_per_provider_models(
+    tmp_path: Path,
+) -> None:
+    """Auto with B.AI + OpenAI keys must not let OPENAI_MODEL overwrite BAI via llm.model."""
+    env_path = tmp_path / "opencoat.env"
+    yaml_path = tmp_path / "daemon.yaml"
+    env_path.write_text(
+        "BAI_API_KEY=sk-bai\nOPENAI_API_KEY=sk-openai\n",
+        encoding="utf-8",
+    )
+    with (
+        patch(
+            "opencoat_runtime_cli.commands.configure_cmd.getpass.getpass",
+            return_value="",
+        ),
+        patch(
+            "opencoat_runtime_cli.commands.configure_cmd.input",
+            side_effect=[
+                "1",  # provider auto
+                "1",  # mode env-file
+                "claude-sonnet-4-6",  # B.AI model (auto path)
+                "2",  # OpenAI model menu pick gpt-4o
+                "",
+                "",
+                "",
+            ],
+        ),
+        patch(
+            "opencoat_runtime_cli.commands.configure_cmd.fetch_openai_model_ids",
+            return_value=["gpt-4o-mini", "gpt-4o"],
+        ),
+    ):
+        provider, _mode, env_updates, llm = configure_cmd._collect_interactive(
+            env_path=env_path,
+            yaml_path=yaml_path,
+        )
+    assert provider == "auto"
+    assert "model" not in llm
+    assert env_updates["BAI_MODEL"] == "claude-sonnet-4-6"
     assert env_updates["OPENAI_MODEL"] == "gpt-4o"
 
 

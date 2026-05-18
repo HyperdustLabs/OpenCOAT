@@ -525,7 +525,6 @@ def _collect_interactive(
             if provider == "bai":
                 llm_inline["model"] = model
             elif key or existing_bai:
-                llm_inline["model"] = model
                 env_updates["BAI_MODEL"] = model
 
     if provider in ("auto", "openai"):
@@ -550,7 +549,6 @@ def _collect_interactive(
         if provider == "openai":
             llm_inline["model"] = model
         elif key or existing_openai:
-            llm_inline["model"] = model
             env_updates["OPENAI_MODEL"] = model
 
     if provider in ("auto", "anthropic"):
