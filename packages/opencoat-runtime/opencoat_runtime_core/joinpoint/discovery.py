@@ -8,7 +8,10 @@ from typing import Any
 
 from opencoat_runtime_protocol import COPR, JoinpointEvent
 
+from ..config import JoinpointAutomation
 from ..copr.parser import CoprParser
+from ..copr.span_segmenter import SpanSegmenter
+from ..copr.tokenizer import CoprTokenizer
 from ..loops.heartbeat_loop import HeartbeatReport
 from .levels import JoinpointLevel
 
@@ -30,10 +33,21 @@ class JoinpointDiscovery:
         self,
         *,
         parser: CoprParser | None = None,
-        max_discovered: int = 64,
+        segmenter: SpanSegmenter | None = None,
+        tokenizer: CoprTokenizer | None = None,
+        automation: JoinpointAutomation | None = None,
+        max_discovered: int | None = None,
     ) -> None:
-        self._parser = parser or CoprParser()
-        self._max_discovered = max_discovered
+        auto = automation or JoinpointAutomation()
+        self._automation = auto
+        self._segmenter = segmenter or SpanSegmenter()
+        self._tokenizer = tokenizer or CoprTokenizer()
+        self._parser = parser or CoprParser(
+            segmenter=self._segmenter, segment_spans=auto.discover_spans
+        )
+        self._max_discovered = (
+            max_discovered if max_discovered is not None else auto.max_discovered_joinpoints
+        )
 
     def expand(self, parent: JoinpointEvent) -> list[JoinpointEvent]:
         """Return ``parent`` plus message/section joinpoints derived from its payload."""
@@ -89,7 +103,76 @@ class JoinpointDiscovery:
                         },
                     )
                 )
+            spans = list(message.spans)
+            if not spans and self._automation.discover_spans and text:
+                spans = self._segmenter.segment(text)
+            for span_idx, span in enumerate(spans):
+                if len(out) >= self._max_discovered:
+                    break
+                span_text = span.text
+                out.append(
+                    _child_joinpoint(
+                        parent,
+                        suffix=f"msg:{msg_idx}#span:{span_idx}",
+                        level=JoinpointLevel.SEMANTIC_SPAN,
+                        name="semantic_span",
+                        payload={
+                            "prompt_id": copr.prompt_id,
+                            "message_index": msg_idx,
+                            "span_index": span_idx,
+                            "span_id": span.id,
+                            "semantic_type": span.semantic_type,
+                            "path": f"message:{msg_idx}:span:{span_idx}",
+                            "raw_text": span_text,
+                            "text": span_text,
+                            "content": span_text,
+                            "token": span_text,
+                        },
+                    )
+                )
+            if self._automation.discover_tokens and text:
+                cap = self._automation.max_token_joinpoints_per_message
+                for tok_idx, tok in enumerate(self._tokenizer.tokenize(text)):
+                    if cap and tok_idx >= cap:
+                        break
+                    if len(out) >= self._max_discovered:
+                        break
+                    out.append(
+                        _child_joinpoint(
+                            parent,
+                            suffix=f"msg:{msg_idx}#tok:{tok_idx}",
+                            level=JoinpointLevel.TOKEN,
+                            name="token",
+                            payload={
+                                "prompt_id": copr.prompt_id,
+                                "message_index": msg_idx,
+                                "token_index": tok_idx,
+                                "token": tok,
+                                "text": tok,
+                                "raw_text": tok,
+                                "content": tok,
+                            },
+                        )
+                    )
         return out
+
+    def adviceexecution_joinpoint(
+        self,
+        parent: JoinpointEvent,
+        *,
+        active_concern_ids: list[str],
+    ) -> JoinpointEvent:
+        return _child_joinpoint(
+            parent,
+            suffix="adviceexecution",
+            level=JoinpointLevel.LIFECYCLE,
+            name="adviceexecution",
+            payload={
+                "active_concern_ids": active_concern_ids,
+                "text": " ".join(active_concern_ids),
+                "raw_text": " ".join(active_concern_ids),
+            },
+        )
 
     def runtime_tick_joinpoint(
         self,

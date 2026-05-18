@@ -128,9 +128,7 @@ class OpenCOATRuntime:
             observer=self._observer,
         )
         auto = self._config.joinpoint_automation
-        self._joinpoint_discovery = JoinpointDiscovery(
-            max_discovered=auto.max_discovered_joinpoints,
-        )
+        self._joinpoint_discovery = JoinpointDiscovery(automation=auto)
 
     # --- public API --------------------------------------------------------
 
@@ -255,23 +253,53 @@ class OpenCOATRuntime:
         return_none_when_empty: bool,
     ) -> ConcernInjection | None:
         joinpoints = self._joinpoint_discovery.expand(root)
-        batch_weave_id = f"weave-{root.id}"
-        merged: ConcernInjection | None = None
-        for child in joinpoints:
-            inj = self._joinpoint_pipeline.run(
-                child,
+        auto = self._config.joinpoint_automation
+        if auto.batch_surface_weave:
+            injection = self._joinpoint_pipeline.run_surface(
+                root,
+                joinpoints,
+                context=context,
+                return_none_when_empty=return_none_when_empty,
+            )
+        else:
+            batch_weave_id = f"weave-{root.id}"
+            merged: ConcernInjection | None = None
+            for child in joinpoints:
+                inj = self._joinpoint_pipeline.run(
+                    child,
+                    context=context,
+                    return_none_when_empty=True,
+                )
+                merged = merge_injections(
+                    merged,
+                    inj,
+                    weave_id=batch_weave_id,
+                    host_round_id=root.host_round_id,
+                )
+            injection = merged
+
+        if injection is not None and auto.emit_adviceexecution and injection.injections:
+            active_ids = [row.concern_id for row in injection.injections]
+            ae_jp = self._joinpoint_discovery.adviceexecution_joinpoint(
+                root,
+                active_concern_ids=active_ids,
+            )
+            ae_inj = self._joinpoint_pipeline.run(
+                ae_jp,
                 context=context,
                 return_none_when_empty=True,
+                preserve_last_on_empty=True,
             )
-            merged = merge_injections(
-                merged,
-                inj,
-                weave_id=batch_weave_id,
+            injection = merge_injections(
+                injection,
+                ae_inj,
+                weave_id=f"weave-{root.id}",
                 host_round_id=root.host_round_id,
             )
-        if merged is None and return_none_when_empty:
+
+        if injection is None and return_none_when_empty:
             return None
-        return merged
+        return injection
 
     def _weave_runtime_event(self, event: dict[str, Any]) -> None:
         jp = self._joinpoint_discovery.joinpoint_from_event(event)

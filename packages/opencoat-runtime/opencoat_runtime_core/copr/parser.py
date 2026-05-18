@@ -6,7 +6,9 @@ import uuid
 from typing import Any
 
 from opencoat_runtime_protocol import COPR
-from opencoat_runtime_protocol.envelopes import CoprMessage, CoprPromptSection
+from opencoat_runtime_protocol.envelopes import CoprMessage, CoprPromptSection, CoprSpan
+
+from .span_segmenter import SpanSegmenter
 
 _VALID_ROLES = frozenset(
     {"system", "developer", "user", "assistant", "tool", "memory", "retrieved_context"}
@@ -15,6 +17,12 @@ _VALID_ROLES = frozenset(
 
 class CoprParser:
     """Parse a raw prompt string or OpenAI-style messages into :class:`COPR`."""
+
+    def __init__(
+        self, *, segmenter: SpanSegmenter | None = None, segment_spans: bool = True
+    ) -> None:
+        self._segmenter = segmenter or SpanSegmenter()
+        self._segment_spans = segment_spans
 
     def parse(self, raw: str | dict[str, Any] | list[Any], *, prompt_id: str | None = None) -> COPR:
         pid = prompt_id or f"prompt-{uuid.uuid4().hex[:12]}"
@@ -70,11 +78,20 @@ class CoprParser:
                         else None,
                     )
                 )
+        spans = []
+        if isinstance(item.get("spans"), list):
+            for raw_span in item["spans"]:
+                if isinstance(raw_span, dict) and raw_span.get("text"):
+                    spans.append(CoprSpan.model_validate(raw_span))
+        elif self._segment_spans and text:
+            spans = self._segmenter.segment(text)
+
         return CoprMessage(
             id=str(item["id"]) if item.get("id") is not None else None,
             role=role,
             raw_text=text,
             sections=sections,
+            spans=spans,
             structure=item.get("structure") if isinstance(item.get("structure"), dict) else None,
         )
 
