@@ -10,18 +10,21 @@ the generated `opencoat_plugin/` folder.
 
 ## Hook → joinpoint mapping
 
-| OpenClaw hook | OpenCOAT joinpoint | Effect |
-| --- | --- | --- |
-| `message_received` | `on_user_input` | Submit + buffer injection |
-| `before_prompt_build` | `before_response` | Submit + `prependSystemContext` |
-| `before_tool_call` | `before_tool_call` | Submit + `{ block, blockReason }` when `tool_guard` |
-| `session_start` | `runtime_start` | Submit (e.g. `demo-prompt-prefix`) |
+
+| OpenClaw hook         | OpenCOAT joinpoint | Effect                                              |
+| --------------------- | ------------------ | --------------------------------------------------- |
+| `message_received`    | `on_user_input`    | Submit + buffer injection                           |
+| `before_prompt_build` | `before_response`  | Submit + `prependSystemContext`                     |
+| `before_tool_call`    | `before_tool_call` | Submit + `{ block, blockReason }` when `tool_guard` |
+| `session_start`       | `runtime_start`    | Submit (e.g. `demo-prompt-prefix`)                  |
+
 
 ## Prerequisites
 
 1. Daemon running: `opencoat runtime up`
 2. Concerns in the daemon store: `opencoat concern extract …` and/or `opencoat concern import --demo`
 3. OpenClaw gateway **≥ 2026.3.24** with plugin prompt injection allowed
+4. **Optional — B.AI for both daemon and OpenClaw chat:** see `[docs/config/bai-llm.md` § OpenClaw + B.AI](../../docs/config/bai-llm.md#openclaw--bai)
 
 ## Install (recommended)
 
@@ -32,7 +35,7 @@ openclaw plugins install -l /path/to/COAT/integrations/openclaw-opencoat-bridge
 openclaw gateway restart
 ```
 
-OpenClaw requires scoped plugin ids in **`@scope/name`** form. The on-disk folder is
+OpenClaw requires scoped plugin ids in `**@scope/name**` form. The on-disk folder is
 flat (no slash), e.g. `~/.openclaw/extensions/@hyperdust-opencoat-bridge`.
 
 Verify:
@@ -50,14 +53,14 @@ openclaw plugins install -l /path/to/COAT/integrations/openclaw-opencoat-bridge
 openclaw gateway restart
 ```
 
-Manual `plugins.entries` key must be **`@hyperdust/opencoat-bridge`** (with slash),
+Manual `plugins.entries` key must be `**@hyperdust/opencoat-bridge**` (with slash),
 not `@hyperdust-opencoat-bridge`. Set `daemonUrl` in plugin config (not `process.env`
 in the plugin — OpenClaw blocks env+network patterns at install time).
 
 ## Verify
 
 1. Chat in OpenClaw (Telegram / CLI) with text that matches your concern keywords, e.g. `Never run rm -rf in shell.`
-2. Check DCN activations (should **not** be only `jp-manual-*`):
+2. Check DCN activations (should **not** be only `jp-manual-`*):
 
 ```bash
 curl -sS http://127.0.0.1:7878/rpc -H 'Content-Type: application/json' \
@@ -65,15 +68,17 @@ curl -sS http://127.0.0.1:7878/rpc -H 'Content-Type: application/json' \
   | python3 -m json.tool
 ```
 
-3. Gateway logs should include `[opencoat-bridge] registered` and optional activation lines when `logActivations` is true.
+1. Gateway logs should include `[opencoat-bridge] registered` and optional activation lines when `logActivations` is true.
 
 ## Configuration
 
-| Field | Default | Description |
-| --- | --- | --- |
-| `daemonUrl` | `http://127.0.0.1:7878/rpc` | JSON-RPC endpoint (set in `plugins.entries` config) |
-| `enabled` | `true` | Set `false` to no-op (hooks still register) |
-| `logActivations` | `false` | Log matched concern ids per joinpoint |
+
+| Field            | Default                     | Description                                         |
+| ---------------- | --------------------------- | --------------------------------------------------- |
+| `daemonUrl`      | `http://127.0.0.1:7878/rpc` | JSON-RPC endpoint (set in `plugins.entries` config) |
+| `enabled`        | `true`                      | Set `false` to no-op (hooks still register)         |
+| `logActivations` | `false`                     | Log matched concern ids per joinpoint               |
+
 
 ## Prompt-code / messages passthrough
 
@@ -87,12 +92,14 @@ Keyword pointcuts still work: flattened text is duplicated in `text` /
 
 ## User stories
 
-| ID | Story | Acceptance |
-| --- | --- | --- |
-| **US-1** | As an **OpenClaw operator**, I want the gateway bridge to pass **`messages[]`** on `before_prompt_build`, so that the daemon can discover **message-level joinpoints** without me emitting one RPC per row. | Payload includes `messages`; daemon expands `user_message` / `assistant_message`; DCN activations can show ids like `jp-oc-…#msg:0`. |
-| **US-2** | As a **policy author**, I want concerns to target **`user_message`** only, so that **assistant history** in the same prompt does not false-trigger keyword guards. | Concern with `joinpoints: ["user_message"]` + keywords weaves on user lines only; same keywords on `before_response` alone can still match flattened history (documented counter-example). |
-| **US-3** | As a **platform engineer**, I want **one** `joinpoint.submit` per prompt build, so that I keep OpenClaw hooks thin while OpenCOAT performs **JoinpointDiscovery** (AOP (AspectJ) surface → many join points). | Bridge calls submit once per `before_prompt_build`; runtime merges injections; host still only `prependSystemContext` at coarse boundary. |
-| **US-4** | As an **auditor**, I want activations tied to **stable child joinpoint ids** (`parent#msg:N`), so that I can tell which message row triggered a concern in replay and DCN logs. | `dcn.activation_log` shows `joinpoint_id` suffix `#msg:` / `#sec:` after a live or smoke submit with `messages`. |
+
+| ID       | Story                                                                                                                                                                                                         | Acceptance                                                                                                                                                                                 |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **US-1** | As an **OpenClaw operator**, I want the gateway bridge to pass `**messages[]`** on `before_prompt_build`, so that the daemon can discover **message-level joinpoints** without me emitting one RPC per row.   | Payload includes `messages`; daemon expands `user_message` / `assistant_message`; DCN activations can show ids like `jp-oc-…#msg:0`.                                                       |
+| **US-2** | As a **policy author**, I want concerns to target `**user_message`** only, so that **assistant history** in the same prompt does not false-trigger keyword guards.                                            | Concern with `joinpoints: ["user_message"]` + keywords weaves on user lines only; same keywords on `before_response` alone can still match flattened history (documented counter-example). |
+| **US-3** | As a **platform engineer**, I want **one** `joinpoint.submit` per prompt build, so that I keep OpenClaw hooks thin while OpenCOAT performs **JoinpointDiscovery** (AOP (AspectJ) surface → many join points). | Bridge calls submit once per `before_prompt_build`; runtime merges injections; host still only `prependSystemContext` at coarse boundary.                                                  |
+| **US-4** | As an **auditor**, I want activations tied to **stable child joinpoint ids** (`parent#msg:N`), so that I can tell which message row triggered a concern in replay and DCN logs.                               | `dcn.activation_log` shows `joinpoint_id` suffix `#msg:` / `#sec:` after a live or smoke submit with `messages`.                                                                           |
+
 
 Narrative walkthrough for **US-2** (setup + curl + live chat): see the use case below.
 
@@ -103,7 +110,7 @@ Narrative walkthrough for **US-2** (setup + curl + live chat): see the use case 
 assistant’s earlier reply already mentioned `rm -rf`, the next turn can false-positive
 even when the user’s new message is harmless.
 
-**Approach.** Point at the **`user_message`** joinpoint (message layer). The bridge
+**Approach.** Point at the `**user_message`** joinpoint (message layer). The bridge
 sends structured `messages[]`; the daemon expands one coarse `before_response`
 submit into per-role joinpoints — you do not emit each one from TypeScript.
 
@@ -192,10 +199,10 @@ concern — the assistant’s `rm -rf` in flattened history can activate the con
 
 **Prerequisites**
 
-- [ ] Daemon from repo / current `main` — `uv run opencoat runtime up` (not pip-only 0.1.3 without discovery).
-- [ ] Bridge installed and gateway restarted; log shows `[opencoat-bridge] registered`.
-- [ ] Plugin config: `allowPromptInjection: true`, optional `logActivations: true`.
-- [ ] Concern uses AOP (AspectJ) `user_message()` (see [`docs/guides/concern-authoring-aop.md`](../../docs/guides/concern-authoring-aop.md)) — upsert via `opencoat concern import` or `--demo`.
+- Daemon from repo / current `main` — `uv run opencoat runtime up` (not pip-only 0.1.3 without discovery; use **0.1.4+** on PyPI).
+- Bridge installed and gateway restarted; log shows `[opencoat-bridge] registered`.
+- Plugin config: `allowPromptInjection: true`, optional `logActivations: true`.
+- Concern uses AOP (AspectJ) `user_message()` (see `[docs/guides/concern-authoring-aop.md](../../docs/guides/concern-authoring-aop.md)`) — upsert via `opencoat concern import` or `--demo`.
 
 **Steps**
 
@@ -212,12 +219,14 @@ curl -sS http://127.0.0.1:7878/rpc -H 'Content-Type: application/json' \
 
 **Pass criteria**
 
-| Check | Pass |
-| --- | --- |
-| `injections` non-empty on user shell question | `[ ]` |
-| DCN `joinpoint_id` contains `#msg:` (e.g. `jp-oc-…#msg:1`) | `[ ]` |
-| Assistant-only `rm -rf` in history does **not** fire `user_message` guard | `[ ]` |
-| `opencoat concern list` shows imported concern | `[ ]` |
+
+| Check                                                                     | Pass   |
+| ------------------------------------------------------------------------- | ------ |
+| `injections` non-empty on user shell question                             | `[ok]` |
+| DCN `joinpoint_id` contains `#msg:` (e.g. `jp-oc-…#msg:1`)                | `[ok]` |
+| Assistant-only `rm -rf` in history does **not** fire `user_message` guard | `[ok]` |
+| `opencoat concern list` shows imported concern                            | `[ok]` |
+
 
 Requires **JoinpointDiscovery** (`expand_prompt_surface` on by default). Older daemons ignore `messages[]` and only match lifecycle names.
 
@@ -228,4 +237,4 @@ Requires **JoinpointDiscovery** (`expand_prompt_surface` on by default). Older d
 - Double joinpoint fire (`on_user_input` + `before_response`) is intentional when concerns list both.
 - Section discovery depends on hosts passing `sections` on message objects (uncommon today); message-level JPs always apply when `messages` is present.
 
-See also: [`examples/04_openclaw_with_runtime/README.md`](../../examples/04_openclaw_with_runtime/README.md) (toy bus), [`docs/guides/concern-authoring-aop.md`](../../docs/guides/concern-authoring-aop.md), and [`docs/design/v0.2-system-design.md`](../../docs/design/v0.2-system-design.md) §4.7.1.
+See also: `[examples/04_openclaw_with_runtime/README.md](../../examples/04_openclaw_with_runtime/README.md)` (toy bus), `[docs/guides/concern-authoring-aop.md](../../docs/guides/concern-authoring-aop.md)`, and `[docs/design/v0.2-system-design.md](../../docs/design/v0.2-system-design.md)` §4.7.1.

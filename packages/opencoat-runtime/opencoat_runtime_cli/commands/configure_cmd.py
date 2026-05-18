@@ -509,6 +509,14 @@ def _collect_interactive(
         effective_bai = key or existing_bai
         if key:
             env_updates["BAI_API_KEY"] = key
+        elif (
+            effective_bai
+            and mode == "env-file"
+            and not _parse_env_file(env_path).get("BAI_API_KEY")
+        ):
+            # Detached daemon only merges ~/.opencoat/opencoat.env — persist keys
+            # that were kept from the shell environment but not yet on disk.
+            env_updates["BAI_API_KEY"] = effective_bai
         if provider == "bai" and not effective_bai:
             print("configure llm: bai provider requires an API key", file=sys.stderr)
             sys.exit(2)

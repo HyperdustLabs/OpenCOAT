@@ -30,9 +30,9 @@
   `JoinpointPipeline`, `JoinpointDiscovery`, bridge `messages[]`, AOP-shaped
   concerns (`pointcuts` / `advices` / `declarations`), activation-time
   `ConflictResolver` + `declare precedence` (full concern catalog).
-- **No recorded pass** of the bridge README §3 live OpenClaw verification
-  checklist yet — the M5 example still uses an in-tree toy bus; §5A
-  prerequisites treat §3 as a manual gate before the 24 h soak.
+- **P2 live OpenClaw** — PASS recorded 2026-05-18 ([`m6-prerequisites-status.md`](./m6-prerequisites-status.md));
+  bridge README §3 pass table. M5 toy bus example remains for CI; §3 is the
+  production-gateway gate before the 24 h soak.
 
 ## 2. Three candidate threads
 
