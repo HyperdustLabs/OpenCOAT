@@ -1,0 +1,9 @@
+# Run: pre-commit install   (once per clone)
+# Hooks use the repo's ruff version via astral-sh/ruff-pre-commit (see uv.lock).
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.12
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
