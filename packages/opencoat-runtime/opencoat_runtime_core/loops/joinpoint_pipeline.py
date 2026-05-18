@@ -110,12 +110,14 @@ class JoinpointPipeline:
                     self._last_injection = None
                 return None
 
+            catalog = list(self._concern_store.iter_all())
             vector = self._coordinator.coordinate(
                 weave_id=weave_id,
                 host_round_id=joinpoint.host_round_id,
                 candidates=candidates,
                 joinpoint=joinpoint,
                 context=ctx,
+                concern_catalog=catalog,
             )
             self._last_vector = vector
 
@@ -174,12 +176,14 @@ class JoinpointPipeline:
                 weave_id=weave_id,
                 host_round_id=root.host_round_id,
             )
+            catalog = list(self._concern_store.iter_all())
             vector = self._coordinator.coordinate(
                 weave_id=weave_id,
                 host_round_id=root.host_round_id,
                 candidates=candidates,
                 joinpoint=root,
                 context=ctx,
+                concern_catalog=catalog,
             )
             self._last_vector = vector
 

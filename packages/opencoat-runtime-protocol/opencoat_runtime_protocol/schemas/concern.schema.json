@@ -55,14 +55,14 @@
 
     "pointcuts": {
       "type": "array",
-      "description": "AspectJ-shaped pointcuts (ADR-0010). Legacy pointcut syncs to pointcuts[0].",
+      "description": "AOP (AspectJ) pointcuts (ADR-0010). Legacy pointcut syncs to pointcuts[0].",
       "items": { "$ref": "#/$defs/PointcutDef" },
       "default": []
     },
     "advices": {
       "type": "array",
-      "description": "AspectJ-shaped advices (before/after/around + effect).",
-      "items": { "$ref": "#/$defs/AspectJAdvice" },
+      "description": "AOP advices (before/after/around + effect).",
+      "items": { "$ref": "#/$defs/AopAdvice" },
       "default": []
     },
     "declarations": {
@@ -159,13 +159,13 @@
       "additionalProperties": false,
       "properties": {
         "id": { "type": "string", "default": "pc-default" },
-        "expression": { "type": "string", "description": "AspectJ-style surface syntax, e.g. user_message() && args(\"rm -rf\")" },
+        "expression": { "type": "string", "description": "AOP (AspectJ) surface syntax, e.g. user_message() && args(\"rm -rf\")" },
         "joinpoints": { "$ref": "pointcut.schema.json#/properties/joinpoints" },
         "match": { "$ref": "pointcut.schema.json#/properties/match" },
         "context_predicates": { "$ref": "pointcut.schema.json#/properties/context_predicates" }
       }
     },
-    "AspectJAdvice": {
+    "AopAdvice": {
       "type": "object",
       "additionalProperties": false,
       "required": ["kind", "content"],

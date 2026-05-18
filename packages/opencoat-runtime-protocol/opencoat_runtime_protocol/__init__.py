@@ -9,14 +9,14 @@ from :mod:`opencoat_runtime_protocol.envelopes`.
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _version
 
-from . import aspectj, envelopes
+from . import aop, envelopes
 from .envelopes import (
     COPR,
     ActivationState,
     Advice,
     AdviceKind,
     AdviceType,
-    AspectJAdvice,
+    AopAdvice,
     ChainRef,
     ClaimMatch,
     Concern,
@@ -62,7 +62,7 @@ __all__ = [
     "Advice",
     "AdviceKind",
     "AdviceType",
-    "AspectJAdvice",
+    "AopAdvice",
     "ChainRef",
     "ClaimMatch",
     "Concern",
@@ -90,7 +90,7 @@ __all__ = [
     "WeavingOp",
     "WeavingOperation",
     "WeavingPolicy",
-    "aspectj",
+    "aop",
     "envelopes",
     "load_schema",
     "schema_dir",

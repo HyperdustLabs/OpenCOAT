@@ -1,4 +1,4 @@
-"""Concerns authored in AspectJ-shaped syntax (ADR-0010).
+"""Concerns authored in AOP (AspectJ) syntax (ADR-0010).
 
 Legacy ``pointcut`` / ``advice`` / ``weaving_policy`` fields are optional;
 the protocol normalizes both styles on load.
@@ -9,7 +9,7 @@ from __future__ import annotations
 from opencoat_runtime_protocol import (
     AdviceKind,
     AdviceType,
-    AspectJAdvice,
+    AopAdvice,
     Concern,
     PointcutDef,
     WeavingLevel,
@@ -20,8 +20,8 @@ from opencoat_runtime_protocol import (
 
 def shell_guard() -> Concern:
     return Concern(
-        id="aspectj-shell-guard",
-        name="Block destructive shell (AspectJ syntax)",
+        id="aop-shell-guard",
+        name="Block destructive shell (AOP syntax)",
         description="Matches user lines mentioning shell; blocks rm -rf on tools.",
         pointcuts=[
             PointcutDef(
@@ -34,7 +34,7 @@ def shell_guard() -> Concern:
             ),
         ],
         advices=[
-            AspectJAdvice(
+            AopAdvice(
                 id="adv-user",
                 kind=AdviceKind.BEFORE,
                 pointcut_ref="pc-user-shell",
@@ -47,7 +47,7 @@ def shell_guard() -> Concern:
                     priority=0.7,
                 ),
             ),
-            AspectJAdvice(
+            AopAdvice(
                 id="adv-tool",
                 kind=AdviceKind.BEFORE,
                 pointcut_ref="pc-tool-rm",

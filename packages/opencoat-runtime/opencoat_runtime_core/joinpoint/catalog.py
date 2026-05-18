@@ -75,7 +75,7 @@ _SPAN_TOKEN = (
     CatalogEntry("token", JoinpointLevel.TOKEN, "visible token in prompt text"),
 )
 
-# AspectJ-style adviceexecution — meta / concern-of-concern (P4)
+# AOP adviceexecution (AspectJ) — meta / concern-of-concern (P4)
 _ADVICEEXECUTION = (
     CatalogEntry("adviceexecution", JoinpointLevel.LIFECYCLE, "after advice was applied"),
 )

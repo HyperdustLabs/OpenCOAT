@@ -14,7 +14,7 @@ from opencoat_runtime_protocol import (
     Concern,
     ConcernRelationType,
 )
-from opencoat_runtime_protocol.envelopes import Advice, ConcernRelation
+from opencoat_runtime_protocol.envelopes import Advice, ConcernRelation, DeclarePrecedence
 
 
 def _concern(
@@ -100,6 +100,39 @@ class TestConflictResolver:
         b = _concern("c-b")
         kept = ConflictResolver().resolve([(a, 0.5), (b, 0.5)])
         assert [c.id for c, _ in kept] == ["c-a"]
+
+    def test_declare_precedence_drops_lower_ranked_peer(self) -> None:
+        high = Concern(
+            id="high",
+            name="high",
+            declarations=[DeclarePrecedence(order=["high", "low"])],
+        )
+        low = _concern("low")
+        kept = ConflictResolver().resolve([(low, 0.99), (high, 0.1)])
+        assert [c.id for c, _ in kept] == ["high"]
+
+    def test_declares_precedence_over_relation(self) -> None:
+        winner = _concern(
+            "winner",
+            relations=[_rel("loser", ConcernRelationType.DECLARES_PRECEDENCE_OVER)],
+        )
+        loser = _concern("loser")
+        kept = ConflictResolver().resolve([(loser, 0.9), (winner, 0.1)])
+        assert [c.id for c, _ in kept] == ["winner"]
+
+    def test_precedence_from_catalog_policy_concern_not_in_ranked(self) -> None:
+        ordering = Concern(
+            id="ordering-only",
+            name="ordering",
+            declarations=[DeclarePrecedence(order=["high", "low"])],
+        )
+        high = _concern("high")
+        low = _concern("low")
+        kept = ConflictResolver().resolve(
+            [(low, 0.99), (high, 0.1)],
+            concern_catalog=[ordering, high, low],
+        )
+        assert [c.id for c, _ in kept] == ["high"]
 
 
 # ---------------------------------------------------------------------------

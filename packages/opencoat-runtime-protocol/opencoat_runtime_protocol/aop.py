@@ -1,12 +1,12 @@
-"""AspectJ-shaped executable view of a :class:`~envelopes.Concern`.
+"""AOP (AspectJ) executable view of a :class:`~envelopes.Concern`.
 
 OpenCOAT keeps **Concern** as the only runtime unit. This module normalizes
 legacy single ``pointcut`` / ``advice`` / ``weaving_policy`` fields and the
-AspectJ lists (``pointcuts`` / ``advices`` / ``declarations``) into one
+AOP lists (``pointcuts`` / ``advices`` / ``declarations``) into one
 executable shape the matcher and weaver consume.
 
 Surface syntax (optional ``PointcutDef.expression``) uses a small subset of
-AspectJ pointcut designators, e.g.::
+AOP pointcut designators (AspectJ), e.g.::
 
     user_message() && args("rm -rf")
     before_tool_call()
@@ -21,7 +21,7 @@ from .envelopes import (
     Advice,
     AdviceKind,
     AdviceType,
-    AspectJAdvice,
+    AopAdvice,
     Concern,
     ConcernDeclaration,
     ConcernRelationType,
@@ -43,7 +43,7 @@ _ARGS_KEYWORDS = re.compile(
 
 
 def parse_pointcut_expression(expression: str) -> tuple[list[str], PointcutMatch | None]:
-    """Parse a minimal AspectJ-style pointcut expression into joinpoints + match."""
+    """Parse a minimal AOP (AspectJ) pointcut expression into joinpoints + match."""
     expr = expression.strip()
     if not expr:
         return [], None
@@ -100,12 +100,12 @@ def _default_advice_kind(template: AdviceType | str | None) -> AdviceKind:
     return AdviceKind.BEFORE
 
 
-def legacy_to_aspectj_lists(
+def legacy_to_aop_lists(
     concern: Concern,
-) -> tuple[list[PointcutDef], list[AspectJAdvice], list[ConcernDeclaration]]:
-    """Build AspectJ lists from legacy single fields."""
+) -> tuple[list[PointcutDef], list[AopAdvice], list[ConcernDeclaration]]:
+    """Build AOP lists from legacy single fields."""
     pointcuts: list[PointcutDef] = []
-    advices: list[AspectJAdvice] = []
+    advices: list[AopAdvice] = []
     declarations: list[ConcernDeclaration] = list(concern.declarations)
 
     if concern.pointcut is not None:
@@ -123,7 +123,7 @@ def legacy_to_aspectj_lists(
         adv = concern.advice
         effect = concern.weaving_policy
         advices.append(
-            AspectJAdvice(
+            AopAdvice(
                 id="adv-default",
                 kind=_default_advice_kind(adv.type),
                 pointcut_ref="pc-default",
@@ -145,9 +145,9 @@ def legacy_to_aspectj_lists(
 
 def legacy_from_primary(
     pointcuts: list[PointcutDef],
-    advices: list[AspectJAdvice],
+    advices: list[AopAdvice],
 ) -> tuple[Pointcut | None, Advice | None, WeavingPolicy | None]:
-    """Derive legacy fields from the primary AspectJ entries."""
+    """Derive legacy fields from the primary AOP entries."""
     pointcut: Pointcut | None = None
     if pointcuts:
         pointcut = pointcut_def_to_pointcut(pointcuts[0])
@@ -169,8 +169,8 @@ def legacy_from_primary(
     return pointcut, advice, weaving
 
 
-def sync_concern_aspectj(concern: Concern) -> Concern:
-    """Return a concern with legacy and AspectJ shapes mutually populated."""
+def sync_concern_aop(concern: Concern) -> Concern:
+    """Return a concern with legacy and AOP shapes mutually populated."""
     has_lists = bool(concern.pointcuts or concern.advices)
     has_legacy = concern.pointcut is not None or concern.advice is not None
     if has_lists and has_legacy:
@@ -178,7 +178,7 @@ def sync_concern_aspectj(concern: Concern) -> Concern:
 
     updates: dict[str, object] = {}
     if not has_lists and has_legacy:
-        lp, la, ld = legacy_to_aspectj_lists(concern)
+        lp, la, ld = legacy_to_aop_lists(concern)
         if lp:
             updates["pointcuts"] = lp
         if la:

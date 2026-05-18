@@ -5,8 +5,10 @@ Uses two of the canonical relation types:
 * ``conflicts_with`` — symmetric: both sides cannot fire together. The
   higher-scoring concern wins; ties are broken by ``concern.id`` so the
   outcome is deterministic.
-* ``suppresses`` — directional: the source concern silences the target
-  whenever both are activated, regardless of score.
+* ``declares_precedence_over`` / ``declare precedence`` — AOP (AspectJ) ordering:
+  the higher-precedence concern wins when both are activated (score ignored).
+* ``suppresses`` — directional (legacy): the source concern silences the
+  target whenever both are activated, regardless of score.
 
 Both rules drop the loser entirely from the ranked list. Soft penalties
 (score reduction) are the ranker's responsibility.
@@ -14,7 +16,11 @@ Both rules drop the loser entirely from the ranked list. Soft penalties
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from opencoat_runtime_protocol import Concern, ConcernRelationType
+
+from .precedence import build_precedence_beats, precedence_drops
 
 
 class ConflictResolver:
@@ -41,6 +47,8 @@ class ConflictResolver:
     def resolve(
         self,
         ranked: list[tuple[Concern, float]],
+        *,
+        concern_catalog: Sequence[Concern] | None = None,
     ) -> list[tuple[Concern, float]]:
         if not ranked:
             return []
@@ -48,7 +56,12 @@ class ConflictResolver:
         scores = {c.id: s for c, s in ranked}
         dropped: set[str] = set()
 
-        # 1. Hard suppression: directional ``suppresses`` always wins.
+        # 1. AOP declare precedence (AspectJ) — rules from full catalog, applied to active set.
+        catalog = list(concern_catalog) if concern_catalog is not None else [c for c, _ in ranked]
+        beats = build_precedence_beats(catalog)
+        dropped |= precedence_drops(ranked, beats)
+
+        # 2. Hard suppression: directional ``suppresses`` always wins.
         for concern, _ in ranked:
             if concern.id in dropped:
                 continue
@@ -58,7 +71,7 @@ class ConflictResolver:
                 if rel.target_concern_id in scores:
                     dropped.add(rel.target_concern_id)
 
-        # 2. Symmetric conflicts: keep the better score (id is tiebreaker).
+        # 3. Symmetric conflicts: keep the better score (id is tiebreaker).
         for concern, _ in ranked:
             if concern.id in dropped:
                 continue
