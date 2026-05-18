@@ -699,17 +699,20 @@ def _collect_non_interactive(
 
     if args.model:
         llm["model"] = args.model
-    if provider == "bai" and args.bai_base_url:
-        llm["base_url"] = args.bai_base_url
+    bai_base_url = getattr(args, "bai_base_url", None)
+    bai_api_key = getattr(args, "bai_api_key", None)
+    bai_model_env = getattr(args, "bai_model_env", None)
+    if provider == "bai" and bai_base_url:
+        llm["base_url"] = bai_base_url
     if provider == "openai" and args.openai_base_url:
         llm["base_url"] = args.openai_base_url
     if provider == "anthropic" and args.anthropic_base_url:
         llm["base_url"] = args.anthropic_base_url
 
-    if args.bai_api_key:
-        env_updates["BAI_API_KEY"] = args.bai_api_key
-    if args.bai_model_env:
-        env_updates["BAI_MODEL"] = args.bai_model_env
+    if bai_api_key:
+        env_updates["BAI_API_KEY"] = bai_api_key
+    if bai_model_env:
+        env_updates["BAI_MODEL"] = bai_model_env
     if args.openai_api_key:
         env_updates["OPENAI_API_KEY"] = args.openai_api_key
     if args.openai_model_env:
