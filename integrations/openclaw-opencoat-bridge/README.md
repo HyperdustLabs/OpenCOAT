@@ -188,13 +188,21 @@ the flattened `text` field.
 **Counter-example:** repeat with only `joinpoints: ["before_response"]` on the same
 concern — the assistant’s `rm -rf` in flattened history can activate the concern.
 
-### 3. Live OpenClaw
+### 3. Live OpenClaw (verification checklist)
 
-1. Install bridge + restart gateway (see above).
-2. Chat: `How do I delete temp files in shell safely?` (hits `user_message`).
-3. Enable `logActivations: true` in plugin config to see concern ids on
-   `before_response`.
-4. Confirm DCN rows use child ids such as `jp-oc-…#msg:1`, not only manual curl ids:
+**Prerequisites**
+
+- [ ] Daemon from repo / current `main` — `uv run opencoat runtime up` (not pip-only 0.1.3 without discovery).
+- [ ] Bridge installed and gateway restarted; log shows `[opencoat-bridge] registered`.
+- [ ] Plugin config: `allowPromptInjection: true`, optional `logActivations: true`.
+- [ ] Concern uses AspectJ `user_message()` (see [`docs/guides/concern-authoring-aspectj.md`](../../docs/guides/concern-authoring-aspectj.md)) — upsert via `opencoat concern import` or `--demo`.
+
+**Steps**
+
+1. Import a message-level guard (example `user-shell-guard` from §2) or `opencoat concern import --demo`.
+2. In Telegram/TUI, send: `How do I list files in shell safely?` — should weave on **user** line only.
+3. In gateway logs, confirm `joinpoint.submit` / activation lines mention the concern id (when `logActivations` is on).
+4. **DCN** — child joinpoint ids, not only manual curl ids:
 
 ```bash
 curl -sS http://127.0.0.1:7878/rpc -H 'Content-Type: application/json' \
@@ -202,8 +210,16 @@ curl -sS http://127.0.0.1:7878/rpc -H 'Content-Type: application/json' \
   | python3 -m json.tool
 ```
 
-Requires a runtime build with **JoinpointDiscovery** (`expand_prompt_surface`
-on by default). Older daemons ignore `messages` and only match lifecycle names.
+**Pass criteria**
+
+| Check | Pass |
+| --- | --- |
+| `injections` non-empty on user shell question | `[ ]` |
+| DCN `joinpoint_id` contains `#msg:` (e.g. `jp-oc-…#msg:1`) | `[ ]` |
+| Assistant-only `rm -rf` in history does **not** fire `user_message` guard | `[ ]` |
+| `opencoat concern list` shows imported concern | `[ ]` |
+
+Requires **JoinpointDiscovery** (`expand_prompt_surface` on by default). Older daemons ignore `messages[]` and only match lifecycle names.
 
 ## Limitations (v0.1 bridge)
 
@@ -212,4 +228,4 @@ on by default). Older daemons ignore `messages` and only match lifecycle names.
 - Double joinpoint fire (`on_user_input` + `before_response`) is intentional when concerns list both.
 - Section discovery depends on hosts passing `sections` on message objects (uncommon today); message-level JPs always apply when `messages` is present.
 
-See also: [`examples/04_openclaw_with_runtime/README.md`](../../examples/04_openclaw_with_runtime/README.md) (toy bus) and [`docs/design/v0.2-system-design.md`](../../docs/design/v0.2-system-design.md) §4.7.1.
+See also: [`examples/04_openclaw_with_runtime/README.md`](../../examples/04_openclaw_with_runtime/README.md) (toy bus), [`docs/guides/concern-authoring-aspectj.md`](../../docs/guides/concern-authoring-aspectj.md), and [`docs/design/v0.2-system-design.md`](../../docs/design/v0.2-system-design.md) §4.7.1.
