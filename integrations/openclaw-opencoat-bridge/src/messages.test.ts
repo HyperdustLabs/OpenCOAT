@@ -46,6 +46,26 @@ describe("promptPayload", () => {
     assert.match(String(p.text), /system preamble/);
   });
 
+  it("keeps section-only messages for prompt_section discovery", () => {
+    const p = promptPayload({
+      messages: [
+        {
+          role: "system",
+          sections: [
+            {
+              path: "runtime_prompt.rules",
+              raw_text: "Never run rm -rf in shell.",
+            },
+          ],
+        },
+      ],
+    });
+    const msgs = p.messages as { sections?: unknown[] }[];
+    assert.equal(msgs.length, 1);
+    assert.equal(msgs[0].sections?.length, 1);
+    assert.match(String(p.text), /rm -rf/);
+  });
+
   it("normalizeMessages caps at 64", () => {
     const many = Array.from({ length: 80 }, (_, i) => ({
       role: "user",

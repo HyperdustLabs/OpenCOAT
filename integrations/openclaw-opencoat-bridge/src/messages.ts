@@ -25,37 +25,49 @@ const VALID_ROLES = new Set([
   "retrieved_context",
 ]);
 
+function parseSections(
+  sectionsRaw: unknown,
+): Array<{ path: string; raw_text?: string }> {
+  if (!Array.isArray(sectionsRaw) || !sectionsRaw.length) return [];
+  const sections: Array<{ path: string; raw_text?: string }> = [];
+  for (const sec of sectionsRaw) {
+    if (!sec || typeof sec !== "object") continue;
+    const s = sec as Record<string, unknown>;
+    const path = typeof s.path === "string" ? s.path : "";
+    if (!path) continue;
+    const secText =
+      typeof s.raw_text === "string"
+        ? s.raw_text
+        : typeof s.text === "string"
+          ? s.text
+          : undefined;
+    sections.push({ path, raw_text: secText });
+  }
+  return sections;
+}
+
+function textFromSections(sections: Array<{ path: string; raw_text?: string }>): string {
+  return sections
+    .map((s) => (s.raw_text?.trim() ? s.raw_text : s.path))
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 export function normalizeMessage(raw: unknown): CoprMessageWire | null {
   if (!raw || typeof raw !== "object") return null;
   const msg = raw as Record<string, unknown>;
   const roleRaw = typeof msg.role === "string" ? msg.role : "user";
   const role = VALID_ROLES.has(roleRaw) ? roleRaw : "user";
-  const text = textFromMessage(msg);
-  if (!text) return null;
+  const sections = parseSections(msg.sections);
+  const text = textFromMessage(msg) ?? (sections.length ? textFromSections(sections) : null);
+  if (!text && !sections.length) return null;
 
-  const out: CoprMessageWire = { role, content: text, text, raw_text: text };
+  const body = text ?? "";
+  const out: CoprMessageWire = { role, content: body, text: body, raw_text: body };
   if (msg.id !== undefined && msg.id !== null) {
     out.id = String(msg.id);
   }
-
-  const sectionsRaw = msg.sections;
-  if (Array.isArray(sectionsRaw) && sectionsRaw.length) {
-    const sections: Array<{ path: string; raw_text?: string }> = [];
-    for (const sec of sectionsRaw) {
-      if (!sec || typeof sec !== "object") continue;
-      const s = sec as Record<string, unknown>;
-      const path = typeof s.path === "string" ? s.path : "";
-      if (!path) continue;
-      const secText =
-        typeof s.raw_text === "string"
-          ? s.raw_text
-          : typeof s.text === "string"
-            ? s.text
-            : undefined;
-      sections.push({ path, raw_text: secText });
-    }
-    if (sections.length) out.sections = sections;
-  }
+  if (sections.length) out.sections = sections;
 
   return out;
 }
@@ -73,7 +85,11 @@ export function normalizeMessages(messages: unknown[]): CoprMessageWire[] {
 /** Flatten messages for keyword pointcuts that still scan ``text`` / ``raw_text``. */
 export function messagesToText(messages: CoprMessageWire[]): string {
   return messages
-    .map((m) => m.content ?? m.text ?? m.raw_text ?? "")
+    .map((m) => {
+      const base = m.content ?? m.text ?? m.raw_text ?? "";
+      const sec = textFromSections(m.sections ?? []);
+      return [base, sec].filter(Boolean).join("\n\n");
+    })
     .filter(Boolean)
     .join("\n\n");
 }

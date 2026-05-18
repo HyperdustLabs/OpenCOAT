@@ -100,6 +100,55 @@ class TestEventAutomation:
 
 
 class TestPromptSurfaceExpansion:
+    def test_mixed_surface_preserves_match_when_later_rows_miss(self) -> None:
+        rt = _runtime()
+        rt.concern_store.upsert(_concern_user_message("shell"))
+        jp = JoinpointEvent(
+            id="jp-mixed",
+            level=1,
+            name="before_response",
+            host="test",
+            ts=datetime(2026, 5, 15, tzinfo=UTC),
+            payload={
+                "messages": [
+                    {"role": "user", "content": "use shell"},
+                    {"role": "assistant", "content": "ok"},
+                ]
+            },
+        )
+        inj = rt.on_joinpoint(jp)
+        assert inj is not None
+        assert any(row.concern_id == "msg-guard" for row in inj.injections)
+        last = rt.last_injection()
+        assert last is not None
+        assert any(row.concern_id == "msg-guard" for row in last.injections)
+
+    def test_legacy_surface_batch_preserves_match_on_non_matches(self) -> None:
+        rt = _runtime(
+            automation=JoinpointAutomation(
+                batch_surface_weave=False,
+                emit_adviceexecution=False,
+            ),
+        )
+        rt.concern_store.upsert(_concern_user_message("shell"))
+        jp = JoinpointEvent(
+            id="jp-legacy",
+            level=1,
+            name="before_response",
+            host="test",
+            ts=datetime(2026, 5, 15, tzinfo=UTC),
+            payload={
+                "messages": [
+                    {"role": "user", "content": "use shell"},
+                    {"role": "assistant", "content": "ok"},
+                ]
+            },
+        )
+        inj = rt.on_joinpoint(jp)
+        assert inj is not None
+        assert any(row.concern_id == "msg-guard" for row in inj.injections)
+        assert rt.last_injection() is not None
+
     def test_messages_expand_to_user_message_joinpoint(self) -> None:
         rt = _runtime()
         rt.concern_store.upsert(_concern_user_message("shell"))

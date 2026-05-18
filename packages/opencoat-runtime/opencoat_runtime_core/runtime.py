@@ -269,6 +269,7 @@ class OpenCOATRuntime:
                     child,
                     context=context,
                     return_none_when_empty=True,
+                    preserve_last_on_empty=True,
                 )
                 merged = merge_injections(
                     merged,
@@ -277,6 +278,12 @@ class OpenCOATRuntime:
                     host_round_id=root.host_round_id,
                 )
             injection = merged
+            if injection is None and not return_none_when_empty:
+                injection = self._joinpoint_pipeline.run(
+                    root,
+                    context=context,
+                    return_none_when_empty=False,
+                )
 
         if injection is not None and auto.emit_adviceexecution and injection.injections:
             active_ids = [row.concern_id for row in injection.injections]
