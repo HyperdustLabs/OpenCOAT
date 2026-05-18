@@ -1069,7 +1069,9 @@ def _register_llm(sub: argparse._SubParsersAction) -> None:
     )
     p.add_argument("--bai-model-env", default=None, help="set BAI_MODEL in env file (auto mode)")
     p.add_argument(
-        "--bai-base-url", default=None, help="llm.base_url when provider=bai (default https://api.b.ai/v1)"
+        "--bai-base-url",
+        default=None,
+        help="llm.base_url when provider=bai (default https://api.b.ai/v1)",
     )
     p.add_argument(
         "--openai-api-key", default=os.environ.get("OPENAI_API_KEY"), help="non-interactive"
