@@ -1,4 +1,4 @@
-"""AspectJ-shaped concern syntax and normalization."""
+"""AOP (AspectJ) concern syntax and normalization."""
 
 from __future__ import annotations
 

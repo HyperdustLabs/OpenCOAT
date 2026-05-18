@@ -1,4 +1,4 @@
-"""Hand-authored concerns for the OpenClaw plugin scaffold (AspectJ syntax, ADR-0010)."""
+"""Hand-authored concerns for the OpenClaw plugin scaffold (AOP (AspectJ) syntax, ADR-0010)."""
 
 from __future__ import annotations
 

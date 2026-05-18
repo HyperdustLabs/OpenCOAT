@@ -1,4 +1,4 @@
-# Concern authoring — AspectJ syntax (ADR-0010)
+# Concern authoring — AOP syntax (AspectJ) (ADR-0010)
 
 OpenCOAT keeps **Concern** as the only unit. Author with `pointcuts[]` / `advices[]`;
 legacy `pointcut` / `advice` / `weaving_policy` are optional and sync automatically.

@@ -1,4 +1,4 @@
-"""OpenClaw + runtime demo concerns (AspectJ syntax, ADR-0010)."""
+"""OpenClaw + runtime demo concerns (AOP (AspectJ) syntax, ADR-0010)."""
 
 from __future__ import annotations
 

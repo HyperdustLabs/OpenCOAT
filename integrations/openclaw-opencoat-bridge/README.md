@@ -91,7 +91,7 @@ Keyword pointcuts still work: flattened text is duplicated in `text` /
 | --- | --- | --- |
 | **US-1** | As an **OpenClaw operator**, I want the gateway bridge to pass **`messages[]`** on `before_prompt_build`, so that the daemon can discover **message-level joinpoints** without me emitting one RPC per row. | Payload includes `messages`; daemon expands `user_message` / `assistant_message`; DCN activations can show ids like `jp-oc-…#msg:0`. |
 | **US-2** | As a **policy author**, I want concerns to target **`user_message`** only, so that **assistant history** in the same prompt does not false-trigger keyword guards. | Concern with `joinpoints: ["user_message"]` + keywords weaves on user lines only; same keywords on `before_response` alone can still match flattened history (documented counter-example). |
-| **US-3** | As a **platform engineer**, I want **one** `joinpoint.submit` per prompt build, so that I keep OpenClaw hooks thin while OpenCOAT performs **JoinpointDiscovery** (AspectJ-style surface → many join points). | Bridge calls submit once per `before_prompt_build`; runtime merges injections; host still only `prependSystemContext` at coarse boundary. |
+| **US-3** | As a **platform engineer**, I want **one** `joinpoint.submit` per prompt build, so that I keep OpenClaw hooks thin while OpenCOAT performs **JoinpointDiscovery** (AOP (AspectJ) surface → many join points). | Bridge calls submit once per `before_prompt_build`; runtime merges injections; host still only `prependSystemContext` at coarse boundary. |
 | **US-4** | As an **auditor**, I want activations tied to **stable child joinpoint ids** (`parent#msg:N`), so that I can tell which message row triggered a concern in replay and DCN logs. | `dcn.activation_log` shows `joinpoint_id` suffix `#msg:` / `#sec:` after a live or smoke submit with `messages`. |
 
 Narrative walkthrough for **US-2** (setup + curl + live chat): see the use case below.
@@ -195,7 +195,7 @@ concern — the assistant’s `rm -rf` in flattened history can activate the con
 - [ ] Daemon from repo / current `main` — `uv run opencoat runtime up` (not pip-only 0.1.3 without discovery).
 - [ ] Bridge installed and gateway restarted; log shows `[opencoat-bridge] registered`.
 - [ ] Plugin config: `allowPromptInjection: true`, optional `logActivations: true`.
-- [ ] Concern uses AspectJ `user_message()` (see [`docs/guides/concern-authoring-aspectj.md`](../../docs/guides/concern-authoring-aspectj.md)) — upsert via `opencoat concern import` or `--demo`.
+- [ ] Concern uses AOP (AspectJ) `user_message()` (see [`docs/guides/concern-authoring-aspectj.md`](../../docs/guides/concern-authoring-aspectj.md)) — upsert via `opencoat concern import` or `--demo`.
 
 **Steps**
 

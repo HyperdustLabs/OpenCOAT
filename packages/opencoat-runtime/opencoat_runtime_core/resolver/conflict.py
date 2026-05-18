@@ -5,7 +5,7 @@ Uses two of the canonical relation types:
 * ``conflicts_with`` — symmetric: both sides cannot fire together. The
   higher-scoring concern wins; ties are broken by ``concern.id`` so the
   outcome is deterministic.
-* ``declares_precedence_over`` / ``declare precedence`` — AspectJ ordering:
+* ``declares_precedence_over`` / ``declare precedence`` — AOP (AspectJ) ordering:
   the higher-precedence concern wins when both are activated (score ignored).
 * ``suppresses`` — directional (legacy): the source concern silences the
   target whenever both are activated, regardless of score.
@@ -53,7 +53,7 @@ class ConflictResolver:
         concerns = [c for c, _ in ranked]
         dropped: set[str] = set()
 
-        # 1. AspectJ declare precedence (and declares_precedence_over edges).
+        # 1. AOP declare precedence (AspectJ) and declares_precedence_over edges.
         beats = build_precedence_beats(concerns)
         dropped |= precedence_drops(ranked, beats)
 

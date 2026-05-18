@@ -1,4 +1,4 @@
-"""Executable view of concerns for matcher / weaver (AspectJ-normalized)."""
+"""Executable view of concerns for matcher / weaver (AOP-normalized)."""
 
 from __future__ import annotations
 

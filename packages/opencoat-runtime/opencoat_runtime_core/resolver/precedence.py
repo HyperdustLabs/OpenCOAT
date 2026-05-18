@@ -1,4 +1,4 @@
-"""AspectJ ``declare precedence`` resolution (ADR-0010).
+"""AOP (AspectJ) ``declare precedence`` resolution (ADR-0010).
 
 Builds a winner-over-loser map from ``Concern.declarations`` and
 ``declares_precedence_over`` relations, then drops lower-precedence concerns

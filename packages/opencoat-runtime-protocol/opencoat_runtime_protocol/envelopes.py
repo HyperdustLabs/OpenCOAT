@@ -37,7 +37,7 @@ class LifecycleState(StrEnum):
 
 
 class AdviceKind(StrEnum):
-    """AspectJ advice kinds (executable joinpoint semantics)."""
+    """AOP (AspectJ) advice kinds — executable joinpoint semantics."""
 
     BEFORE = "before"
     AFTER = "after"
@@ -47,7 +47,7 @@ class AdviceKind(StrEnum):
 
 
 class ConcernGraphEdgeType(StrEnum):
-    """AspectJ-style edges in the Concern Graph / DCN."""
+    """AOP graph edges in the Concern Graph / DCN."""
 
     DEFINES = "defines"
     SELECTS = "selects"
@@ -74,7 +74,7 @@ class ConcernRelationType(StrEnum):
     UPDATES = "updates"
     REPLACES = "replaces"
     SUPPORTS = "supports"
-    #: AspectJ ``declare precedence`` between concerns (preferred over ``suppresses``).
+    #: AOP ``declare precedence`` (AspectJ) between concerns (preferred over ``suppresses``).
     DECLARES_PRECEDENCE_OVER = "declares_precedence_over"
 
 
@@ -241,7 +241,7 @@ class Pointcut(_Base):
 
 
 class PointcutDef(_Base):
-    """AspectJ-shaped pointcut (optional ``expression`` + structured ``match``)."""
+    """AOP pointcut (optional ``expression`` + structured ``match``)."""
 
     id: str = "pc-default"
     expression: str | None = None
@@ -272,7 +272,7 @@ class WeavingPolicy(_Base):
 
 
 class AspectJAdvice(_Base):
-    """AspectJ-shaped advice bound to a pointcut ref."""
+    """AOP advice bound to a pointcut ref (wire type name retained for compatibility)."""
 
     id: str = "adv-default"
     kind: AdviceKind
@@ -345,7 +345,7 @@ class ConcernRelation(_Base):
     relation_type: ConcernRelationType
     weight: float = Field(default=1.0, ge=0.0, le=1.0)
     created_at: datetime | None = None
-    #: ``runtime`` (AspectJ weave graph) vs ``semantic`` (cognitive lineage only).
+    #: ``runtime`` (AOP weave graph) vs ``semantic`` (cognitive lineage only).
     layer: Literal["runtime", "semantic"] = "semantic"
 
 
@@ -367,7 +367,7 @@ ConcernDeclaration = DeclarePrecedence | InterTypeDeclaration
 
 
 class ConcernGraphEdge(_Base):
-    """Explicit AspectJ graph edge (optional; mirrors DCN export)."""
+    """Explicit AOP graph edge (optional; mirrors DCN export)."""
 
     edge_type: ConcernGraphEdgeType
     from_id: str

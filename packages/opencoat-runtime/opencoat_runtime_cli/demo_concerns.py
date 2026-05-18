@@ -1,6 +1,6 @@
 """Three "dramatic" demo concerns loaded by ``opencoat concern import --demo``.
 
-Authored in AspectJ-shaped syntax (ADR-0010); legacy fields are filled on load.
+Authored in AOP (AspectJ) syntax (ADR-0010); legacy fields are filled on load.
 """
 
 from __future__ import annotations
