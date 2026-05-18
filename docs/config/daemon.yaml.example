@@ -73,9 +73,10 @@ storage:
 # ``auto`` (the default since the v0.1 release) probes the environment for
 # the first available real provider, in this order:
 #
-#     1. OPENAI_API_KEY                                 → openai
-#     2. ANTHROPIC_API_KEY                              → anthropic
-#     3. AZURE_OPENAI_API_KEY + AZURE_OPENAI_DEPLOYMENT → azure
+#     1. BAI_API_KEY                                    → b.ai (https://api.b.ai/v1)
+#     2. OPENAI_API_KEY                                 → openai
+#     3. ANTHROPIC_API_KEY                              → anthropic
+#     4. AZURE_OPENAI_API_KEY + AZURE_OPENAI_DEPLOYMENT → azure
 #
 # If none of those env vars are present the daemon falls back to a stub LLM
 # and logs a WARNING — every LLM-driven path (concern extract, advice
@@ -95,6 +96,11 @@ llm:
   #
   # Any of these can also be sourced from the environment — see the
   # comments next to each.
+
+  # B.AI (OpenAI-compatible — see docs/config/bai-llm.md) ---------------
+  # model:    gpt-5.2                 # or BAI_MODEL
+  # api_key:  null                    # prefer BAI_API_KEY in env
+  # base_url: null                    # BAI_BASE_URL — default https://api.b.ai/v1
 
   # OpenAI ---------------------------------------------------------------
   # model:    gpt-4o-mini             # or OPENAI_MODEL

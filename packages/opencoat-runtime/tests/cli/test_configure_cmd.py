@@ -20,6 +20,9 @@ def _ns(**kwargs: object) -> Namespace:
         "provider": "openai",
         "timeout_seconds": 25.0,
         "model": "gpt-4o-mini",
+        "bai_api_key": None,
+        "bai_model_env": None,
+        "bai_base_url": None,
         "openai_api_key": "sk-test-openai",
         "openai_model_env": None,
         "anthropic_api_key": None,
@@ -144,7 +147,15 @@ def test_collect_interactive_auto_writes_model_to_yaml(tmp_path: Path) -> None:
         ),
         patch(
             "opencoat_runtime_cli.commands.configure_cmd.input",
-            side_effect=["1", "1", "2", "", "", "", ""],
+            side_effect=[
+                "1",
+                "1",
+                "2",
+                "",
+                "",
+                "",
+                "",
+            ],  # mode, provider auto, openai model, azure skips
         ),
         patch(
             "opencoat_runtime_cli.commands.configure_cmd.fetch_openai_model_ids",
@@ -156,7 +167,49 @@ def test_collect_interactive_auto_writes_model_to_yaml(tmp_path: Path) -> None:
             yaml_path=yaml_path,
         )
     assert provider == "auto"
-    assert llm["model"] == "gpt-4o"
+    assert "model" not in llm
+    assert env_updates["OPENAI_MODEL"] == "gpt-4o"
+
+
+def test_collect_interactive_auto_dual_credentials_keeps_per_provider_models(
+    tmp_path: Path,
+) -> None:
+    """Auto with B.AI + OpenAI keys must not let OPENAI_MODEL overwrite BAI via llm.model."""
+    env_path = tmp_path / "opencoat.env"
+    yaml_path = tmp_path / "daemon.yaml"
+    env_path.write_text(
+        "BAI_API_KEY=sk-bai\nOPENAI_API_KEY=sk-openai\n",
+        encoding="utf-8",
+    )
+    with (
+        patch(
+            "opencoat_runtime_cli.commands.configure_cmd.getpass.getpass",
+            return_value="",
+        ),
+        patch(
+            "opencoat_runtime_cli.commands.configure_cmd.input",
+            side_effect=[
+                "1",  # mode env-file
+                "1",  # provider auto
+                "claude-sonnet-4-6",  # B.AI model (auto path)
+                "2",  # OpenAI model menu pick gpt-4o
+                "",
+                "",
+                "",
+            ],
+        ),
+        patch(
+            "opencoat_runtime_cli.commands.configure_cmd.fetch_openai_model_ids",
+            return_value=["gpt-4o-mini", "gpt-4o"],
+        ),
+    ):
+        provider, _mode, env_updates, llm = configure_cmd._collect_interactive(
+            env_path=env_path,
+            yaml_path=yaml_path,
+        )
+    assert provider == "auto"
+    assert "model" not in llm
+    assert env_updates["BAI_MODEL"] == "claude-sonnet-4-6"
     assert env_updates["OPENAI_MODEL"] == "gpt-4o"
 
 
@@ -177,7 +230,7 @@ def test_collect_interactive_openai_keeps_existing_key_and_updates_model(
         ),
         patch(
             "opencoat_runtime_cli.commands.configure_cmd.input",
-            side_effect=["1", "2", "2"],
+            side_effect=["1", "3", "2"],  # mode env-file, provider openai, model gpt-4o
         ),
         patch(
             "opencoat_runtime_cli.commands.configure_cmd.fetch_openai_model_ids",
@@ -362,23 +415,17 @@ def test_rerun_inline_azure_after_inline_openai_replaces_endpoint(tmp_path: Path
     )
     assert configure_cmd._configure_llm(first) == 0
 
-    second = Namespace(
+    second = _ns(
         yaml=y,
         env=e,
         mode="inline",
-        non_interactive=True,
         provider="azure",
-        timeout_seconds=30.0,
         model=None,
         openai_api_key=None,
-        openai_model_env=None,
-        anthropic_api_key=None,
-        anthropic_model_env=None,
+        bai_api_key=None,
         azure_api_key="az-key",
         azure_endpoint="https://az.example.com",
         azure_deployment="dep-1",
-        openai_base_url=None,
-        anthropic_base_url=None,
     )
     assert configure_cmd._configure_llm(second) == 0
     data = yaml.safe_load(y.read_text(encoding="utf-8"))
@@ -390,27 +437,16 @@ def test_rerun_inline_azure_after_inline_openai_replaces_endpoint(tmp_path: Path
 
 
 def test_non_interactive_inline_auto_rejected(tmp_path: Path) -> None:
-    from argparse import Namespace
-
     import pytest
 
-    args = Namespace(
+    args = _ns(
         yaml=tmp_path / "d.yaml",
         env=tmp_path / "e.env",
         mode="inline",
-        non_interactive=True,
         provider="auto",
-        timeout_seconds=30.0,
         model=None,
         openai_api_key="sk-x",
-        openai_model_env=None,
-        anthropic_api_key=None,
-        anthropic_model_env=None,
-        azure_api_key=None,
-        azure_endpoint=None,
-        azure_deployment=None,
-        openai_base_url=None,
-        anthropic_base_url=None,
+        bai_api_key=None,
     )
     with pytest.raises(SystemExit) as excinfo:
         configure_cmd._configure_llm(args)

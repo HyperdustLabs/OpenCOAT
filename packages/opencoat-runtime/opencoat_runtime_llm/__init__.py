@@ -33,6 +33,10 @@ except PackageNotFoundError:
 # matching extra is installed; otherwise the import inside the adapter
 # raises the provider-specific error with a fix-it-yourself message.
 _LAZY_ATTRS: dict[str, tuple[str, str]] = {
+    "BaiLLMClient": (".bai_client", "BaiLLMClient"),
+    "BaiClientError": (".bai_client", "BaiClientError"),
+    "BAI_DEFAULT_BASE_URL": (".bai_client", "BAI_DEFAULT_BASE_URL"),
+    "BAI_DEFAULT_MODEL": (".bai_client", "BAI_DEFAULT_MODEL"),
     "OpenAILLMClient": (".openai_client", "OpenAILLMClient"),
     "OpenAIClientError": (".openai_client", "OpenAIClientError"),
     "AnthropicLLMClient": (".anthropic_client", "AnthropicLLMClient"),
@@ -56,13 +60,18 @@ def __getattr__(name: str) -> Any:
 if TYPE_CHECKING:  # pragma: no cover — re-exported for static analysis only
     from .anthropic_client import AnthropicClientError, AnthropicLLMClient
     from .azure_openai_client import AzureOpenAIClientError, AzureOpenAILLMClient
+    from .bai_client import BAI_DEFAULT_BASE_URL, BAI_DEFAULT_MODEL, BaiClientError, BaiLLMClient
     from .openai_client import OpenAIClientError, OpenAILLMClient
 
 __all__ = [
+    "BAI_DEFAULT_BASE_URL",
+    "BAI_DEFAULT_MODEL",
     "AnthropicClientError",
     "AnthropicLLMClient",
     "AzureOpenAIClientError",
     "AzureOpenAILLMClient",
+    "BaiClientError",
+    "BaiLLMClient",
     "OpenAIClientError",
     "OpenAILLMClient",
     "StubLLMClient",

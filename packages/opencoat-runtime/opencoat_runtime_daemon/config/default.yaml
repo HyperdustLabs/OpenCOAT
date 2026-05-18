@@ -27,7 +27,7 @@ storage:
 
 # LLM provider for the daemon's ConcernExtractor / AdviceGenerator and
 # any host that drives the runtime over HTTP. ``auto`` picks the first
-# provider whose marker env var is present (``OPENAI_API_KEY`` →
+# provider whose marker env var is present (``BAI_API_KEY`` → ``OPENAI_API_KEY`` →
 # ``ANTHROPIC_API_KEY`` → ``AZURE_OPENAI_API_KEY``+``AZURE_OPENAI_DEPLOYMENT``);
 # if nothing is found the daemon falls back to a stub and logs a loud
 # WARNING — so concern extraction silently returns 0 candidates is

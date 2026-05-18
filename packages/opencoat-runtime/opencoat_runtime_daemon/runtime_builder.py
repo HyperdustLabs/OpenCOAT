@@ -53,7 +53,7 @@ from .config.loader import DaemonConfig, LLMSettings, StorageBackend
 logger = logging.getLogger(__name__)
 
 _STUB_DEFAULT_CHAT = (
-    "(stub) OpenCOAT daemon runtime is wired up. Set OPENAI_API_KEY / "
+    "(stub) OpenCOAT daemon runtime is wired up. Set BAI_API_KEY / OPENAI_API_KEY / "
     "ANTHROPIC_API_KEY / AZURE_OPENAI_ENDPOINT (and friends) and "
     "switch the daemon's llm.provider to a real provider to see a "
     "real answer here. See https://docs.python.org/3/ [1]."
@@ -66,10 +66,11 @@ _STUB_DEFAULT_CHAT = (
 _STUB_FALLBACK_HINT = (
     "no provider credentials detected — concern extraction and any "
     "other LLM-driven path will return empty results. Fix by exporting "
-    "OPENAI_API_KEY / ANTHROPIC_API_KEY / AZURE_OPENAI_* before "
+    "BAI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY / AZURE_OPENAI_* before "
     "restarting the daemon, or pin llm.provider in your daemon config."
 )
 
+_DEFAULT_BAI_MODEL = "gpt-5.2"
 _DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 _DEFAULT_ANTHROPIC_MODEL = "claude-3-5-haiku-latest"
 _DEFAULT_AZURE_API_VERSION = "2024-10-21"
@@ -95,7 +96,7 @@ class LLMInfo:
         ``"anthropic/claude-3-5-haiku-latest"``, ``"stub"``,
         ``"stub-fallback"``).
     kind:
-        Coarse classification — ``"openai" | "anthropic" | "azure" |
+        Coarse classification — ``"bai" | "openai" | "anthropic" | "azure" |
         "stub"``. Stays stable across model upgrades, so callers
         branching on "is this a real LLM?" can do
         ``kind != "stub"`` instead of parsing ``label``.
@@ -319,6 +320,35 @@ def _require_explicit(
     )
 
 
+def _build_bai(
+    settings: LLMSettings,
+    env: Mapping[str, str],
+    env_explicit: bool,
+) -> tuple[LLMClient, LLMInfo]:
+    from opencoat_runtime_llm import BaiLLMClient
+
+    extras = _llm_extras(settings)
+    model = extras.get("model") or env.get("BAI_MODEL") or _DEFAULT_BAI_MODEL
+    api_key = extras.get("api_key") or env.get("BAI_API_KEY")
+    if not api_key:
+        _require_explicit("bai", "api_key", "BAI_API_KEY", env_explicit=env_explicit)
+    base_url = extras.get("base_url") or env.get("BAI_BASE_URL")
+    return (
+        BaiLLMClient(
+            model=model,
+            api_key=api_key,
+            base_url=base_url,
+            timeout_seconds=settings.timeout_seconds,
+        ),
+        LLMInfo(
+            label=f"bai/{model}",
+            kind="bai",
+            real=True,
+            requested=settings.provider,
+        ),
+    )
+
+
 def _build_openai(
     settings: LLMSettings,
     env: Mapping[str, str],
@@ -444,6 +474,8 @@ def _build_azure(
 # auto-detection without a deployment would just rediscover the same
 # "no deployment configured" RuntimeError ``_build_azure`` raises.
 def _auto_pick_provider(env: Mapping[str, str]) -> str | None:
+    if env.get("BAI_API_KEY"):
+        return "bai"
     if env.get("OPENAI_API_KEY"):
         return "openai"
     if env.get("ANTHROPIC_API_KEY"):
@@ -498,6 +530,7 @@ def _build_auto(
 # ``_build_llm`` (the public dispatcher) and ``_build_auto`` (which
 # picks one of them).
 _LLM_PROVIDER_BUILDERS: dict[str, _LlmBuilder] = {
+    "bai": _build_bai,
     "openai": _build_openai,
     "anthropic": _build_anthropic,
     "azure": _build_azure,

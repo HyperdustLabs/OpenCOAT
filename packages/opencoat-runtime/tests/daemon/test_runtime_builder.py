@@ -98,6 +98,14 @@ class TestDefaults:
             assert "OPENAI_API_KEY" in built.llm_info.hint  # actionable hint
             assert isinstance(built.runtime._llm, StubLLMClient)  # type: ignore[attr-defined]
 
+    def test_default_config_with_bai_key_picks_bai(self) -> None:
+        with build_runtime(load_config(), env={"BAI_API_KEY": "sk-bai-auto"}) as built:
+            assert built.llm_info.kind == "bai"
+            assert built.llm_info.real is True
+            assert built.llm_info.requested == "auto"
+            assert built.llm_label.startswith("bai/")
+            assert built.llm_info.hint == ""
+
     def test_default_config_with_openai_key_picks_openai(self) -> None:
         # Same default config, but the operator exported a real key.
         # Auto-detection must pick OpenAI and ``llm_info.real`` flips
@@ -108,6 +116,13 @@ class TestDefaults:
             assert built.llm_info.requested == "auto"
             assert built.llm_label.startswith("openai/")
             assert built.llm_info.hint == ""
+
+    def test_bai_precedence_over_openai_in_auto(self) -> None:
+        with build_runtime(
+            load_config(),
+            env={"BAI_API_KEY": "sk-bai", "OPENAI_API_KEY": "sk-openai"},
+        ) as built:
+            assert built.llm_info.kind == "bai"
 
     def test_explicit_provider_stub_skips_fallback_hint(self) -> None:
         # ``provider: stub`` is a deliberate choice (hermetic tests,
