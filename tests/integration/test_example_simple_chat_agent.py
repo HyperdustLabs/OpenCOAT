@@ -134,7 +134,7 @@ class TestSimpleChatAgent:
         assert store_ids == {"c-only"}
 
     def test_active_concerns_are_logged_to_dcn(self, example_modules) -> None:
-        # Pins the exit criterion: the turn loop walks all the way down
+        # Pins the exit criterion: the joinpoint pipeline walks all the way down
         # to the DCN activation log. Anything that breaks the recorder
         # (e.g. a future regression on the ``_record_activations``
         # contract) trips this test.

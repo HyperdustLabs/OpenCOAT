@@ -27,7 +27,7 @@ def _concern(
 
 def _vector(*ids: str) -> ConcernVector:
     return ConcernVector(
-        turn_id="t",
+        weave_id="t",
         ts=datetime(2026, 5, 8, tzinfo=UTC),
         active_concerns=[ActiveConcern(concern_id=i, activation_score=0.5) for i in ids],
     )

@@ -80,7 +80,7 @@ class SimpleChatAgent:
         concerns: list[Concern] | None = None,
         # The verifier intentionally shares the runtime's LLM so any
         # future swap (real provider in M2) lights up both sides at
-        # once. ``StubLLMClient`` makes verifier and turn loop
+        # once. ``StubLLMClient`` makes verifier and joinpoint pipeline
         # deterministic in CI.
         verifier: ConcernVerifier | None = None,
         session_id: str | None = None,

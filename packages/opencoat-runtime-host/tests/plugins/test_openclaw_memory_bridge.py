@@ -66,7 +66,7 @@ class TestOpenClawMemoryEvent:
             "value": {"answer": 42},
             "namespace": "episodic",
             "concern_id": "c-curiosity",
-            "turn_id": "t-7",
+            "host_round_id": "t-7",
             "ts": "2026-05-11T10:00:00Z",
             "metadata": {"source": "tool"},
         }

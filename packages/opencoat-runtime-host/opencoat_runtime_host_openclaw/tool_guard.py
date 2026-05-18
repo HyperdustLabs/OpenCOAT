@@ -192,7 +192,7 @@ class OpenClawToolGuard:
             remainder = "*"
         stripped = row.model_copy(update={"target": remainder})
         return self._injector.apply(
-            ConcernInjection(turn_id="__tool_guard__", injections=[stripped]),
+            ConcernInjection(weave_id="__tool_guard__", injections=[stripped]),
             arguments,
         )
 

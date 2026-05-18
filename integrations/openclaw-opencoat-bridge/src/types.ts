@@ -5,7 +5,8 @@ export type BridgeConfig = {
 };
 
 export type ConcernInjection = {
-  turn_id: string;
+  weave_id: string;
+  host_round_id?: string | null;
   agent_session_id?: string | null;
   injections: InjectionRow[];
 };
@@ -26,6 +27,8 @@ export type JoinpointWire = {
   name: string;
   host: string;
   agent_session_id?: string;
+  host_round_id?: string;
+  /** @deprecated Use host_round_id */
   turn_id?: string;
   ts: string;
   payload: Record<string, unknown>;

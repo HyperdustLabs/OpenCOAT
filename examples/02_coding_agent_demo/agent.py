@@ -14,7 +14,7 @@ The agent extends the M1 ``SimpleChatAgent`` along three M2 axes:
 3. **Lifecycle bookkeeping.**  After each turn the agent calls
    :meth:`ConcernLifecycleManager.reinforce` for every concern that
    actually fired, demonstrating that the lifecycle manager landed
-   in PR-11 plugs cleanly into the turn loop.
+   in PR-11 plugs cleanly into the joinpoint pipeline.
 
 The agent is still under ~150 lines of business logic — the point is
 to be readable end to end.  ``handle`` walks the same pipeline as
@@ -146,7 +146,7 @@ class CodingAgent:
         self._session_id = session_id or f"session-{uuid4().hex[:8]}"
 
         # Same opt-out semantics as the M1 chat-agent example. The
-        # turn loop will lazily ``add_node`` to the DCN on first
+        # joinpoint pipeline will lazily ``add_node`` to the DCN on first
         # activation, so we only seed the ConcernStore here.
         seeded = seed_concerns() if concerns is None else concerns
         for concern in seeded:

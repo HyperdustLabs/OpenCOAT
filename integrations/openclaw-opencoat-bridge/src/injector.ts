@@ -86,14 +86,14 @@ export function mergeInjections(
 
   for (const inj of injections) {
     if (!inj?.injections?.length) continue;
-    turnId = inj.turn_id || turnId;
+    turnId = inj.weave_id || turnId;
     session = inj.agent_session_id ?? session;
     rows.push(...inj.injections);
   }
 
   if (!rows.length) return null;
   return {
-    turn_id: turnId,
+    weave_id: turnId,
     agent_session_id: session,
     injections: rows,
   };

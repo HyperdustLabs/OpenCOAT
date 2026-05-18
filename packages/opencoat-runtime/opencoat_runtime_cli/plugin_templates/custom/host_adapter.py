@@ -99,7 +99,9 @@ _ENVELOPE_KEYS: frozenset[str] = frozenset(
         "id",
         "ts",
         "agent_session_id",
+        "host_round_id",
         "turn_id",
+        "weave_id",
         "host",
         "level",
         "payload",
@@ -220,7 +222,11 @@ class CustomHostAdapter(HostAdapter):
             name=joinpoint_name,
             host=str(event.get("host") or self._host_name),
             agent_session_id=event.get("agent_session_id"),
-            turn_id=event.get("turn_id"),
+            host_round_id=(
+                event.get("host_round_id")
+                or event.get("turn_id")
+                or event.get("weave_id")
+            ),
             ts=_coerce_ts(event.get("ts")),
             payload=_build_payload(event),
         )

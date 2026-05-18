@@ -2,12 +2,13 @@
 
 from .event_loop import EventCallback, EventLoop
 from .heartbeat_loop import HeartbeatLoop, HeartbeatReport
-from .turn_loop import TurnLoop
+from .joinpoint_pipeline import JoinpointPipeline, TurnLoop
 
 __all__ = [
     "EventCallback",
     "EventLoop",
     "HeartbeatLoop",
     "HeartbeatReport",
+    "JoinpointPipeline",
     "TurnLoop",
 ]

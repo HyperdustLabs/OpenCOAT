@@ -20,7 +20,7 @@ from opencoat_runtime_protocol import ConcernInjection, Injection, WeavingOperat
 
 
 def _inj(*rows: Injection) -> ConcernInjection:
-    return ConcernInjection(turn_id="t-tool-guard", injections=list(rows))
+    return ConcernInjection(weave_id="t-tool-guard", injections=list(rows))
 
 
 def _row(
@@ -359,7 +359,7 @@ class TestMixedAndFiltering:
     def test_empty_injection_is_passthrough(self, guard: OpenClawToolGuard) -> None:
         outcome = guard.guard(
             {"name": "open", "arguments": {"path": "/x"}},
-            ConcernInjection(turn_id="t"),
+            ConcernInjection(weave_id="t"),
         )
         assert outcome == ToolGuardOutcome(
             blocked=False,
@@ -403,7 +403,7 @@ class TestWireModeStrings:
     def test_string_block_mode(self, guard: OpenClawToolGuard) -> None:
         inj = ConcernInjection.model_validate(
             {
-                "turn_id": "t",
+                "weave_id": "t",
                 "injections": [
                     {
                         "concern_id": "c-1",
@@ -421,7 +421,7 @@ class TestWireModeStrings:
     def test_string_replace_mode(self, guard: OpenClawToolGuard) -> None:
         inj = ConcernInjection.model_validate(
             {
-                "turn_id": "t",
+                "weave_id": "t",
                 "injections": [
                     {
                         "concern_id": "c-1",

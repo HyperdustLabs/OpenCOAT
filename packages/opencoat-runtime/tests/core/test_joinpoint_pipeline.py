@@ -1,4 +1,4 @@
-"""Unit tests for :class:`TurnLoop`.
+"""Unit tests for :class:`JoinpointPipeline` (formerly TurnLoop).
 
 These tests pin down the loop's contract:
 
@@ -20,7 +20,7 @@ from opencoat_runtime_core.advice import AdviceGenerator
 from opencoat_runtime_core.config import RuntimeConfig
 from opencoat_runtime_core.coordinator import ConcernCoordinator
 from opencoat_runtime_core.llm import StubLLMClient
-from opencoat_runtime_core.loops import TurnLoop
+from opencoat_runtime_core.loops import JoinpointPipeline
 from opencoat_runtime_core.pointcut.matcher import PointcutMatcher
 from opencoat_runtime_core.ports.matcher import MatchResult
 from opencoat_runtime_core.weaving import ConcernWeaver
@@ -154,7 +154,7 @@ def _make_loop(
     dcn_store=None,
     observer=None,
     config: RuntimeConfig | None = None,
-) -> tuple[TurnLoop, MemoryConcernStore, MemoryDCNStore, RecordingObserver]:
+) -> tuple[JoinpointPipeline, MemoryConcernStore, MemoryDCNStore, RecordingObserver]:
     cfg = config or RuntimeConfig()
     cstore = MemoryConcernStore()
     # ``MemoryDCNStore`` defines ``__len__`` so an empty store is falsy —
@@ -163,7 +163,7 @@ def _make_loop(
     # and any future doubles.
     dstore = dcn_store if dcn_store is not None else MemoryDCNStore()
     obs = observer if observer is not None else RecordingObserver()
-    loop = TurnLoop(
+    loop = JoinpointPipeline(
         config=cfg,
         concern_store=cstore,
         dcn_store=dstore,
@@ -236,14 +236,14 @@ class TestHappyPath:
         assert out is not None
         assert {i.concern_id for i in out.injections} == {"c1", "c2"}
 
-    def test_turn_id_minted_from_joinpoint_when_absent(self) -> None:
+    def test_weave_id_minted_from_joinpoint_when_absent(self) -> None:
         loop, cstore, *_ = _make_loop()
         cstore.upsert(_concern("c1"))
         out = loop.run(_joinpoint(jp_id="jp-77"))
         assert out is not None
-        assert out.turn_id == "turn-jp-77"
+        assert out.weave_id == "weave-jp-77"
 
-    def test_turn_id_reused_when_joinpoint_carries_one(self) -> None:
+    def test_host_round_id_propagates_to_injection_when_joinpoint_carries_one(self) -> None:
         loop, cstore, *_ = _make_loop()
         cstore.upsert(_concern("c1"))
         jp = JoinpointEvent(
@@ -252,12 +252,13 @@ class TestHappyPath:
             name="before_response",
             host="test",
             ts=datetime(2026, 5, 8, tzinfo=UTC),
-            turn_id="trace-abc",
+            host_round_id="round-abc",
             payload={"raw_text": "hello"},
         )
         out = loop.run(jp)
         assert out is not None
-        assert out.turn_id == "trace-abc"
+        assert out.weave_id == "weave-jp-1"
+        assert out.host_round_id == "round-abc"
 
     def test_last_vector_and_last_injection_are_cached(self) -> None:
         loop, cstore, *_ = _make_loop()
@@ -334,16 +335,16 @@ class TestTelemetry:
         cstore.upsert(_concern("c2"))
         loop.run(_joinpoint("hello hello"))
         names = {m for m, *_ in obs.metrics}
-        assert "opencoat.turn.candidates" in names
-        assert "opencoat.turn.active_concerns" in names
-        assert "opencoat.turn.injection_tokens" in names
-        assert "opencoat.turn.injection_advices" in names
+        assert "opencoat.weave.candidates" in names
+        assert "opencoat.weave.active_concerns" in names
+        assert "opencoat.weave.injection_tokens" in names
+        assert "opencoat.weave.injection_advices" in names
 
     def test_span_opened_per_turn(self) -> None:
         loop, cstore, _, obs = _make_loop()
         cstore.upsert(_concern("c1"))
         loop.run(_joinpoint())
-        assert "opencoat.turn" in obs.spans
+        assert "opencoat.weave" in obs.spans
 
 
 # ---------------------------------------------------------------------------
@@ -374,12 +375,12 @@ class TestContext:
         assert ctx["joinpoint_id"] == "jp-1"
         # P2 regression: the minted turn id is always present, even
         # when the joinpoint did not carry one.
-        assert ctx["turn_id"] == "turn-jp-1"
+        assert ctx["weave_id"] == "weave-jp-1"
 
     def test_minted_turn_id_propagates_to_context(self) -> None:
-        # Regression: when the host omits ``JoinpointEvent.turn_id`` the
+        # Regression: when the host omits ``JoinpointEvent.weave_id`` the
         # loop mints ``turn-<jp.id>`` and writes it into
-        # ``ConcernInjection.turn_id``. The same value MUST also land in
+        # ``ConcernInjection.weave_id``. The same value MUST also land in
         # the context every collaborator sees, otherwise matcher /
         # advice / weave logs cannot be correlated with the wire-format
         # turn id (and the docstring of ``_build_context`` would lie).
@@ -393,12 +394,12 @@ class TestContext:
         loop, cstore, *_ = _make_loop(matcher=_Recorder())
         cstore.upsert(_concern("c1"))
         out = loop.run(_joinpoint(jp_id="jp-99"))
-        assert seen and seen[0]["turn_id"] == "turn-jp-99"
+        assert seen and seen[0]["weave_id"] == "weave-jp-99"
         # And it matches the value the weaver stamped on the envelope.
         assert out is not None
-        assert out.turn_id == seen[0]["turn_id"]
+        assert out.weave_id == seen[0]["weave_id"]
 
-    def test_explicit_turn_id_propagates_to_context(self) -> None:
+    def test_host_round_id_in_context_to_context(self) -> None:
         seen: list[dict] = []
 
         class _Recorder:
@@ -414,16 +415,17 @@ class TestContext:
             name="before_response",
             host="test",
             ts=datetime(2026, 5, 8, tzinfo=UTC),
-            turn_id="trace-abc",
+            host_round_id="round-abc",
             payload={"raw_text": "hello"},
         )
         loop.run(jp)
-        assert seen and seen[0]["turn_id"] == "trace-abc"
+        assert seen and seen[0]["weave_id"] == "weave-jp-1"
+        assert seen[0].get("host_round_id") == "round-abc"
 
-    def test_payload_turn_id_does_not_shadow_canonical_turn_id(self) -> None:
+    def test_payload_weave_id_does_not_shadow_canonical_turn_id(self) -> None:
         # Regression (Codex PR-5): payload may carry an unrelated ``turn_id``
         # key (or a stale trace id). It must never replace the runtime mint —
-        # matcher/advice context must stay aligned with ConcernInjection.turn_id.
+        # matcher/advice context must stay aligned with ConcernInjection.weave_id.
         seen: list[dict] = []
 
         class _Recorder:
@@ -439,13 +441,13 @@ class TestContext:
             name="before_response",
             host="test",
             ts=datetime(2026, 5, 8, tzinfo=UTC),
-            payload={"raw_text": "hello", "turn_id": "payload-wrong"},
+            payload={"raw_text": "hello", "host_round_id": "payload-wrong"},
         )
         out = loop.run(jp)
-        assert seen and seen[0]["turn_id"] == "turn-jp-1"
-        assert out is not None and out.turn_id == seen[0]["turn_id"]
+        assert seen and seen[0]["weave_id"] == "weave-jp-1"
+        assert out is not None and out.weave_id == seen[0]["weave_id"]
 
-    def test_explicit_context_turn_id_does_not_shadow_canonical(self) -> None:
+    def test_explicit_context_weave_id_does_not_shadow_canonical(self) -> None:
         # Same contract as payload: ``context=`` is merged before stamping.
         # Runtime ``turn_id`` always wins so telemetry matches the envelope.
         seen: list[dict] = []
@@ -457,9 +459,9 @@ class TestContext:
 
         loop, cstore, *_ = _make_loop(matcher=_Recorder())
         cstore.upsert(_concern("c1"))
-        out = loop.run(_joinpoint(), context={"turn_id": "should-not-win"})
-        assert seen and seen[0]["turn_id"] == "turn-jp-1"
-        assert out is not None and out.turn_id == seen[0]["turn_id"]
+        out = loop.run(_joinpoint(), context={"host_round_id": "should-not-win"})
+        assert seen and seen[0]["weave_id"] == "weave-jp-1"
+        assert out is not None and out.weave_id == seen[0]["weave_id"]
 
     def test_extra_context_overrides_payload_keys(self) -> None:
         # Same key in both: the explicit ``context`` argument wins. This
@@ -501,7 +503,7 @@ class TestRaceConditions:
         cfg = RuntimeConfig()
         obs = RecordingObserver()
         dstore = MemoryDCNStore()
-        loop = TurnLoop(
+        loop = JoinpointPipeline(
             config=cfg,
             concern_store=cstore,
             dcn_store=dstore,
@@ -533,7 +535,7 @@ class TestRaceConditions:
         cfg = RuntimeConfig()
         obs = RecordingObserver()
         dstore = MemoryDCNStore()
-        loop = TurnLoop(
+        loop = JoinpointPipeline(
             config=cfg,
             concern_store=cstore,
             dcn_store=dstore,
@@ -576,7 +578,7 @@ class TestRaceConditions:
         cfg = RuntimeConfig()
         obs = RecordingObserver()
         dstore = MemoryDCNStore()
-        loop = TurnLoop(
+        loop = JoinpointPipeline(
             config=cfg,
             concern_store=cstore,
             dcn_store=dstore,

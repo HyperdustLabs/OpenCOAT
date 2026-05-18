@@ -52,7 +52,7 @@ def _build_joinpoint() -> JoinpointEvent:
         name="before_response",
         host="custom",
         agent_session_id="sess-1",
-        turn_id="turn-1",
+        host_round_id="turn-1",
         ts=datetime.now(UTC),
         payload={"kind": "lifecycle", "stage": "before_response"},
     )
@@ -158,7 +158,7 @@ def test_http_emitter_with_payload(http_server: HttpServer) -> None:
         "before_response",
         level=1,
         agent_session_id="sess-2",
-        turn_id="turn-3",
+        host_round_id="round-3",
         payload={"kind": "lifecycle", "stage": "before_response"},
     )
     # Either a ConcernInjection envelope or None (with empty stores).

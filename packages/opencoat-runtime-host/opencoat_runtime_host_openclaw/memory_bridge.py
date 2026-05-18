@@ -73,8 +73,8 @@ class OpenClawMemoryEvent(BaseModel):
     """When present, the bridge logs an activation on this concern.
     Hosts that haven't learned to tag memory writes leave it blank."""
 
-    turn_id: str | None = None
-    """Originating turn id, when known — helps DCN tooling correlate."""
+    host_round_id: str | None = None
+    """Host dialog round id, when known — helps DCN tooling correlate."""
 
     ts: datetime | None = None
     """Memory event timestamp. The bridge falls back to ``datetime.now(UTC)``."""

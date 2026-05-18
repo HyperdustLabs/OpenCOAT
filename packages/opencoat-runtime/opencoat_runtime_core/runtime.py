@@ -2,7 +2,7 @@
 
 The facade composes every L2 module and exposes the three loop entrypoints:
 
-* :meth:`on_joinpoint` — turn loop (sync, returns an injection)
+* :meth:`on_joinpoint` — joinpoint pipeline (sync, returns an injection)
 * :meth:`on_event`     — event loop (sync fan-out + queue)
 * :meth:`tick`         — heartbeat loop (long-term DCN maintenance)
 
@@ -28,7 +28,7 @@ from opencoat_runtime_protocol import (
 from .advice import AdviceGenerator
 from .config import RuntimeConfig
 from .coordinator import ConcernCoordinator
-from .loops import EventLoop, HeartbeatLoop, HeartbeatReport, TurnLoop
+from .loops import EventLoop, HeartbeatLoop, HeartbeatReport, JoinpointPipeline
 from .pointcut.matcher import PointcutMatcher
 from .ports import (
     AdvicePlugin,
@@ -109,7 +109,7 @@ class OpenCOATRuntime:
         self._coordinator = coordinator or ConcernCoordinator(budgets=self._config.budgets)
         self._weaver = weaver or ConcernWeaver(budgets=self._config.budgets)
 
-        self._turn_loop = TurnLoop(
+        self._joinpoint_pipeline = JoinpointPipeline(
             config=self._config,
             concern_store=concern_store,
             dcn_store=dcn_store,
@@ -159,8 +159,8 @@ class OpenCOATRuntime:
         context: dict[str, Any] | None = None,
         return_none_when_empty: bool = False,
     ) -> ConcernInjection | None:
-        """Turn-loop: ingest a joinpoint, return an injection (or None)."""
-        return self._turn_loop.run(
+        """Joinpoint pipeline: ingest a joinpoint, return an injection (or None)."""
+        return self._joinpoint_pipeline.run(
             jp,
             context=context,
             return_none_when_empty=return_none_when_empty,
@@ -184,18 +184,18 @@ class OpenCOATRuntime:
 
     def current_vector(self) -> ConcernVector | None:
         """Return the most recently-computed Concern Vector, if any."""
-        return self._turn_loop.last_vector
+        return self._joinpoint_pipeline.last_vector
 
     def last_injection(self) -> ConcernInjection | None:
         """Return the most recently-computed Concern Injection, if any."""
-        return self._turn_loop.last_injection
+        return self._joinpoint_pipeline.last_injection
 
     def snapshot(self) -> RuntimeSnapshot:
         """Cheap, read-only snapshot used by /healthz and the CLI."""
         concerns = sum(1 for _ in self._concern_store.iter_all())
         active = (
-            len(self._turn_loop.last_vector.active_concerns)
-            if self._turn_loop.last_vector is not None
+            len(self._joinpoint_pipeline.last_vector.active_concerns)
+            if self._joinpoint_pipeline.last_vector is not None
             else 0
         )
         dcn_nodes, dcn_edges = self._dcn_inventory()

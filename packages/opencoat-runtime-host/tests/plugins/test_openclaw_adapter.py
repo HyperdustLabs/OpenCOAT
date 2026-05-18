@@ -111,7 +111,7 @@ class TestAdapterContract:
 
         ctx = {"runtime_prompt": {"output_format": "Be brief."}}
         inj = ConcernInjection(
-            turn_id="t-1",
+            weave_id="t-1",
             injections=[
                 Injection(
                     concern_id="c-1",
@@ -189,17 +189,17 @@ class TestMapHostEvent:
         assert jp is not None
         assert jp.payload == payload
 
-    def test_session_and_turn_ids_propagate(self, adapter: OpenClawAdapter) -> None:
+    def test_session_and_host_round_id_propagate(self, adapter: OpenClawAdapter) -> None:
         jp = adapter.map_host_event(
             {
                 "event_name": "agent.before_response",
                 "agent_session_id": "sess-42",
-                "turn_id": "turn-7",
+                "host_round_id": "round-7",
             }
         )
         assert jp is not None
         assert jp.agent_session_id == "sess-42"
-        assert jp.turn_id == "turn-7"
+        assert jp.host_round_id == "round-7"
 
     def test_ts_propagates_when_supplied(self, adapter: OpenClawAdapter) -> None:
         fixed = datetime(2026, 5, 11, 22, 0, 0, tzinfo=UTC)
@@ -231,11 +231,11 @@ class TestMapHostEvent:
         assert a.id != b.id
 
     def test_typed_openclaw_event_is_accepted(self, adapter: OpenClawAdapter) -> None:
-        oc = OpenClawEvent(event_name="agent.before_response", turn_id="t-1")
+        oc = OpenClawEvent(event_name="agent.before_response", host_round_id="t-1")
         jp = adapter.map_host_event(oc)
         assert jp is not None
         assert jp.name == "before_response"
-        assert jp.turn_id == "t-1"
+        assert jp.host_round_id == "t-1"
 
     def test_invalid_dict_raises_validation_error(self, adapter: OpenClawAdapter) -> None:
         # Missing `event_name` — must fail loudly, not silently return

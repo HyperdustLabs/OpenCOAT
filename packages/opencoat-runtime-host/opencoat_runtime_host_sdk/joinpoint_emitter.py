@@ -37,7 +37,7 @@ class JoinpointEmitter:
         *,
         level: int = 1,
         agent_session_id: str | None = None,
-        turn_id: str | None = None,
+        host_round_id: str | None = None,
         payload: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,
         return_none_when_empty: bool = False,
@@ -52,7 +52,7 @@ class JoinpointEmitter:
             name,
             level=level,
             agent_session_id=agent_session_id,
-            turn_id=turn_id,
+            host_round_id=host_round_id,
             payload=payload,
         )
         return self._client.emit(jp, context=context, return_none_when_empty=return_none_when_empty)
@@ -63,7 +63,7 @@ class JoinpointEmitter:
         *,
         level: int = 1,
         agent_session_id: str | None = None,
-        turn_id: str | None = None,
+        host_round_id: str | None = None,
         payload: dict[str, Any] | None = None,
     ) -> JoinpointEvent:
         """Build a :class:`JoinpointEvent` *without* submitting it.
@@ -77,7 +77,7 @@ class JoinpointEmitter:
             name=name,
             host=self._host,
             agent_session_id=agent_session_id,
-            turn_id=turn_id,
+            host_round_id=host_round_id,
             ts=datetime.now(UTC),
             payload=payload,
         )

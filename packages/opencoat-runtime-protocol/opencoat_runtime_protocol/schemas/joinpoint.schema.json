@@ -12,7 +12,8 @@
     "name":              { "type": "string", "minLength": 1 },
     "host":              { "type": "string" },
     "agent_session_id":  { "type": "string" },
-    "turn_id":           { "type": "string" },
+    "host_round_id":      { "type": "string", "description": "Host agent dialog round (e.g. OpenClaw runId). Deprecated alias on wire: turn_id." },
+    "turn_id":            { "type": "string", "deprecated": true, "description": "Use host_round_id." },
     "ts":                { "type": "string", "format": "date-time" },
     "payload":           { "$ref": "#/$defs/JoinpointPayload" }
   },

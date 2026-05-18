@@ -53,7 +53,7 @@ CREATE INDEX IF NOT EXISTS idx_activation_log_ts      ON activation_log(ts);
 
 CREATE TABLE IF NOT EXISTS verification_log (
     concern_id     TEXT NOT NULL REFERENCES concerns(id) ON DELETE CASCADE,
-    turn_id        TEXT NOT NULL,
+    weave_id        TEXT NOT NULL,
     satisfied      INTEGER NOT NULL,
     evidence_json  TEXT,
     ts             TEXT NOT NULL
