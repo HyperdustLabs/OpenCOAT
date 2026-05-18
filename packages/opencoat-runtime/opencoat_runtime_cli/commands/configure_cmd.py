@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
+from opencoat_runtime_llm.bai_client import BAI_DEFAULT_BASE_URL, BAI_DEFAULT_MODEL
 from opencoat_runtime_llm.openai_client import OpenAILLMClient
 
 Mode = Literal["env-file", "inline"]
@@ -94,6 +95,8 @@ def _env_key(name: str, env_path: Path, yaml_path: Path) -> str | None:
     if not isinstance(inline, str) or not inline.strip():
         return None
     provider = llm.get("provider")
+    if name == "BAI_API_KEY" and provider in ("bai", "auto"):
+        return inline.strip()
     if name == "OPENAI_API_KEY" and provider in ("openai", "auto"):
         return inline.strip()
     if name == "ANTHROPIC_API_KEY" and provider in ("anthropic", "auto"):
@@ -140,12 +143,29 @@ def _azure_credential_parts(
     )
 
 
-def _existing_openai_model(env_path: Path, yaml_path: Path) -> str | None:
+def _existing_bai_model(env_path: Path, yaml_path: Path) -> str | None:
+    from_env = _parse_env_file(env_path).get("BAI_MODEL")
+    if from_env:
+        return from_env
+    from_os = os.environ.get("BAI_MODEL")
+    if from_os:
+        return from_os.strip()
     llm = _load_yaml_dict(yaml_path).get("llm")
-    if isinstance(llm, dict):
+    if isinstance(llm, dict) and llm.get("provider") == "bai":
         model = llm.get("model")
         if isinstance(model, str) and model.strip():
             return model.strip()
+    return None
+
+
+def _existing_openai_model(env_path: Path, yaml_path: Path) -> str | None:
+    llm = _load_yaml_dict(yaml_path).get("llm")
+    if isinstance(llm, dict):
+        prov = llm.get("provider")
+        if prov in (None, "openai", "auto"):
+            model = llm.get("model")
+            if isinstance(model, str) and model.strip():
+                return model.strip()
     from_env = _parse_env_file(env_path).get("OPENAI_MODEL")
     if from_env:
         return from_env
@@ -427,7 +447,7 @@ def _collect_interactive(
     print("OpenCOAT — configure daemon LLM\n", file=sys.stderr)
     print(
         "The runtime resolves credentials in this order when provider is `auto`:\n"
-        "  OPENAI_API_KEY → ANTHROPIC_API_KEY → AZURE_OPENAI_API_KEY + AZURE_OPENAI_DEPLOYMENT\n",
+        "  BAI_API_KEY → OPENAI_API_KEY → ANTHROPIC_API_KEY → AZURE_OPENAI_API_KEY + AZURE_OPENAI_DEPLOYMENT\n",
         file=sys.stderr,
     )
     print(
@@ -442,14 +462,22 @@ def _collect_interactive(
     print(
         "\nProvider for daemon YAML:\n"
         "  [1] auto (recommended)\n"
-        "  [2] openai\n"
-        "  [3] anthropic\n"
-        "  [4] azure\n"
-        "  [5] stub (no external LLM — hermetic / CI)\n",
+        "  [2] b.ai (B.AI — https://api.b.ai)\n"
+        "  [3] openai\n"
+        "  [4] anthropic\n"
+        "  [5] azure\n"
+        "  [6] stub (no external LLM — hermetic / CI)\n",
         file=sys.stderr,
     )
     p_raw = input("Provider [1]: ").strip() or "1"
-    provider_map = {"1": "auto", "2": "openai", "3": "anthropic", "4": "azure", "5": "stub"}
+    provider_map = {
+        "1": "auto",
+        "2": "bai",
+        "3": "openai",
+        "4": "anthropic",
+        "5": "azure",
+        "6": "stub",
+    }
     provider = provider_map.get(p_raw, "auto")
 
     if mode == "inline" and provider == "auto":
@@ -469,6 +497,36 @@ def _collect_interactive(
 
     def gp(prompt: str) -> str:
         return getpass.getpass(prompt)
+
+    if provider in ("auto", "bai"):
+        existing_bai = _env_key("BAI_API_KEY", env_path, yaml_path)
+        if existing_bai:
+            src = _credential_source_label("BAI_API_KEY", env_path, yaml_path)
+            bai_prompt = f"B.AI API key (Enter to keep existing from {src}): "
+        else:
+            bai_prompt = "B.AI API key (Enter to skip): "
+        key = gp(bai_prompt).strip()
+        effective_bai = key or existing_bai
+        if key:
+            env_updates["BAI_API_KEY"] = key
+        if provider == "bai" and not effective_bai:
+            print("configure llm: bai provider requires an API key", file=sys.stderr)
+            sys.exit(2)
+        default_model = _existing_bai_model(env_path, yaml_path) or BAI_DEFAULT_MODEL
+        if effective_bai:
+            if provider == "bai":
+                model = _prompt_openai_model(
+                    effective_bai,
+                    default=default_model or BAI_DEFAULT_MODEL,
+                    base_url=BAI_DEFAULT_BASE_URL,
+                )
+            else:
+                model = input(f"B.AI model [{BAI_DEFAULT_MODEL}]: ").strip() or BAI_DEFAULT_MODEL
+            if provider == "bai":
+                llm_inline["model"] = model
+            elif key or existing_bai:
+                llm_inline["model"] = model
+                env_updates["BAI_MODEL"] = model
 
     if provider in ("auto", "openai"):
         existing_openai = _env_key("OPENAI_API_KEY", env_path, yaml_path)
@@ -588,6 +646,7 @@ def _collect_interactive(
             if deployment:
                 env_updates["AZURE_OPENAI_DEPLOYMENT"] = deployment
 
+    has_bai = bool("BAI_API_KEY" in env_updates or _env_key("BAI_API_KEY", env_path, yaml_path))
     has_openai = bool(
         "OPENAI_API_KEY" in env_updates or _env_key("OPENAI_API_KEY", env_path, yaml_path)
     )
@@ -597,16 +656,18 @@ def _collect_interactive(
     az_key, az_ep, az_dep = _azure_credential_parts(env_path, yaml_path, env_updates)
     has_azure = bool(az_key and az_ep and az_dep)
 
-    if provider == "auto" and not (has_openai or has_anthropic or has_azure):
+    if provider == "auto" and not (has_bai or has_openai or has_anthropic or has_azure):
         print(
             "configure llm: provider=auto needs at least one of: "
-            "OPENAI_API_KEY, ANTHROPIC_API_KEY, or Azure triple",
+            "BAI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or Azure triple",
             file=sys.stderr,
         )
         sys.exit(2)
 
     if mode == "inline" and provider != "stub":
         # Move secrets from env_updates into llm_inline for yaml
+        if "BAI_API_KEY" in env_updates:
+            llm_inline["api_key"] = env_updates.pop("BAI_API_KEY")
         if "OPENAI_API_KEY" in env_updates:
             llm_inline["api_key"] = env_updates.pop("OPENAI_API_KEY")
         if "ANTHROPIC_API_KEY" in env_updates:
@@ -640,11 +701,17 @@ def _collect_non_interactive(
 
     if args.model:
         llm["model"] = args.model
+    if provider == "bai" and args.bai_base_url:
+        llm["base_url"] = args.bai_base_url
     if provider == "openai" and args.openai_base_url:
         llm["base_url"] = args.openai_base_url
     if provider == "anthropic" and args.anthropic_base_url:
         llm["base_url"] = args.anthropic_base_url
 
+    if args.bai_api_key:
+        env_updates["BAI_API_KEY"] = args.bai_api_key
+    if args.bai_model_env:
+        env_updates["BAI_MODEL"] = args.bai_model_env
     if args.openai_api_key:
         env_updates["OPENAI_API_KEY"] = args.openai_api_key
     if args.openai_model_env:
@@ -662,9 +729,17 @@ def _collect_non_interactive(
 
     env_path = args.env.expanduser()
     yaml_path = args.yaml.expanduser()
+    bai_key = args.bai_api_key or _env_key("BAI_API_KEY", env_path, yaml_path)
     openai_key = args.openai_api_key or _env_key("OPENAI_API_KEY", env_path, yaml_path)
     anthropic_key = args.anthropic_api_key or _env_key("ANTHROPIC_API_KEY", env_path, yaml_path)
 
+    if provider == "bai" and not bai_key:
+        print(
+            "configure llm: --provider bai requires --bai-api-key "
+            "(or an existing key in opencoat.env / daemon.yaml)",
+            file=sys.stderr,
+        )
+        sys.exit(2)
     if provider == "openai" and not openai_key:
         print(
             "configure llm: --provider openai requires --openai-api-key "
@@ -689,6 +764,7 @@ def _collect_non_interactive(
         )
         sys.exit(2)
     if provider == "auto":
+        has_bai = bool(bai_key)
         has_openai = bool(openai_key)
         has_anthropic = bool(anthropic_key)
         az_key, az_ep, az_dep = _azure_credential_parts(
@@ -705,16 +781,18 @@ def _collect_non_interactive(
             },
         )
         has_azure = bool(az_key and az_ep and az_dep)
-        if not (has_openai or has_anthropic or has_azure):
+        if not (has_bai or has_openai or has_anthropic or has_azure):
             print(
                 "configure llm: --provider auto needs at least one credential set "
-                "(openai, anthropic, or full azure triple)",
+                "(bai, openai, anthropic, or full azure triple)",
                 file=sys.stderr,
             )
             sys.exit(2)
 
     if mode == "inline":
-        if provider == "openai":
+        if provider == "bai":
+            llm["api_key"] = bai_key
+        elif provider == "openai":
             llm["api_key"] = openai_key
         elif provider == "anthropic":
             llm["api_key"] = anthropic_key
@@ -976,7 +1054,7 @@ def _register_llm(sub: argparse._SubParsersAction) -> None:
     )
     p.add_argument(
         "--provider",
-        choices=("auto", "openai", "anthropic", "azure", "stub"),
+        choices=("auto", "bai", "openai", "anthropic", "azure", "stub"),
         default="auto",
         help="daemon llm.provider (non-interactive default: auto)",
     )
@@ -984,7 +1062,16 @@ def _register_llm(sub: argparse._SubParsersAction) -> None:
         "--timeout-seconds", type=float, default=30.0, help="llm.timeout_seconds written to YAML"
     )
     p.add_argument(
-        "--model", default=None, help="llm.model in YAML (openai/anthropic explicit providers)"
+        "--model",
+        default=None,
+        help="llm.model in YAML (bai/openai/anthropic explicit providers)",
+    )
+    p.add_argument(
+        "--bai-api-key", default=os.environ.get("BAI_API_KEY"), help="non-interactive B.AI key"
+    )
+    p.add_argument("--bai-model-env", default=None, help="set BAI_MODEL in env file (auto mode)")
+    p.add_argument(
+        "--bai-base-url", default=None, help="llm.base_url when provider=bai (default https://api.b.ai/v1)"
     )
     p.add_argument(
         "--openai-api-key", default=os.environ.get("OPENAI_API_KEY"), help="non-interactive"

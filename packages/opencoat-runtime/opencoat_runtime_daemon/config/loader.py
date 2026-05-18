@@ -90,6 +90,9 @@ def _read_yaml(path: Path) -> dict[str, Any]:
 # toggles (e.g. ``OPENCOAT_TEST_MEMORY_STORES``).
 _MERGEABLE_OPENCOAT_ENV_KEYS: frozenset[str] = frozenset(
     {
+        "BAI_API_KEY",
+        "BAI_BASE_URL",
+        "BAI_MODEL",
         "ANTHROPIC_API_KEY",
         "ANTHROPIC_BASE_URL",
         "ANTHROPIC_MODEL",
