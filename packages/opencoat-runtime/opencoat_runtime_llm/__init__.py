@@ -58,20 +58,20 @@ def __getattr__(name: str) -> Any:
 
 
 if TYPE_CHECKING:  # pragma: no cover — re-exported for static analysis only
-    from .bai_client import BAI_DEFAULT_BASE_URL, BAI_DEFAULT_MODEL, BaiClientError, BaiLLMClient
     from .anthropic_client import AnthropicClientError, AnthropicLLMClient
     from .azure_openai_client import AzureOpenAIClientError, AzureOpenAILLMClient
+    from .bai_client import BAI_DEFAULT_BASE_URL, BAI_DEFAULT_MODEL, BaiClientError, BaiLLMClient
     from .openai_client import OpenAIClientError, OpenAILLMClient
 
 __all__ = [
     "BAI_DEFAULT_BASE_URL",
     "BAI_DEFAULT_MODEL",
-    "BaiClientError",
-    "BaiLLMClient",
     "AnthropicClientError",
     "AnthropicLLMClient",
     "AzureOpenAIClientError",
     "AzureOpenAILLMClient",
+    "BaiClientError",
+    "BaiLLMClient",
     "OpenAIClientError",
     "OpenAILLMClient",
     "StubLLMClient",
