@@ -144,13 +144,15 @@ chain_ref schema ── (independent — protocol surface only)
 #### M6 prerequisites
 
 Complete **before** the first M6 implementation PR (`feat/m6-lifecycle-workers`).
-These are sequencing gates, not part of the M6 exit criteria.
+These are sequencing gates, not part of the M6 exit criteria. Record results in
+[`m6-prerequisites-status.md`](./m6-prerequisites-status.md); automation:
+[`scripts/verify-m6-prerequisites.sh`](../../scripts/verify-m6-prerequisites.sh).
 
 | # | Prerequisite | How to verify |
 | --- | --- | --- |
 | **P1** | Joinpoint **hot path** stable on current `main` | `JoinpointPipeline` + `JoinpointDiscovery`; bridge forwards `messages[]` on `before_prompt_build` ([#65](https://github.com/HyperdustLabs/OpenCOAT/pull/65)); AOP concern shape + activation-time `ConflictResolver` / `declare precedence` from full catalog ([#66](https://github.com/HyperdustLabs/OpenCOAT/pull/66), [#67](https://github.com/HyperdustLabs/OpenCOAT/pull/67)). `uv run pytest packages/opencoat-runtime/tests/core` green. |
 | **P2** | **Live OpenClaw** smoke (not only in-tree `04_openclaw_with_runtime`) | Run daemon from repo `main` (`uv run opencoat runtime up`, not a stale pip wheel without discovery). Install bridge, restart gateway, walk [bridge README §3](../../integrations/openclaw-opencoat-bridge/README.md) pass table (`#msg:N` in DCN, `user_message` guard counter-example). Record pass/fail in a PR comment or issue — unblocks attributing soak failures to workers vs bridge/joinpoints. |
-| **P3** | **Conflict paths** understood by implementers | **Activation-time:** `ConflictResolver` + `resolver/precedence.py` (already on `main`) drops losers per joinpoint. **Background (M6):** `ConflictScannerWorker` maintains DCN `conflicts_with` (and related) edges — do not re-implement precedence there; align with `core/meta/conflict_resolution.py` for Meta policy. |
+| **P3** | **Conflict paths** understood by implementers | Read [`m6-conflict-paths.md`](./m6-conflict-paths.md). **Activation-time:** `ConflictResolver` + `resolver/precedence.py` (already on `main`). **Background (M6):** `ConflictScannerWorker` writes DCN edges — do not re-implement precedence there. |
 
 **Out of scope for M6** (track as follow-up PRs after soak): multi-advice around
 chains; full DCN export of AOP graph edges (`declares_precedence_over`); see

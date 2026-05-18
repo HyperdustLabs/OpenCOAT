@@ -38,8 +38,12 @@ weave semantics.
 - Matcher / weaver read `primary_pointcut()` / `primary_advice()` /
   `primary_weaving()` so both authoring styles work.
 - New examples and bridge docs should show AOP-shaped JSON where possible.
-- Full `declare precedence` in `ConflictResolver` and multi-advice ordering are
-  follow-up PRs; this ADR locks the schema and normalization contract.
+- **`declare precedence`** in `ConflictResolver` (with beats from the full concern
+  catalog) landed in [#67](https://github.com/HyperdustLabs/OpenCOAT/pull/67).
+  See [m6-conflict-paths.md](../07-mvp/m6-conflict-paths.md) for activation-time
+  vs background conflict workers.
+- **Still follow-up:** multi-advice around ordering chain; DCN export of AOP graph
+  edges (`declares_precedence_over`).
 
 ## References
 
