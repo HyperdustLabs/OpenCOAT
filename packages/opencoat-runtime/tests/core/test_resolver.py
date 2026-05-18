@@ -120,6 +120,20 @@ class TestConflictResolver:
         kept = ConflictResolver().resolve([(loser, 0.9), (winner, 0.1)])
         assert [c.id for c, _ in kept] == ["winner"]
 
+    def test_precedence_from_catalog_policy_concern_not_in_ranked(self) -> None:
+        ordering = Concern(
+            id="ordering-only",
+            name="ordering",
+            declarations=[DeclarePrecedence(order=["high", "low"])],
+        )
+        high = _concern("high")
+        low = _concern("low")
+        kept = ConflictResolver().resolve(
+            [(low, 0.99), (high, 0.1)],
+            concern_catalog=[ordering, high, low],
+        )
+        assert [c.id for c, _ in kept] == ["high"]
+
 
 # ---------------------------------------------------------------------------
 # EscalationManager

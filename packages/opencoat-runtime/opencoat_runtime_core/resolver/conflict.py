@@ -16,6 +16,8 @@ Both rules drop the loser entirely from the ranked list. Soft penalties
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from opencoat_runtime_protocol import Concern, ConcernRelationType
 
 from .precedence import build_precedence_beats, precedence_drops
@@ -45,16 +47,18 @@ class ConflictResolver:
     def resolve(
         self,
         ranked: list[tuple[Concern, float]],
+        *,
+        concern_catalog: Sequence[Concern] | None = None,
     ) -> list[tuple[Concern, float]]:
         if not ranked:
             return []
 
         scores = {c.id: s for c, s in ranked}
-        concerns = [c for c, _ in ranked]
         dropped: set[str] = set()
 
-        # 1. AOP declare precedence (AspectJ) and declares_precedence_over edges.
-        beats = build_precedence_beats(concerns)
+        # 1. AOP declare precedence (AspectJ) — rules from full catalog, applied to active set.
+        catalog = list(concern_catalog) if concern_catalog is not None else [c for c, _ in ranked]
+        beats = build_precedence_beats(catalog)
         dropped |= precedence_drops(ranked, beats)
 
         # 2. Hard suppression: directional ``suppresses`` always wins.

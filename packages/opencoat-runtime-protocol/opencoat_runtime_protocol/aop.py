@@ -89,7 +89,11 @@ def _default_advice_kind(template: AdviceType | str | None) -> AdviceKind:
     if template is None:
         return AdviceKind.BEFORE
     t = AdviceType(template) if not isinstance(template, AdviceType) else template
-    if t in (AdviceType.VERIFICATION_RULE, AdviceType.REFLECTION_PROMPT, AdviceType.ESCALATION_NOTICE):
+    if t in (
+        AdviceType.VERIFICATION_RULE,
+        AdviceType.REFLECTION_PROMPT,
+        AdviceType.ESCALATION_NOTICE,
+    ):
         return AdviceKind.AFTER
     if t in (AdviceType.SUPPRESS_INSTRUCTION, AdviceType.REWRITE_GUIDANCE):
         return AdviceKind.AROUND
@@ -134,9 +138,7 @@ def legacy_to_aop_lists(
 
     for rel in concern.relations:
         if rel.relation_type == ConcernRelationType.DECLARES_PRECEDENCE_OVER:
-            declarations.append(
-                DeclarePrecedence(order=[concern.id, rel.target_concern_id])
-            )
+            declarations.append(DeclarePrecedence(order=[concern.id, rel.target_concern_id]))
 
     return pointcuts, advices, declarations
 

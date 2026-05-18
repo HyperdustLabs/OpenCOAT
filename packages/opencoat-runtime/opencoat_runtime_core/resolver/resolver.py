@@ -19,6 +19,7 @@ escalations. The coordinator reads it after :meth:`resolve` returns.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from opencoat_runtime_protocol import Concern
@@ -44,6 +45,8 @@ class ConcernResolver:
     def resolve(
         self,
         ranked: list[tuple[Concern, float]],
+        *,
+        concern_catalog: Sequence[Concern] | None = None,
     ) -> list[tuple[Concern, float]]:
         if not ranked:
             self._last_escalations = []
@@ -56,7 +59,7 @@ class ConcernResolver:
         dedup_ranked = [(c, score_map[c.id]) for c, _ in ranked if c.id in deduped_ids]
 
         # 2. conflict resolution
-        resolved = self._conflict.resolve(dedup_ranked)
+        resolved = self._conflict.resolve(dedup_ranked, concern_catalog=concern_catalog)
 
         # 3. escalation tagging (read-only side channel)
         self._last_escalations = self._collect_escalations(resolved)

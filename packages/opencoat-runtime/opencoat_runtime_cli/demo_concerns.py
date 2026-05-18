@@ -15,6 +15,7 @@ from opencoat_runtime_protocol import (
     WeavingOperation,
     WeavingPolicy,
 )
+from opencoat_runtime_protocol.envelopes import PointcutMatch
 
 DEMO_PROMPT_PREFIX_ID = "demo-prompt-prefix"
 DEMO_TOOL_BLOCK_ID = "demo-tool-block"
@@ -59,8 +60,9 @@ def _demo_tool_block() -> Concern:
         pointcuts=[
             PointcutDef(
                 id="pc-tool",
-                expression='before_tool_call() && args("rm -rf")',
+                expression="before_tool_call()",
                 joinpoints=["before_tool_call"],
+                match=PointcutMatch(any_keywords=["rm -rf", "rm  -rf"]),
             ),
         ],
         advices=[

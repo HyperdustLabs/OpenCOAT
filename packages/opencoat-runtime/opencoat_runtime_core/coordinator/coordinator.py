@@ -19,6 +19,7 @@ read-only property for the joinpoint pipeline to consume.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -64,6 +65,7 @@ class ConcernCoordinator:
         candidates: list[CandidateTuple],
         joinpoint: JoinpointEvent,
         context: dict | None = None,
+        concern_catalog: Sequence[Concern] | None = None,
     ) -> ConcernVector:
         if not candidates:
             self._last_escalations = []
@@ -71,7 +73,7 @@ class ConcernCoordinator:
 
         scored, match_jps = _split_candidates(candidates, joinpoint)
         ranked = self._priority.rank(scored, context=context)
-        resolved = self._resolver.resolve(ranked)
+        resolved = self._resolver.resolve(ranked, concern_catalog=concern_catalog)
         self._last_escalations = list(self._resolver.last_escalations)
 
         budgeted = self._budget.enforce(resolved)
