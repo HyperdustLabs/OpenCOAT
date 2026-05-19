@@ -1,24 +1,23 @@
-# M6 prerequisites — status
+# M6 prerequisites — verification status
 
-Tracking for [§5A prerequisites](./post-m5-roadmap.md#5a-m6-split-4-prs). Update when gates are re-run on a new machine or after breaking changes on `main`.
+Tracked against [post-m5-roadmap §5A](./post-m5-roadmap.md#5a-m6-split-4-prs).
+Re-run automation: `./scripts/verify-m6-prerequisites.sh` from repo root (daemon on
+`127.0.0.1:7878`).
 
-| ID | Status | Notes |
+| ID | Gate | Status | Evidence |
+| --- | --- | --- | --- |
+| **P1** | Joinpoint hot path on `main` | **PASS** | `uv run pytest packages/opencoat-runtime/tests/core` |
+| **P2a** | Daemon RPC smoke (`messages[]`, `#msg:`) | **PASS** | `./scripts/verify-m6-prerequisites.sh`; `user-shell-guard` in injections |
+| **P2b** | Live OpenClaw gateway + bridge | **PASS** | 2026-05-18 local smoke — bridge README §3; NVDA concerns weave on `before_response` |
+| **P3** | Conflict paths documented | **PASS** | [m6-conflict-paths.md](./m6-conflict-paths.md); [ADR-0010](../adr/0010-concern-aop-syntax.md) |
+
+## M6 implementation (`feat/m6-lifecycle-workers`)
+
+| PR slice | Status | Notes |
 | --- | --- | --- |
-| **P1** | PASS | Core joinpoint / AOP tests on `main` (see roadmap P1 row). |
-| **P2** | PASS | Live OpenClaw smoke — 2026-05-18, local (bridge README §3 pass table). |
-| **P3** | PASS | Activation-time `ConflictResolver` vs M6 `ConflictScannerWorker` — see roadmap P3 row and `adr/0010-concern-aop-syntax.md`. |
+| **PR1** decay + `ConflictScannerWorker` + scheduler | **in progress** | `DecayWorker`, `ConflictScannerWorker`, `HeartbeatLoop` maintenance hook, `Scheduler.start` in daemon |
+| **PR2** merge + archive | pending | `merge_archiver.py` stub |
+| **PR3** meta-review | pending | ADR-0008 governance loop |
+| **PR4** 24h soak + example | pending | `examples/07_meta_governance_soak` |
 
-## P2 — Live OpenClaw (2026-05-18)
-
-Environment: OpenCOAT daemon on `:7878` (repo `packages/opencoat-runtime` via pipx editable), B.AI `gpt-5.2`, OpenClaw gateway `:18789`, bridge `@hyperdustlabs/opencoat-bridge` with `allowPromptInjection` + `logActivations`.
-
-| Check | Result |
-| --- | --- |
-| `injections` non-empty on user shell question | PASS — TUI/curl: `How do I list files in shell safely?` |
-| DCN `joinpoint_id` contains `#msg:` (`jp-oc-…#msg:N`) | PASS — e.g. `jp-oc-…#msg:0` on live turns |
-| Harmless user line does not fire `user_message` guard | PASS — new session `tui-012536e6-…`, Tokyo weather only; no DCN row after `rm -rf` session (`16:02:43`) |
-| `opencoat concern list` shows imported concern | PASS — `user-shell-guard`, demo set, etc. |
-
-Counter-example nuance: re-scanning **earlier user rows** in the same `messages[]` still activates `#msg:0` (e.g. prior line containing `shell`). Use a **new session** or inspect `#msg:N` suffix when interpreting DCN.
-
-See also: [bridge README §3](../../integrations/openclaw-opencoat-bridge/README.md#3-live-openclaw-verification-checklist), [B.AI + OpenClaw](../config/bai-llm.md#openclaw--bai).
+**Next:** finish PR1 tests on CI, then merge/archive workers (PR2).

@@ -33,6 +33,7 @@ from .config.loader import DaemonConfig
 from .ipc.http_server import HttpServer
 from .ipc.jsonrpc_dispatch import JsonRpcHandler
 from .runtime_builder import BuiltRuntime, build_runtime, warm_persistent_stores
+from .scheduler import Scheduler
 
 logger = logging.getLogger("opencoat_runtime_daemon")
 
@@ -66,6 +67,7 @@ class Daemon:
         self._handler: JsonRpcHandler | None = None
         self._http: HttpServer | None = None
         self._http_thread: threading.Thread | None = None
+        self._scheduler: Scheduler | None = None
         self._stop_event = threading.Event()
         self._state_lock = threading.Lock()
         self._started = False
@@ -111,6 +113,7 @@ class Daemon:
                     llm_info=self._built.llm_info,
                 )
                 self._maybe_start_http()
+                self._maybe_start_scheduler()
                 logger.info(
                     "OpenCOAT daemon started (llm=%s, http=%s)",
                     self._built.llm_label,
@@ -247,6 +250,25 @@ class Daemon:
             return "disabled"
         return f"{self._http.host}:{self._http.port}{self._http.path}"
 
+    def _heartbeat_tick(self) -> None:
+        """Invoke one heartbeat on the **current** runtime (survives :meth:`reload`)."""
+        built = self._built
+        if built is None:
+            return
+        built.runtime.tick()
+
+    def _maybe_start_scheduler(self) -> None:
+        loops = self._config.runtime.loops
+        if not loops.heartbeat_enabled:
+            return
+        if self._built is None:
+            return
+        self._scheduler = Scheduler(
+            self._heartbeat_tick,
+            heartbeat_interval_seconds=loops.heartbeat_interval_seconds,
+        )
+        self._scheduler.start()
+
     def _maybe_start_http(self) -> None:
         ipc = self._config.ipc.http
         if not getattr(ipc, "enabled", False):
@@ -269,6 +291,12 @@ class Daemon:
 
     def _teardown_locked(self) -> None:
         """Tear down resources. Caller holds ``_state_lock``."""
+        if self._scheduler is not None:
+            try:
+                self._scheduler.stop()
+            except Exception:  # pragma: no cover
+                logger.exception("error stopping heartbeat scheduler")
+            self._scheduler = None
         if self._http is not None:
             try:
                 self._http.shutdown()

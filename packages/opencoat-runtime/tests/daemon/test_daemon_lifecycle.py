@@ -10,6 +10,7 @@ import time
 from http import HTTPStatus
 from http.client import HTTPConnection
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from opencoat_runtime_daemon import Daemon, DaemonAlreadyStartedError
@@ -181,6 +182,29 @@ def test_reload_swaps_runtime_without_restarting_socket(tmp_path: Path) -> None:
         resp = conn.getresponse()
         assert resp.status == HTTPStatus.OK
         conn.close()
+    finally:
+        d.stop()
+
+
+def test_reload_heartbeat_ticks_current_runtime(tmp_path: Path) -> None:
+    """After reload, the scheduler must tick the new runtime, not the closed one."""
+    cfg = _no_http_cfg()
+    cfg.runtime.loops.heartbeat_enabled = True
+    cfg.runtime.loops.heartbeat_interval_seconds = 3600.0
+    d = Daemon(cfg, env={}, pid_file=tmp_path / "opencoat.pid")
+    d.start()
+    try:
+        old_runtime = d._built.runtime
+        d.reload()
+        new_runtime = d._built.runtime
+        assert new_runtime is not old_runtime
+        with (
+            patch.object(old_runtime, "tick") as old_tick,
+            patch.object(new_runtime, "tick") as new_tick,
+        ):
+            d._heartbeat_tick()
+        old_tick.assert_not_called()
+        new_tick.assert_called_once()
     finally:
         d.stop()
 

@@ -1,4 +1,10 @@
-import type { AgentHookCtx, BridgeConfig, ConcernInjection, JoinpointWire } from "./types.js";
+import type {
+  AgentHookCtx,
+  BridgeConfig,
+  ConcernExtractResult,
+  ConcernInjection,
+  JoinpointWire,
+} from "./types.js";
 
 const JOINPOINT_LEVEL_LIFECYCLE = 1;
 
@@ -10,6 +16,7 @@ export function resolveConfig(raw: Record<string, unknown> | undefined): BridgeC
     daemonUrl,
     enabled: raw?.enabled !== false,
     logActivations: raw?.logActivations === true,
+    extractOnUserMessage: raw?.extractOnUserMessage === true,
   };
 }
 
@@ -21,9 +28,59 @@ export function newJoinpointId(): string {
   return `jp-oc-${crypto.randomUUID()}`;
 }
 
+export async function extractConcernsFromChat(
+  cfg: BridgeConfig,
+  text: string,
+  ref: string | undefined,
+): Promise<ConcernExtractResult | null> {
+  if (!cfg.enabled || !text.trim()) return null;
+
+  const body = {
+    jsonrpc: "2.0",
+    method: "concern.extract",
+    id: `extract-${crypto.randomUUID()}`,
+    params: {
+      text,
+      origin: "user_input",
+      ...(ref ? { ref } : {}),
+    },
+  };
+
+  let res: Response;
+  try {
+    res = await fetch(cfg.daemonUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120_000),
+    });
+  } catch (err) {
+    throw new Error(
+      `OpenCOAT concern.extract failed at ${cfg.daemonUrl}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+
+  if (!res.ok) {
+    const textBody = await res.text().catch(() => "");
+    throw new Error(`OpenCOAT concern.extract HTTP ${res.status}: ${textBody.slice(0, 200)}`);
+  }
+
+  const json = (await res.json()) as {
+    result?: ConcernExtractResult;
+    error?: { message?: string };
+  };
+  if (json.error) {
+    throw new Error(json.error.message ?? "concern.extract failed");
+  }
+  return json.result ?? null;
+}
+
 export async function submitJoinpoint(
   cfg: BridgeConfig,
   joinpoint: JoinpointWire,
+  options?: { extractFromChat?: boolean },
 ): Promise<ConcernInjection | null> {
   if (!cfg.enabled) return null;
 
@@ -31,7 +88,10 @@ export async function submitJoinpoint(
     jsonrpc: "2.0",
     method: "joinpoint.submit",
     id: joinpoint.id,
-    params: { joinpoint },
+    params: {
+      joinpoint,
+      ...(options?.extractFromChat ? { extract_from_chat: true } : {}),
+    },
   };
 
   let res: Response;
