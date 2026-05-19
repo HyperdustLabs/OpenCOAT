@@ -6,17 +6,24 @@ import type {
   JoinpointWire,
 } from "./types.js";
 
+const JOINPOINT_LEVEL_RUNTIME = 0;
 const JOINPOINT_LEVEL_LIFECYCLE = 1;
 
 export function resolveConfig(raw: Record<string, unknown> | undefined): BridgeConfig {
   const daemonUrl =
     (typeof raw?.daemonUrl === "string" && raw.daemonUrl.trim()) ||
     "http://127.0.0.1:7878/rpc";
+  const observerPollMs =
+    typeof raw?.observerPollMs === "number" && raw.observerPollMs >= 100
+      ? raw.observerPollMs
+      : 500;
   return {
     daemonUrl,
     enabled: raw?.enabled !== false,
     logActivations: raw?.logActivations === true,
     extractOnUserMessage: raw?.extractOnUserMessage === true,
+    runtimeObservers: raw?.runtimeObservers !== false,
+    observerPollMs,
   };
 }
 
@@ -131,12 +138,13 @@ export function buildJoinpoint(
   name: string,
   payload: Record<string, unknown>,
   ctx: AgentHookCtx,
+  level: number = JOINPOINT_LEVEL_LIFECYCLE,
 ): JoinpointWire {
   const id = newJoinpointId();
   const session = ctx.sessionId ?? ctx.sessionKey;
   return {
     id,
-    level: JOINPOINT_LEVEL_LIFECYCLE,
+    level,
     name,
     host: "openclaw",
     agent_session_id: session,

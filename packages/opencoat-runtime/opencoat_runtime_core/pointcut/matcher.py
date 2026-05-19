@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from opencoat_runtime_protocol import JoinpointEvent, JoinpointSelector, Pointcut
 
+from ..joinpoint.aliases import joinpoint_names_match
 from ..ports.matcher import MatcherPlugin, MatchResult
 from ..types import JSON
 from ._context import (
@@ -120,7 +121,7 @@ class PointcutMatcher(MatcherPlugin):
 def _joinpoint_passes(compiled: CompiledPointcut, jp: JoinpointEvent) -> bool:
     if not compiled.joinpoint_names and not compiled.joinpoint_selectors:
         return True
-    if jp.name in compiled.joinpoint_names:
+    if any(joinpoint_names_match(name, jp.name) for name in compiled.joinpoint_names):
         return True
     return any(_selector_matches(sel, jp) for sel in compiled.joinpoint_selectors)
 

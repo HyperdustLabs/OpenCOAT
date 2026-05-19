@@ -37,6 +37,10 @@ legacy `pointcut` / `advice` / `weaving_policy` are optional and sync automatica
 
 ## Message-level guard (OpenClaw bridge)
 
+The gateway bridge registers **26** plugin hooks plus **runtime observers** (`onAgentEvent`,
+queue/task poll) for MVP joinpoints such as `queue.before_enqueue` and `reply_run.before_begin`
+(observe-only — see [joinpoint model §4.1](../design/opencoat-openclaw-joinpoint-model-v0.1.md#41-mvp-emit-status-bridge-integrationsopenclaw-opencoat-bridge)).
+
 Prefer `user_message()` over flat `before_response` when the bridge sends `messages[]`:
 
 ```json

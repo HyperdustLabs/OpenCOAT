@@ -13,7 +13,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test dist/messages.test.js",
+    "test": "npm run build && node --test dist/messages.test.js dist/hook-bindings.test.js dist/runtime-observers.test.js",
     "prepare": "npm run build"
   },
   "devDependencies": {

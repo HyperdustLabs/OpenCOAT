@@ -77,6 +77,52 @@ export function guardToolCall(
   };
 }
 
+/** Any BLOCK / suppress / escalate row in the injection. */
+export function hasBlockingAdvice(injection: ConcernInjection | null): boolean {
+  if (!injection?.injections?.length) return false;
+  return injection.injections.some(
+    (row) =>
+      BLOCK_MODES.has(row.mode) ||
+      (row.advice_type === "tool_guard" && row.mode === "block"),
+  );
+}
+
+export function blockReasonFromInjection(
+  injection: ConcernInjection | null,
+): string | undefined {
+  if (!injection?.injections?.length) return undefined;
+  const reasons: string[] = [];
+  for (const row of injection.injections) {
+    if (!BLOCK_MODES.has(row.mode) && row.mode !== "block") continue;
+    if (row.content.trim()) reasons.push(row.content.trim());
+  }
+  return reasons.length ? reasons.join("\n") : undefined;
+}
+
+/** Outbound message hook: cancel send when response-level BLOCK advice is present. */
+export function messageSendingDecision(
+  injection: ConcernInjection | null,
+): { cancel?: boolean; content?: string } {
+  if (!hasBlockingAdvice(injection)) return {};
+  const block = foldPromptInjection(injection);
+  const reason = blockReasonFromInjection(injection);
+  return {
+    cancel: true,
+    content: reason ?? "Blocked by OpenCOAT concern.",
+  };
+}
+
+/** Subagent spawn veto when task-scoped or global BLOCK advice matches. */
+export function subagentSpawnDecision(
+  injection: ConcernInjection | null,
+): { status: "ok" } | { status: "error"; error: string } {
+  if (!hasBlockingAdvice(injection)) return { status: "ok" };
+  const reason =
+    blockReasonFromInjection(injection) ??
+    "Blocked by OpenCOAT concern (subagent spawn).";
+  return { status: "error", error: reason };
+}
+
 export function mergeInjections(
   ...injections: Array<ConcernInjection | null>
 ): ConcernInjection | null {

@@ -10,13 +10,48 @@ the generated `opencoat_plugin/` folder.
 
 ## Hook → joinpoint mapping
 
+The bridge registers **26** of **29** OpenClaw plugin hooks (`hook-bindings.ts`).
+Skipped: `before_message_write`, `tool_result_persist` (sync hot path — cannot await daemon RPC),
+`before_install` (install-only).
 
-| OpenClaw hook         | OpenCOAT joinpoint | Effect                                              |
-| --------------------- | ------------------ | --------------------------------------------------- |
-| `message_received`    | `on_user_input`    | Submit + buffer injection                           |
-| `before_prompt_build` | `before_response`  | Submit + `prependSystemContext`                     |
-| `before_tool_call`    | `before_tool_call` | Submit + `{ block, blockReason }` when `tool_guard` |
-| `session_start`       | `runtime_start`    | Submit (e.g. `demo-prompt-prefix`)                  |
+| OpenClaw hook | OpenCOAT joinpoint | Effect |
+| --- | --- | --- |
+| `session_start` | `runtime_start` | submit (observe) |
+| `session_end` | `runtime_stop` | submit |
+| `gateway_start` / `gateway_stop` | `runtime_start` / `runtime_stop` | submit (level 0) |
+| `before_reset` | `runtime_recovery` | submit |
+| `message_received` | `on_user_input` | submit + buffer; optional `extract_from_chat` |
+| `inbound_claim` / `before_dispatch` | `on_user_input` | submit |
+| `before_prompt_build` | `before_response` | submit + **`prependSystemContext`** |
+| `before_agent_start` | `before_reasoning` | submit |
+| `before_agent_reply` / `reply_dispatch` | `before_response` | submit |
+| `llm_input` | `before_reasoning` | submit |
+| `llm_output` | `after_reasoning` | submit |
+| `agent_end` / `message_sent` | `after_response` | submit |
+| `message_sending` | `before_response` | submit + **`cancel`** when BLOCK advice |
+| `before_tool_call` | `before_tool_call` | submit + **`block`** / param guard |
+| `after_tool_call` | `after_tool_call` | submit (DCN activation) |
+| `before_compaction` / `after_compaction` | `before_memory_write` / `after_memory_write` | submit |
+| `subagent_spawning` | `task.before_create` | submit + **`status: error`** when BLOCK |
+| `subagent_delivery_target` / `subagent_spawned` | `task.after_create` | submit |
+| `subagent_ended` | `task.before_terminal` | submit |
+| `before_model_resolve` | `before_reasoning` | submit |
+
+### Runtime observers (no extra OpenClaw plugin hooks)
+
+When `runtimeObservers` is true (default), the bridge also subscribes to host surfaces
+that are **not** `api.on` plugin hooks:
+
+| Source | Joinpoints emitted | Notes |
+| --- | --- | --- |
+| `api.runtime.events.onAgentEvent` | `reply_run.before_begin`, `reply_run.phase.running`, `planning.plan_updated`, `approval.requested`, compaction → memory JPs | Lifecycle `start` ≈ run begin; first assistant/tool/item after start ≈ `running` |
+| `api.registerHook` `session:compact:*` | `before_memory_write` / `after_memory_write` | Same boundary as plugin compaction hooks |
+| Poll `getFollowupQueueDepth` (host dist) | `queue.before_enqueue`, `queue.before_collect` | Depth diff per tracked `sessionKey` |
+| Poll `api.runtime.tasks.runs.bindSession().list()` | `task.before_create`, `task.after_create`, `task.before_terminal` | First sight + status transitions (incl. non-subagent `createTaskRecord`) |
+
+Tracked sessions: any hook `ctx.sessionKey` plus agent events. Poll interval: `observerPollMs` (default 500).
+
+Pointcuts may use legacy names (`before_tool_call`) or v0.1 aliases (`tool.before_call`) — see ADR-0011.
 
 
 ## Prerequisites
@@ -80,6 +115,8 @@ curl -sS http://127.0.0.1:7878/rpc -H 'Content-Type: application/json' \
 | `enabled`              | `true`                      | Set `false` to no-op (hooks still register)                                 |
 | `logActivations`       | `false`                     | Log matched concern ids per joinpoint                                       |
 | `extractOnUserMessage` | `false`                     | Run `concern.extract` on user chat via `joinpoint.submit` before weave (LLM) |
+| `runtimeObservers`     | `true`                      | Agent events + queue/task poll + internal compact hooks                    |
+| `observerPollMs`       | `500`                       | Queue/task poll interval (ms, min 100)                                       |
 
 
 ## Prompt-code / messages passthrough
@@ -232,6 +269,15 @@ curl -sS http://127.0.0.1:7878/rpc -H 'Content-Type: application/json' \
 
 Requires **JoinpointDiscovery** (`expand_prompt_surface` on by default). Older daemons ignore `messages[]` and only match lifecycle names.
 
+## Reload after upgrade
+
+```bash
+cd /path/to/OpenCOAT/integrations/openclaw-opencoat-bridge
+npm run build
+openclaw gateway restart
+grep opencoat-bridge ~/.openclaw/logs/gateway.log   # expect "registered 26 hooks" + runtime observers
+```
+
 ## Weaving expectations
 
 | Hook / joinpoint | Typical injections |
@@ -250,7 +296,8 @@ daemon). Extraction updates the concern store; it does not always add rows to
 ## Limitations (v0.1 bridge)
 
 - Prompt folding uses `prependSystemContext` only (not full dotted-path injector parity with Python `OpenClawInjector`).
-- `before_memory_write` / memory bridge not wired yet.
+- Queue/task joinpoints are **observe-only** (poll / diff), not synchronous veto at `enqueueFollowupRun` / `createTaskRecord` — true before-moment guards need OpenClaw to call plugin hooks at those call sites or accept policy suggestions from submit results.
+- `reply_run.*` from agent events approximates `ReplyRunRegistry` phases; sub-second phase edges may be missed without native hooks.
 - Double joinpoint fire (`on_user_input` + `before_response`) is intentional when concerns list both.
 - Section discovery depends on hosts passing `sections` on message objects (uncommon today); message-level JPs always apply when `messages` is present.
 

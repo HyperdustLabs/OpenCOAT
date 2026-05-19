@@ -80,6 +80,83 @@ _ADVICEEXECUTION = (
     CatalogEntry("adviceexecution", JoinpointLevel.LIFECYCLE, "after advice was applied"),
 )
 
+# OpenClaw v0.1 MVP joinpoints (ADR-0011) — see bridge runtime observers + plugin hooks
+_OPENCLAW_V01_MVP_ONLY = (
+    CatalogEntry(
+        "queue.before_enqueue",
+        JoinpointLevel.LIFECYCLE,
+        "Bridge: queue depth poll (observe; not sync at enqueueFollowupRun)",
+    ),
+    CatalogEntry(
+        "queue.before_collect",
+        JoinpointLevel.LIFECYCLE,
+        "Bridge: queue depth poll when depth decreases",
+    ),
+    CatalogEntry(
+        "reply_run.before_begin",
+        JoinpointLevel.LIFECYCLE,
+        "Bridge: onAgentEvent lifecycle start",
+    ),
+    CatalogEntry(
+        "reply_run.phase.running",
+        JoinpointLevel.LIFECYCLE,
+        "Bridge: first assistant/tool/item after lifecycle start",
+    ),
+    CatalogEntry(
+        "approval.requested",
+        JoinpointLevel.LIFECYCLE,
+        "Bridge: onAgentEvent approval stream",
+    ),
+    CatalogEntry(
+        "task.before_create",
+        JoinpointLevel.LIFECYCLE,
+        "Bridge: subagent_spawning + task registry poll (first sight)",
+    ),
+    CatalogEntry(
+        "task.after_create",
+        JoinpointLevel.LIFECYCLE,
+        "Bridge: subagent_spawned / delivery_target + task poll",
+    ),
+    CatalogEntry(
+        "task.before_terminal",
+        JoinpointLevel.LIFECYCLE,
+        "Bridge: subagent_ended + task poll (status → terminal)",
+    ),
+    CatalogEntry(
+        "verification.after_fail",
+        JoinpointLevel.LIFECYCLE,
+        "Concern verifier fail path (not emitted by bridge yet)",
+    ),
+)
+
+# v0.1 dotted aliases registered for inspect / pointcut validation (matcher resolves)
+_OPENCLAW_V01_ALIASED = (
+    CatalogEntry("input.received", JoinpointLevel.LIFECYCLE, "alias of on_user_input"),
+    CatalogEntry("tool.before_call", JoinpointLevel.LIFECYCLE, "alias of before_tool_call"),
+    CatalogEntry(
+        "tool.result.received",
+        JoinpointLevel.LIFECYCLE,
+        "alias of after_tool_call",
+    ),
+    CatalogEntry(
+        "prompt.before_send_to_model",
+        JoinpointLevel.LIFECYCLE,
+        "alias of before_response",
+    ),
+    CatalogEntry(
+        "planning.plan_updated",
+        JoinpointLevel.LIFECYCLE,
+        "alias of after_planning; bridge: onAgentEvent plan stream",
+    ),
+    CatalogEntry(
+        "response.before_final",
+        JoinpointLevel.LIFECYCLE,
+        "alias of before_response",
+    ),
+    CatalogEntry("heartbeat.before_run", JoinpointLevel.LIFECYCLE, "alias of on_heartbeat"),
+    CatalogEntry("error.detected", JoinpointLevel.LIFECYCLE, "alias of on_error"),
+)
+
 
 class JoinpointCatalog:
     """In-memory registry of joinpoint names. Hosts may add custom entries."""
@@ -107,6 +184,13 @@ class JoinpointCatalog:
 
 
 JOINPOINT_CATALOG = JoinpointCatalog(
-    _RUNTIME + _LIFECYCLE + _MESSAGE + _PROMPT_SECTION + _SPAN_TOKEN + _ADVICEEXECUTION
+    _RUNTIME
+    + _LIFECYCLE
+    + _MESSAGE
+    + _PROMPT_SECTION
+    + _SPAN_TOKEN
+    + _ADVICEEXECUTION
+    + _OPENCLAW_V01_MVP_ONLY
+    + _OPENCLAW_V01_ALIASED
 )
-"""Default catalog populated with the names from v0.1 §12.3–§12.6."""
+"""Default catalog: v0.1 §12.3–§12.6 plus OpenClaw v0.1 MVP (ADR-0011)."""
