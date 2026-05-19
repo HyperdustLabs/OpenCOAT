@@ -7,10 +7,10 @@ import os
 import signal
 import threading
 import time
-from unittest.mock import patch
 from http import HTTPStatus
 from http.client import HTTPConnection
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from opencoat_runtime_daemon import Daemon, DaemonAlreadyStartedError
