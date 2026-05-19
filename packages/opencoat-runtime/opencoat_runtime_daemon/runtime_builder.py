@@ -44,8 +44,8 @@ from pathlib import Path
 from typing import Any
 
 from opencoat_runtime_core import OpenCOATRuntime
-from opencoat_runtime_core.loops.heartbeat_loop import MaintenanceFn
 from opencoat_runtime_core.llm import StubLLMClient
+from opencoat_runtime_core.loops.heartbeat_loop import MaintenanceFn
 from opencoat_runtime_core.ports import ConcernStore, DCNStore, LLMClient
 from opencoat_runtime_storage.memory import MemoryConcernStore, MemoryDCNStore
 from opencoat_runtime_storage.sqlite import SqliteConcernStore, SqliteDCNStore

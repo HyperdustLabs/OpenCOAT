@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-import pytest
 from opencoat_runtime_core import OpenCOATRuntime
 from opencoat_runtime_core.concern.lifecycle import ConcernLifecycleManager
 from opencoat_runtime_core.llm import StubLLMClient
@@ -19,9 +18,9 @@ from opencoat_runtime_protocol import (
     ConcernRelationType,
     LifecycleState,
     Pointcut,
-    WeavingPolicy,
     WeavingLevel,
     WeavingOperation,
+    WeavingPolicy,
 )
 from opencoat_runtime_protocol.envelopes import ConcernRelation, PointcutMatch
 from opencoat_runtime_storage.memory import MemoryConcernStore, MemoryDCNStore

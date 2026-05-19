@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from datetime import datetime
 from itertools import combinations
 
@@ -47,7 +48,7 @@ class ConflictScannerWorker(Worker):
         self._min_overlap = max(1, min_keyword_overlap)
         self._max_catalog = max(2, max_catalog)
 
-    def run(self, now: datetime) -> dict:  # noqa: ARG002
+    def run(self, _now: datetime) -> dict:
         catalog = [
             c
             for c in self._concern_store.iter_all()
@@ -80,10 +81,8 @@ class ConflictScannerWorker(Worker):
         }
 
     def _ensure_dcn_node(self, concern: Concern) -> None:
-        try:
+        with contextlib.suppress(Exception):
             self._dcn_store.add_node(concern)
-        except Exception:
-            pass
 
     def _sync_declared_relations(self, catalog: list[Concern]) -> int:
         index = {c.id: c for c in catalog}

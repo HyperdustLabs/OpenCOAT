@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 from opencoat_runtime_core.concern.lifecycle import ConcernLifecycleManager
 from opencoat_runtime_core.meta.lifecycle_control import DefaultLifecycleControl, LifecycleControl
