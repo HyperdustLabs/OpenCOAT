@@ -429,7 +429,8 @@ C. Not direct     — needs OpenClaw middleware/hook PR, or is OpenCOAT-internal
 | Agent event stream | `stream: compaction` start/end | memory JPs | observer | observe |
 | Agent event stream | `stream: lifecycle` start | `reply_run.before_begin` | observer | observe |
 | Agent event stream | `stream: tool` / `item` / `assistant` after start | `reply_run.phase.running` | observer | observe |
-| Agent event stream | `stream: command_output`, `patch` | (catalog TBD) | not wired | observe (future) |
+| Agent event stream | `stream: command_output` | `command.output_stream` | not wired | observe (future) |
+| Agent event stream | `stream: patch` | `patch.summary_created` | not wired | observe (future) |
 | Task API | `runtime.tasks.runs.bindSession().list()` | `task.*` | poll diff | observe |
 | Task hooks | `subagent_*` | `task.after_create`, `task.before_terminal` | yes | observe / spawn veto |
 | Input | `message_received`, `inbound_claim`, `before_dispatch` | `input.received` | yes | observe / extract |
@@ -497,7 +498,7 @@ Upstream “neurosurgery” (recommended order):
 | Wave | Joinpoints | Mechanism |
 | --- | --- | --- |
 | **Shipped (bridge)** | §4.1 MVP rows marked “yes” | plugin hooks + `runtime-observers.ts` |
-| **Next (observe)** | `command.output`, `patch.*`, streaming deltas | extend `onAgentEvent` mapping in bridge |
+| **Next (observe)** | `command.output_stream`, `patch.summary_created`, streaming deltas | extend `onAgentEvent` mapping in bridge (use catalog names, not `command.output`) |
 | **Next (upstream)** | sync `queue.before_enqueue`, `reply_run.phase.*`, `response.before_final` | OpenClaw plugin hooks at call sites |
 | **OpenCOAT-only** | `span.*`, `token.*`, message children | discovery on prompt payload |
 
@@ -541,7 +542,7 @@ OpenCOAT Joinpoint (v0.1)
 
 ---
 
-## 6. Wire shape (reference)
+## 7. Wire shape (reference)
 
 v0.1 extends `JoinpointEvent` with domain metadata; `name` remains the pointcut key (flat or dotted).
 
