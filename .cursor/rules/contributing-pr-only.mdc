@@ -1,0 +1,34 @@
+---
+description: OpenCOAT monorepo — all changes via PR; never push directly to main
+alwaysApply: true
+---
+
+# Contributing: pull requests only
+
+This repository follows [CONTRIBUTING.md](../../CONTRIBUTING.md). **AI agents included.**
+
+## Required workflow
+
+1. `git switch -c <prefix>/<short-name>` off `main` (`feat/`, `fix/`, `docs/`, `chore/`, …).
+2. Edit, then `./scripts/verify.sh` (or the package-local checks the change touches).
+3. Commit on the branch.
+4. `git push -u origin HEAD` — push the **branch**, not `main`.
+5. `gh pr create` (fill [.github/pull_request_template.md](../../.github/pull_request_template.md)).
+6. Wait for required CI, then **squash-merge** the PR. Delete the branch after merge.
+
+## Forbidden unless the human explicitly overrides
+
+- `git push origin main`
+- `git push` while on `main` with unpushed commits intended as the delivery vehicle
+- Treating "commit and push" as permission to land on `main` without a PR
+
+## When the user says "commit" / "push"
+
+Default interpretation for **this repo**:
+
+- **commit** → commit on a feature branch (create one first if still on `main`).
+- **push** → push that branch and open or update a PR; report the PR URL.
+
+If already on `main` with local commits, move them to a branch (`git switch -c feat/...`) before pushing.
+
+Branch protection may be bypassed for some accounts; the process requirement still applies.

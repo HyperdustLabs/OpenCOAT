@@ -8,6 +8,11 @@ user-visible outcomes (see *Prioritization: user stories → use cases* below).
 
 > Audience: humans and AI coding agents collaborating on this repo.
 > Active from **M1 onwards**. M0 was a one-shot scaffold.
+>
+> **Agents:** never `git push origin main`. Use a feature branch + PR every time;
+> see [`.cursor/rules/contributing-pr-only.mdc`](.cursor/rules/contributing-pr-only.mdc)
+> and the **Monorepo git workflow** section in the installed
+> [OpenCOAT skill](https://www.opencoat.ai/SKILL.md) (`~/.cursor/skills/opencoat/SKILL.md`).
 
 ---
 
