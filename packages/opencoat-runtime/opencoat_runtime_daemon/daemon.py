@@ -250,15 +250,21 @@ class Daemon:
             return "disabled"
         return f"{self._http.host}:{self._http.port}{self._http.path}"
 
+    def _heartbeat_tick(self) -> None:
+        """Invoke one heartbeat on the **current** runtime (survives :meth:`reload`)."""
+        built = self._built
+        if built is None:
+            return
+        built.runtime.tick()
+
     def _maybe_start_scheduler(self) -> None:
         loops = self._config.runtime.loops
         if not loops.heartbeat_enabled:
             return
         if self._built is None:
             return
-        runtime = self._built.runtime
         self._scheduler = Scheduler(
-            lambda: runtime.tick(),
+            self._heartbeat_tick,
             heartbeat_interval_seconds=loops.heartbeat_interval_seconds,
         )
         self._scheduler.start()
