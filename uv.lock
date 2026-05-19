@@ -1031,7 +1031,7 @@ wheels = [
 
 [[package]]
 name = "opencoat-runtime"
-version = "0.1.4"
+version = "0.1.5"
 source = { editable = "packages/opencoat-runtime" }
 dependencies = [
     { name = "opencoat-runtime-protocol" },
@@ -1107,7 +1107,7 @@ provides-extras = ["postgres", "vector", "openai", "anthropic", "azure", "ollama
 
 [[package]]
 name = "opencoat-runtime-host"
-version = "0.1.4"
+version = "0.1.5"
 source = { editable = "packages/opencoat-runtime-host" }
 dependencies = [
     { name = "opencoat-runtime" },
@@ -1129,7 +1129,7 @@ provides-extras = ["openclaw", "hermes", "langgraph", "autogen", "crewai"]
 
 [[package]]
 name = "opencoat-runtime-protocol"
-version = "0.1.4"
+version = "0.1.5"
 source = { editable = "packages/opencoat-runtime-protocol" }
 dependencies = [
     { name = "jsonschema" },
