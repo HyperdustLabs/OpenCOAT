@@ -117,3 +117,31 @@ class TestDCNEvolver:
         result = evolver.run(_NOW)
         assert result.merged == 1
         assert store.get("right").lifecycle_state == LifecycleState.ARCHIVED.value
+
+    def test_heuristic_merge_three_way_cluster(self) -> None:
+        """Stale combination pairs must not merge into an already-archived loser."""
+        store = MemoryConcernStore()
+        dcn = MemoryDCNStore()
+        kw = ["NVDA", "周三", "收盘", "分析"]
+        store.upsert(_concern("cluster-a", keywords=kw, score=0.5))
+        store.upsert(_concern("cluster-b", keywords=kw, score=0.6))
+        store.upsert(_concern("cluster-c", keywords=kw, score=0.4))
+        evolver = DCNEvolver(
+            concern_store=store,
+            dcn_store=dcn,
+            lifecycle=ConcernLifecycleManager(concern_store=store, dcn_store=dcn),
+            merge_min_keyword_overlap=3,
+        )
+        result = evolver.run(_NOW)
+        assert result.merged == 2
+        winner = store.get("cluster-b")
+        assert winner is not None
+        assert winner.lifecycle_state in {
+            LifecycleState.ACTIVE.value,
+            LifecycleState.REINFORCED.value,
+        }
+        for loser_id in ("cluster-a", "cluster-c"):
+            loser = store.get(loser_id)
+            assert loser is not None
+            assert loser.lifecycle_state == LifecycleState.ARCHIVED.value
+            assert loser_id not in dcn

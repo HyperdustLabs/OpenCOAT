@@ -96,6 +96,8 @@ class DCNEvolver:
         merged = 0
         seen_pairs: set[tuple[str, str]] = set()
         for concern in catalog:
+            if concern.id not in index:
+                continue
             for rel in concern.relations:
                 if rel.relation_type not in _MERGE_RELATIONS:
                     continue
@@ -116,7 +118,10 @@ class DCNEvolver:
 
     def _merge_heuristic(self, catalog: list[Concern]) -> int:
         merged = 0
+        live_ids = {c.id for c in catalog}
         for left, right in combinations(list(catalog), 2):
+            if left.id not in live_ids or right.id not in live_ids:
+                continue
             if not joinpoint_names(left) & joinpoint_names(right):
                 continue
             if len(activation_keywords(left) & activation_keywords(right)) < self._min_overlap:
@@ -124,6 +129,7 @@ class DCNEvolver:
             loser_id, winner_id = self._pick_by_score(left, right)
             if self._apply_merge(loser_id, winner_id):
                 merged += 1
+                live_ids.discard(loser_id)
                 catalog[:] = [c for c in catalog if c.id != loser_id]
         return merged
 
