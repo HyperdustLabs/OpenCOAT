@@ -1,6 +1,6 @@
 [project]
 name = "opencoat-runtime-host"
-version = "0.1.4"
+version = "0.1.5"
 description = "Host-side integration for OpenCOAT Runtime — joinpoint emitter, injection consumer, and first-party framework adapters (openclaw, hermes, langgraph, autogen, crewai, custom)."
 readme = "README.md"
 requires-python = ">=3.11"

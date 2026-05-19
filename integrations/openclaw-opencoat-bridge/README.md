@@ -238,7 +238,7 @@ concern — the assistant’s `rm -rf` in flattened history can activate the con
 
 **Prerequisites**
 
-- Daemon from repo / current `main` — `uv run opencoat runtime up` (not pip-only 0.1.3 without discovery; use **0.1.4+** on PyPI).
+- Daemon from repo / current `main` — `uv run opencoat runtime up` (not pip-only 0.1.3 without discovery; use **0.1.5+** on PyPI).
 - Bridge installed and gateway restarted; log shows `[opencoat-bridge] registered`.
 - Plugin config: `allowPromptInjection: true`, optional `logActivations: true`.
 - Concern uses AOP (AspectJ) `user_message()` (see `[docs/guides/concern-authoring-aop.md](../../docs/guides/concern-authoring-aop.md)`) — upsert via `opencoat concern import` or `--demo`.

@@ -1,6 +1,6 @@
 [project]
 name = "opencoat-runtime-protocol"
-version = "0.1.4"
+version = "0.1.5"
 description = "JSON Schemas + pydantic envelopes for the OpenCOAT Runtime data contracts"
 readme = "README.md"
 requires-python = ">=3.11"
