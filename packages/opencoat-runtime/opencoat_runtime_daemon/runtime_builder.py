@@ -76,6 +76,7 @@ def build_heartbeat_maintenance(
 
     return maintenance
 
+
 _STUB_DEFAULT_CHAT = (
     "(stub) OpenCOAT daemon runtime is wired up. Set BAI_API_KEY / OPENAI_API_KEY / "
     "ANTHROPIC_API_KEY / AZURE_OPENAI_ENDPOINT (and friends) and "

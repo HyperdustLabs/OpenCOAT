@@ -60,9 +60,7 @@ class TestDecayWorker:
     def test_bumps_decay_and_archives_at_threshold(self) -> None:
         store = MemoryConcernStore()
         dcn = MemoryDCNStore()
-        store.upsert(
-            _concern("cold", keywords=["a"], decay=0.96, joinpoints=["before_response"])
-        )
+        store.upsert(_concern("cold", keywords=["a"], decay=0.96, joinpoints=["before_response"]))
         policy = DefaultLifecycleControl(decay_step=0.1, archive_threshold=1.0)
         worker = DecayWorker(
             concern_store=store,

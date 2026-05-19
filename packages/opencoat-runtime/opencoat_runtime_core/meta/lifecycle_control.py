@@ -39,7 +39,11 @@ class DefaultLifecycleControl(LifecycleControl):
 
     def decay_step(self, concern: Concern) -> float:
         state = (concern.lifecycle_state or LifecycleState.CREATED.value).lower()
-        if state in {LifecycleState.ARCHIVED.value, LifecycleState.DELETED.value, LifecycleState.FROZEN.value}:
+        if state in {
+            LifecycleState.ARCHIVED.value,
+            LifecycleState.DELETED.value,
+            LifecycleState.FROZEN.value,
+        }:
             return 0.0
         return self._decay_step
 
