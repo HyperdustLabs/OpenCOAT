@@ -74,11 +74,12 @@ curl -sS http://127.0.0.1:7878/rpc -H 'Content-Type: application/json' \
 ## Configuration
 
 
-| Field            | Default                     | Description                                         |
-| ---------------- | --------------------------- | --------------------------------------------------- |
-| `daemonUrl`      | `http://127.0.0.1:7878/rpc` | JSON-RPC endpoint (set in `plugins.entries` config) |
-| `enabled`        | `true`                      | Set `false` to no-op (hooks still register)         |
-| `logActivations` | `false`                     | Log matched concern ids per joinpoint               |
+| Field                  | Default                     | Description                                                                 |
+| ---------------------- | --------------------------- | --------------------------------------------------------------------------- |
+| `daemonUrl`            | `http://127.0.0.1:7878/rpc` | JSON-RPC endpoint (set in `plugins.entries` config)                         |
+| `enabled`              | `true`                      | Set `false` to no-op (hooks still register)                                 |
+| `logActivations`       | `false`                     | Log matched concern ids per joinpoint                                       |
+| `extractOnUserMessage` | `false`                     | Run `concern.extract` on user chat via `joinpoint.submit` before weave (LLM) |
 
 
 ## Prompt-code / messages passthrough

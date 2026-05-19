@@ -546,3 +546,47 @@ class TestRuntimeLlmInfo:
             "requested": "auto",
             "hint": "",
         }
+
+
+class TestJoinpointExtractFromChat:
+    def test_extract_from_chat_flag_upserts_concerns(self) -> None:
+        llm = StubLLMClient(
+            default_structured={
+                "name": "NVDA until Wednesday",
+                "description": "Track NVDA through Wednesday ET close.",
+                "generated_type": "user_constraint",
+            }
+        )
+        rt = OpenCOATRuntime(
+            concern_store=MemoryConcernStore(),
+            dcn_store=MemoryDCNStore(),
+            llm=llm,
+        )
+        h = JsonRpcHandler(rt)
+        jp = JoinpointEvent(
+            id="jp-user",
+            level=1,
+            name="on_user_input",
+            host="test",
+            ts=datetime(2026, 5, 19, 12, 0, tzinfo=UTC),
+            payload={
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "Will NVDA keep falling before Wednesday close?",
+                    }
+                ],
+            },
+        )
+        out = h.handle(
+            _req(
+                "joinpoint.submit",
+                {
+                    "joinpoint": jp.model_dump(mode="json"),
+                    "extract_from_chat": True,
+                },
+            )
+        )
+        assert "error" not in out
+        listed = h.handle(_req("concern.list"))["result"]
+        assert len(listed) >= 1

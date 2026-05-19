@@ -39,18 +39,42 @@ import logging
 import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from opencoat_runtime_core import OpenCOATRuntime
+from opencoat_runtime_core.loops.heartbeat_loop import MaintenanceFn
 from opencoat_runtime_core.llm import StubLLMClient
 from opencoat_runtime_core.ports import ConcernStore, DCNStore, LLMClient
 from opencoat_runtime_storage.memory import MemoryConcernStore, MemoryDCNStore
 from opencoat_runtime_storage.sqlite import SqliteConcernStore, SqliteDCNStore
 
 from .config.loader import DaemonConfig, LLMSettings, StorageBackend
+from .workers import ConflictScannerWorker, DecayWorker
 
 logger = logging.getLogger(__name__)
+
+
+def build_heartbeat_maintenance(
+    concern_store: ConcernStore,
+    dcn_store: DCNStore,
+) -> MaintenanceFn:
+    """Daemon-side M6 maintenance: decay + background conflict scan."""
+    decay = DecayWorker(concern_store=concern_store, dcn_store=dcn_store)
+    conflict = ConflictScannerWorker(concern_store=concern_store, dcn_store=dcn_store)
+
+    def maintenance(now: datetime) -> dict[str, int]:
+        decay_stats = decay.run(now)
+        conflict_stats = conflict.run(now)
+        return {
+            "decay_count": int(decay_stats.get("touched", 0)),
+            "archive_count": int(decay_stats.get("archived", 0)),
+            "merge_count": 0,
+            "conflict_count": int(conflict_stats.get("edges_added", 0)),
+        }
+
+    return maintenance
 
 _STUB_DEFAULT_CHAT = (
     "(stub) OpenCOAT daemon runtime is wired up. Set BAI_API_KEY / OPENAI_API_KEY / "
@@ -183,11 +207,15 @@ def build_runtime(
         # silently degrading every LLM-driven path.
         logger.warning("OpenCOAT LLM provider degraded to %s — %s", info.label, info.hint)
 
+    maintenance: MaintenanceFn | None = None
+    if config.runtime.loops.heartbeat_enabled:
+        maintenance = build_heartbeat_maintenance(concern_store, dcn_store)
     runtime = OpenCOATRuntime(
         config.runtime,
         concern_store=concern_store,
         dcn_store=dcn_store,
         llm=llm,
+        heartbeat_maintenance=maintenance,
     )
     return BuiltRuntime(
         runtime=runtime,
@@ -559,4 +587,10 @@ def _build_llm(
     return builder(settings, env, env_explicit)
 
 
-__all__ = ["BuiltRuntime", "LLMInfo", "build_runtime", "warm_persistent_stores"]
+__all__ = [
+    "BuiltRuntime",
+    "LLMInfo",
+    "build_heartbeat_maintenance",
+    "build_runtime",
+    "warm_persistent_stores",
+]

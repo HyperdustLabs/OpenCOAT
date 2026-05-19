@@ -9,7 +9,9 @@ a notification).
 Methods are dotted names grouped by domain:
 
 ``joinpoint.submit``
-    Params: ``{"joinpoint": <JoinpointEvent wire>, "return_none_when_empty"?: bool, "context"?: object}``
+    Params: ``{"joinpoint": <JoinpointEvent wire>, "return_none_when_empty"?: bool, "context"?: object, "extract_from_chat"?: bool}``
+    When ``extract_from_chat`` is true (or ``runtime.joinpoint_automation.extract_from_user_message``
+    is enabled), mines user chat from the joinpoint payload via ``concern.extract`` before weaving.
     Result: ``ConcernInjection`` wire object or ``null``.
 
 ``concern.list`` / ``concern.get`` / ``concern.upsert`` / ``concern.delete``
@@ -56,6 +58,7 @@ from typing import Any
 
 from opencoat_runtime_core import OpenCOATRuntime
 from opencoat_runtime_core.concern import ConcernBuilder, ConcernExtractor
+from opencoat_runtime_core.concern.chat_extract import chat_text_for_extraction
 from opencoat_runtime_protocol import Concern, ConcernInjection, JoinpointEvent
 from pydantic import ValidationError
 
@@ -253,8 +256,31 @@ class JsonRpcHandler:
         ret_none = bool(p.get("return_none_when_empty", False))
         ctx = p.get("context")
         context = ctx if isinstance(ctx, dict) else None
+        extract_flag = p.get("extract_from_chat", False)
+        if not isinstance(extract_flag, bool):
+            raise JsonRpcParamsError("extract_from_chat must be a boolean when provided")
+        self._maybe_extract_from_joinpoint(jp, force=extract_flag)
         inj = self._rt.on_joinpoint(jp, context=context, return_none_when_empty=ret_none)
         return None if inj is None else inj.model_dump(mode="json")
+
+    def _maybe_extract_from_joinpoint(self, jp: JoinpointEvent, *, force: bool) -> int:
+        """Mine user chat into the concern store. Returns number of concerns upserted."""
+        automation = self._rt.config.joinpoint_automation
+        if not force and not automation.extract_from_user_message:
+            return 0
+        text = chat_text_for_extraction(jp)
+        min_chars = automation.extract_min_message_chars
+        if not text or len(text) < min_chars:
+            return 0
+        if self._extractor is None:
+            self._extractor = ConcernExtractor(llm=self._rt.llm)
+        ref = jp.agent_session_id or jp.host_round_id or jp.id
+        result = self._extractor.extract(text, origin="user_input", ref=ref)
+        if not result.candidates:
+            return 0
+        builder = ConcernBuilder(store=self._rt.concern_store)
+        built = builder.build_many(list(result.candidates))
+        return len(built)
 
     def _concern_list(self, params: dict[str, Any] | list[Any]) -> list[Any]:
         p = _expect_params_dict(params)

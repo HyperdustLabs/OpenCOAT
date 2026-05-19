@@ -2,6 +2,14 @@ export type BridgeConfig = {
   daemonUrl: string;
   enabled: boolean;
   logActivations: boolean;
+  /** Call ``concern.extract`` on user messages before ``joinpoint.submit``. */
+  extractOnUserMessage: boolean;
+};
+
+export type ConcernExtractResult = {
+  candidates: unknown[];
+  rejected: { span: string; reason: string }[];
+  upserted: boolean;
 };
 
 export type ConcernInjection = {

@@ -30,6 +30,7 @@ from .config import RuntimeConfig
 from .coordinator import ConcernCoordinator
 from .joinpoint.discovery import JoinpointDiscovery
 from .loops import EventLoop, HeartbeatLoop, HeartbeatReport, JoinpointPipeline
+from .loops.heartbeat_loop import MaintenanceFn
 from .pointcut.matcher import PointcutMatcher
 from .ports import (
     AdvicePlugin,
@@ -96,6 +97,7 @@ class OpenCOATRuntime:
         observer: Observer | None = None,
         coordinator: ConcernCoordinator | None = None,
         weaver: ConcernWeaver | None = None,
+        heartbeat_maintenance: MaintenanceFn | None = None,
     ) -> None:
         self._config = config or RuntimeConfig()
         self._concern_store = concern_store
@@ -126,6 +128,7 @@ class OpenCOATRuntime:
             concern_store=concern_store,
             dcn_store=dcn_store,
             observer=self._observer,
+            maintenance=heartbeat_maintenance,
         )
         auto = self._config.joinpoint_automation
         self._joinpoint_discovery = JoinpointDiscovery(automation=auto)

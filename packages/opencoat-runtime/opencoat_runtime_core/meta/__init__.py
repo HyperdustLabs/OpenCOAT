@@ -9,7 +9,7 @@ from .budget_control import BudgetControl
 from .conflict_resolution import ConflictResolution
 from .evolution_control import EvolutionControl
 from .extraction_control import ExtractionControl
-from .lifecycle_control import LifecycleControl
+from .lifecycle_control import DefaultLifecycleControl, LifecycleControl
 from .separation_control import SeparationControl
 from .verification_control import VerificationControl
 
@@ -19,6 +19,7 @@ __all__ = [
     "ConflictResolution",
     "EvolutionControl",
     "ExtractionControl",
+    "DefaultLifecycleControl",
     "LifecycleControl",
     "SeparationControl",
     "VerificationControl",

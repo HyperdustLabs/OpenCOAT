@@ -24,6 +24,8 @@ class RuntimeLoops(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     heartbeat_interval_seconds: float = Field(default=30.0, gt=0.0)
+    #: When false, the daemon does not start the background heartbeat scheduler.
+    heartbeat_enabled: bool = Field(default=True)
 
 
 class JoinpointAutomation(BaseModel):
@@ -48,6 +50,10 @@ class JoinpointAutomation(BaseModel):
     max_token_joinpoints_per_message: int = Field(default=16, ge=0)
     #: After a surface weave, emit ``adviceexecution`` for meta / concern-of-concern pointcuts.
     emit_adviceexecution: bool = Field(default=True)
+    #: Run ``concern.extract`` on user chat before weaving (``on_user_input`` / ``user_message``).
+    extract_from_user_message: bool = Field(default=False)
+    #: Skip extraction when derived chat text is shorter than this (chars).
+    extract_min_message_chars: int = Field(default=24, ge=1)
 
 
 class RuntimeConfig(BaseModel):

@@ -62,9 +62,10 @@ async function emit(
   joinpointName: string,
   payload: Record<string, unknown>,
   ctx: AgentHookCtx,
+  options?: { extractFromChat?: boolean },
 ): Promise<ConcernInjection | null> {
   const jp = buildJoinpoint(joinpointName, payload, ctx);
-  const inj = await submitJoinpoint(cfg, jp);
+  const inj = await submitJoinpoint(cfg, jp, options);
   logActivation(api, cfg, joinpointName, inj);
   return inj;
 }
@@ -88,6 +89,7 @@ export default function register(api: PluginApi): void {
           messages: [{ role: "user", content }],
         }),
         c,
+        { extractFromChat: cfg.extractOnUserMessage },
       );
       rememberInjection(runKey(c), inj);
     } catch (err) {
