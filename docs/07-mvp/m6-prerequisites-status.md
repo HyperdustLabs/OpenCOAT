@@ -11,13 +11,13 @@ Re-run automation: `./scripts/verify-m6-prerequisites.sh` from repo root (daemon
 | **P2b** | Live OpenClaw gateway + bridge | **PASS** | 2026-05-18 local smoke — bridge README §3; NVDA concerns weave on `before_response` |
 | **P3** | Conflict paths documented | **PASS** | [m6-conflict-paths.md](./m6-conflict-paths.md); [ADR-0010](../adr/0010-concern-aop-syntax.md) |
 
-## M6 implementation (`feat/m6-lifecycle-workers`)
+## M6 implementation
 
 | PR slice | Status | Notes |
 | --- | --- | --- |
-| **PR1** decay + `ConflictScannerWorker` + scheduler | **in progress** | `DecayWorker`, `ConflictScannerWorker`, `HeartbeatLoop` maintenance hook, `Scheduler.start` in daemon |
-| **PR2** merge + archive | pending | `merge_archiver.py` stub |
-| **PR3** meta-review | pending | ADR-0008 governance loop |
-| **PR4** 24h soak + example | pending | `examples/07_meta_governance_soak` |
+| **PR1** decay + `ConflictScannerWorker` + scheduler | **merged** | [#72](https://github.com/HyperdustLabs/OpenCOAT/pull/72) |
+| **PR2** merge + archive | **open** | `DCNEvolver`, `MergeArchiverWorker`, `HeartbeatMaintenance` config |
+| **PR3** meta-review | **open** (same branch) | `MetaReviewWorker` + `DefaultEvolutionControl` inventory |
+| **PR4** soak + example | **open** (same branch) | `tests/soak/`, `examples/07_meta_governance_soak` |
 
-**Next:** finish PR1 tests on CI, then merge/archive workers (PR2).
+**Next:** merge PR2 branch; optional 24h live soak on daemon.

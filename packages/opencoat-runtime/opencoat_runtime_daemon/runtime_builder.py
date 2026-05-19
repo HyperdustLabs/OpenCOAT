@@ -44,6 +44,7 @@ from pathlib import Path
 from typing import Any
 
 from opencoat_runtime_core import OpenCOATRuntime
+from opencoat_runtime_core.config import HeartbeatMaintenance
 from opencoat_runtime_core.llm import StubLLMClient
 from opencoat_runtime_core.loops.heartbeat_loop import MaintenanceFn
 from opencoat_runtime_core.ports import ConcernStore, DCNStore, LLMClient
@@ -51,7 +52,7 @@ from opencoat_runtime_storage.memory import MemoryConcernStore, MemoryDCNStore
 from opencoat_runtime_storage.sqlite import SqliteConcernStore, SqliteDCNStore
 
 from .config.loader import DaemonConfig, LLMSettings, StorageBackend
-from .workers import ConflictScannerWorker, DecayWorker
+from .workers import ConflictScannerWorker, DecayWorker, MergeArchiverWorker
 
 logger = logging.getLogger(__name__)
 
@@ -59,18 +60,30 @@ logger = logging.getLogger(__name__)
 def build_heartbeat_maintenance(
     concern_store: ConcernStore,
     dcn_store: DCNStore,
+    *,
+    maintenance: HeartbeatMaintenance | None = None,
 ) -> MaintenanceFn:
-    """Daemon-side M6 maintenance: decay + background conflict scan."""
+    """Daemon-side M6 maintenance: decay + merge/archive + conflict scan."""
+    maint = maintenance or HeartbeatMaintenance()
     decay = DecayWorker(concern_store=concern_store, dcn_store=dcn_store)
+    merge_archiver = MergeArchiverWorker(
+        concern_store=concern_store,
+        dcn_store=dcn_store,
+        merge_min_keyword_overlap=maint.merge_min_keyword_overlap,
+        archive_cold_decay_threshold=maint.archive_cold_decay_threshold,
+        archive_cold_max_score=maint.archive_cold_max_score,
+    )
     conflict = ConflictScannerWorker(concern_store=concern_store, dcn_store=dcn_store)
 
     def maintenance(now: datetime) -> dict[str, int]:
         decay_stats = decay.run(now)
+        merge_stats = merge_archiver.run(now)
         conflict_stats = conflict.run(now)
         return {
             "decay_count": int(decay_stats.get("touched", 0)),
-            "archive_count": int(decay_stats.get("archived", 0)),
-            "merge_count": 0,
+            "archive_count": int(decay_stats.get("archived", 0))
+            + int(merge_stats.get("archived", 0)),
+            "merge_count": int(merge_stats.get("merged", 0)),
             "conflict_count": int(conflict_stats.get("edges_added", 0)),
         }
 
@@ -210,7 +223,11 @@ def build_runtime(
 
     maintenance: MaintenanceFn | None = None
     if config.runtime.loops.heartbeat_enabled:
-        maintenance = build_heartbeat_maintenance(concern_store, dcn_store)
+        maintenance = build_heartbeat_maintenance(
+            concern_store,
+            dcn_store,
+            maintenance=config.runtime.loops.maintenance,
+        )
     runtime = OpenCOATRuntime(
         config.runtime,
         concern_store=concern_store,
