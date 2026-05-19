@@ -59,7 +59,9 @@ docs/_build/
 site/
 generated/
 .codex/
-.cursor/
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
 
 # Local clone used to open PRs against HyperdustLabs/opencoat-skill
 _opencoat-skill-upstream/
