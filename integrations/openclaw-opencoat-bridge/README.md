@@ -232,6 +232,21 @@ curl -sS http://127.0.0.1:7878/rpc -H 'Content-Type: application/json' \
 
 Requires **JoinpointDiscovery** (`expand_prompt_surface` on by default). Older daemons ignore `messages[]` and only match lifecycle names.
 
+## Weaving expectations
+
+| Hook / joinpoint | Typical injections |
+| --- | --- |
+| `message_received` → `on_user_input` | Often **empty** if your concerns only list `before_response` / `user_message` |
+| `before_prompt_build` → `before_response` | Main weave path when keywords match flattened prompt or discovered `user_message` rows |
+
+For background DCN maintenance (decay, merge, conflict edges), run the daemon with
+heartbeat enabled — see root [`README.md`](../../README.md) § Heartbeat + DCN maintenance (M6).
+
+**Optional chat mining:** set `extractOnUserMessage: true` so the bridge passes
+`extract_from_chat: true` on `joinpoint.submit` (requires a configured LLM on the
+daemon). Extraction updates the concern store; it does not always add rows to
+`injections` on that same submit.
+
 ## Limitations (v0.1 bridge)
 
 - Prompt folding uses `prependSystemContext` only (not full dotted-path injector parity with Python `OpenClawInjector`).

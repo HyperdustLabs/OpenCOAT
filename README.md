@@ -41,7 +41,7 @@ Pre-alpha. We are working through the milestones defined in
 | **M3** | Persistence (sqlite + jsonl replay) | ✅ complete — `SqliteConcernStore` ([PR-13 / #15](https://github.com/HyperdustLabs/OpenCOAT/pull/15)), `SqliteDCNStore` ([PR-14 / #16](https://github.com/HyperdustLabs/OpenCOAT/pull/16)), JSONL replay ([PR-15 / #18](https://github.com/HyperdustLabs/OpenCOAT/pull/18)), `examples/03_persistent_agent_demo` ([PR-16 / #20](https://github.com/HyperdustLabs/OpenCOAT/pull/20)) |
 | **M4** | Daemon + CLI + HTTP/JSON-RPC | ✅ complete — `build_runtime` ([PR-17 / #21](https://github.com/HyperdustLabs/OpenCOAT/pull/21)), in-proc JSON-RPC ([PR-18 / #22](https://github.com/HyperdustLabs/OpenCOAT/pull/22)), stdlib HTTP JSON-RPC ([PR-19 / #23](https://github.com/HyperdustLabs/OpenCOAT/pull/23)), daemon lifecycle ([PR-20 / #24](https://github.com/HyperdustLabs/OpenCOAT/pull/24)), `opencoat runtime up\|down\|status` ([PR-21 / #25](https://github.com/HyperdustLabs/OpenCOAT/pull/25)), `opencoat concern \| dcn \| inspect` ([PR-22 / #26](https://github.com/HyperdustLabs/OpenCOAT/pull/26)), `examples/06_long_running_daemon` ([PR-23 / #27](https://github.com/HyperdustLabs/OpenCOAT/pull/27)) |
 | **M5** | OpenClaw host plugin | ✅ complete — event map ([#28](https://github.com/HyperdustLabs/OpenCOAT/pull/28)), injection + spans ([#29](https://github.com/HyperdustLabs/OpenCOAT/pull/29)), tool guard ([#30](https://github.com/HyperdustLabs/OpenCOAT/pull/30)), memory bridge + hooks ([#31](https://github.com/HyperdustLabs/OpenCOAT/pull/31)), `examples/04_openclaw_with_runtime` ([#32](https://github.com/HyperdustLabs/OpenCOAT/pull/32)) |
-| M6 | Heartbeat + Meta governance workers | pending |
+| **M6** | Heartbeat + meta governance (decay, conflict scan, merge/archive, meta-review) | 🚧 in progress — PR1 ([#72](https://github.com/HyperdustLabs/OpenCOAT/pull/72)) merged; PR2–4 ([#73](https://github.com/HyperdustLabs/OpenCOAT/pull/73)) open |
 | M7 | Second host (langgraph/hermes) | pending |
 | M8 | Postgres + Helm/K8s | pending |
 
@@ -267,6 +267,43 @@ LLM keys are not embedded in the unit files — use `opencoat configure llm`
 (inline YAML or `~/.opencoat/opencoat.env`). The daemon merges allow-listed
 LLM keys from that env file at startup; add `EnvironmentFile=` only if you
 need variables outside that allow-list or a non-default env file path.
+
+### Heartbeat + DCN maintenance (M6)
+
+With `runtime.loops.heartbeat_enabled: true` (bundled default), the daemon
+starts a background scheduler (default **30s**) that calls
+`OpenCOATRuntime.tick()`. Each tick runs:
+
+| Worker | Role |
+| --- | --- |
+| `DecayWorker` | Bumps `activation_state.decay`; weakens / archives stale concerns |
+| `MergeArchiverWorker` | Merges duplicate concerns into the DCN; archives cold `weakened` rows |
+| `ConflictScannerWorker` | Writes `conflicts_with` edges for background analysis (weave-time drops stay in `ConflictResolver`) |
+| `MetaReviewWorker` | Inventories `meta_concern` rows (governance capabilities) |
+
+On startup you should see `heartbeat scheduler started` in the daemon log.
+Tune overlap and cold-archive thresholds under `runtime.loops.maintenance` in
+[`docs/config/daemon.yaml.example`](docs/config/daemon.yaml.example).
+
+**Verify prerequisites** (joinpoint hot path + RPC smoke):
+
+```bash
+./scripts/verify-m6-prerequisites.sh   # daemon on 127.0.0.1:7878
+```
+
+**Hermetic soak** (10 heartbeat ticks, no 24h wait):
+
+```bash
+uv run python -m pytest packages/opencoat-runtime/tests/soak/test_heartbeat_maintenance_soak.py -q
+```
+
+See [`examples/07_meta_governance_soak/README.md`](examples/07_meta_governance_soak/README.md)
+and [`docs/07-mvp/m6-conflict-paths.md`](docs/07-mvp/m6-conflict-paths.md).
+
+**OpenClaw:** weave on user chat happens at `before_prompt_build` → `before_response`,
+not on `message_received` (`on_user_input`). Optional chat mining:
+`extract_from_chat` on `joinpoint.submit` or bridge config `extractOnUserMessage`
+(see [`integrations/openclaw-opencoat-bridge/README.md`](integrations/openclaw-opencoat-bridge/README.md)).
 
 ---
 

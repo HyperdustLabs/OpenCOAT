@@ -38,10 +38,37 @@ pip install "opencoat-runtime[grpc]"            # daemon gRPC transport
 ```bash
 opencoat --version
 opencoat concern import --demo
+opencoat runtime up          # sqlite + HTTP JSON-RPC + heartbeat scheduler (M6)
 opencoat-daemon --help
 ```
 
 See <https://github.com/HyperdustLabs/OpenCOAT> for the full runtime guide.
+
+## Heartbeat maintenance (M6)
+
+When the daemon runs with `runtime.loops.heartbeat_enabled: true`, a background
+thread invokes `OpenCOATRuntime.tick()` every `heartbeat_interval_seconds`
+(default 30). Each tick:
+
+1. **DecayWorker** — increases per-concern `activation_state.decay`, then weakens or archives.
+2. **MergeArchiverWorker** — runs `DCNEvolver` to merge duplicates and archive cold weakened concerns.
+3. **ConflictScannerWorker** — syncs `conflicts_with` edges into the DCN (background only; hot-path weave still uses `ConflictResolver`).
+4. **MetaReviewWorker** — counts active `meta_concern` rows for governance review ticks.
+
+Configure thresholds under `runtime.loops.maintenance` in your daemon YAML
+(see [`docs/config/daemon.yaml.example`](https://github.com/HyperdustLabs/OpenCOAT/blob/main/docs/config/daemon.yaml.example)).
+
+**JSON-RPC:** `joinpoint.submit` accepts optional `extract_from_chat: true` to run
+`concern.extract` on user `messages[]` before weaving (needs a real LLM).
+
+**Tests / soak:**
+
+```bash
+uv run python -m pytest packages/opencoat-runtime/tests/daemon/test_m6_workers.py -q
+uv run python -m pytest packages/opencoat-runtime/tests/soak/test_heartbeat_maintenance_soak.py -q
+```
+
+**Prerequisites gate:** from repo root, `./scripts/verify-m6-prerequisites.sh` (daemon on `:7878`).
 
 ## License
 

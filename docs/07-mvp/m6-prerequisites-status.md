@@ -16,8 +16,10 @@ Re-run automation: `./scripts/verify-m6-prerequisites.sh` from repo root (daemon
 | PR slice | Status | Notes |
 | --- | --- | --- |
 | **PR1** decay + `ConflictScannerWorker` + scheduler | **merged** | [#72](https://github.com/HyperdustLabs/OpenCOAT/pull/72) |
-| **PR2** merge + archive | **open** | `DCNEvolver`, `MergeArchiverWorker`, `HeartbeatMaintenance` config |
+| **PR2** merge + archive | **open** ([#73](https://github.com/HyperdustLabs/OpenCOAT/pull/73)) | `DCNEvolver`, `MergeArchiverWorker`, `HeartbeatMaintenance` config |
 | **PR3** meta-review | **open** (same branch) | `MetaReviewWorker` + `DefaultEvolutionControl` inventory |
 | **PR4** soak + example | **open** (same branch) | `tests/soak/`, `examples/07_meta_governance_soak` |
 
-**Next:** merge PR2 branch; optional 24h live soak on daemon.
+**Docs:** root [`README.md`](../../README.md) (M6 table + heartbeat section), [`examples/README.md`](../../examples/README.md) row 07, [`packages/opencoat-runtime/README.md`](../../packages/opencoat-runtime/README.md).
+
+**Next:** merge [#73](https://github.com/HyperdustLabs/OpenCOAT/pull/73); optional 24h live soak on daemon.

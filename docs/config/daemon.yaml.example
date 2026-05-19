@@ -33,10 +33,16 @@
 runtime:
   schema_version: "0.2"
   loops:
-    # How often the heartbeat worker runs DCN maintenance (lifecycle
-    # transitions, decay, archiving). 30s is plenty for human-scale
-    # agents; tighten to 5–10s for high-traffic deployments.
+    # How often the background scheduler calls OpenCOATRuntime.tick().
+    # 30s is plenty for human-scale agents; tighten to 5–10s for high traffic.
     heartbeat_interval_seconds: 30
+    # Set false to disable the background heartbeat thread (tests / embedded).
+    heartbeat_enabled: true
+    # M6 workers: decay, merge/archive, conflict scan tuning.
+    maintenance:
+      merge_min_keyword_overlap: 3
+      archive_cold_decay_threshold: 0.85
+      archive_cold_max_score: 0.15
   budgets:
     # How many concerns can be active in one Concern Vector. Above
     # this the coordinator drops the lowest-priority ones.
