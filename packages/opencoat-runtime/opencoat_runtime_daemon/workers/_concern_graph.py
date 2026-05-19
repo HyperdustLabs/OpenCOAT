@@ -12,7 +12,10 @@ from opencoat_runtime_protocol.envelopes import ConcernRelation
 
 def has_conflict_relation(concern: Concern, other_id: str) -> bool:
     for rel in concern.relations:
-        if rel.target_concern_id == other_id and rel.relation_type == ConcernRelationType.CONFLICTS_WITH:
+        if (
+            rel.target_concern_id == other_id
+            and rel.relation_type == ConcernRelationType.CONFLICTS_WITH
+        ):
             return True
     return False
 
