@@ -37,7 +37,7 @@ task indexes).
    form. Pointcuts may use either form.
 6. **Full model:** Documented in
    [`docs/design/opencoat-openclaw-joinpoint-model-v0.1.md`](../design/opencoat-openclaw-joinpoint-model-v0.1.md)
-   (14 domains). Implementation is phased (P0 catalog aliases → P2 plugin hooks →
+   (14 domains; **§5 A/B/C availability tiers** for OpenClaw vs catalog). Implementation is phased (P0 catalog aliases → P2 plugin hooks →
    P3 bridge runtime observers for observe-only MVP emits).
 
 ## Consequences

@@ -397,7 +397,115 @@ Default: `runtimeObservers: true`, `observerPollMs: 500`. Full hook table: [brid
 
 ---
 
-## 5. Joinpoint map (tree)
+## 5. OpenClaw availability tiers (A / B / C)
+
+Many catalog joinpoints are **OpenCOAT cut points** — valid for pointcuts and DCN — that OpenClaw does **not** yet expose as synchronous host hooks. Classify every integration path as:
+
+```text
+A. Usable now     — OpenClaw event, plugin hook, or stable runtime API the bridge can call
+B. Wrapper tier   — wrap a public function or adapter boundary without mutating internal Maps
+C. Not direct     — needs OpenClaw middleware/hook PR, or is OpenCOAT-internal (COPR / span / token)
+```
+
+### 5.1 One-line conclusion
+
+**Best signals today:** plugin hooks (`before_prompt_build`, `before_tool_call`, …), **`api.runtime.events.onAgentEvent`** (`plan`, `tool`, `item`, `approval`, `command_output`, `patch`, `compaction`, `lifecycle`), task registry APIs, queue depth / followup run observability.
+
+**Weakest / internal-only:** `token.*`, `span.*`, `prompt.section.*` (until host passes structured sections), implicit planner steps, true memory read/write on every path, unified `response.before_final` verifier (partial via `message_sending` only).
+
+**Strong control gap (upstream):** synchronous veto at `enqueueFollowupRun`, full `reply_run.phase.*`, and any path where only post-hoc agent events exist today.
+
+### 5.2 Tier A — usable now
+
+| Surface | OpenClaw anchor | v0.1 / legacy JP | Bridge today | Control |
+| --- | --- | --- | --- | --- |
+| Plugin hooks | `before_prompt_build`, `llm_*`, `agent_end` | `before_response`, reasoning JPs | yes | **weave** (`prependSystemContext`) |
+| Plugin hooks | `before_tool_call` | `tool.before_call` | yes | **block** / param guard |
+| Plugin hooks | `message_sending` | `before_response` | yes | **cancel** outbound |
+| Plugin hooks | `subagent_spawning` | `task.before_create` | yes | spawn **veto** |
+| Plugin hooks | `before_compaction` / `after_compaction` | memory JPs | yes | observe (+ same boundary as internal compact hook) |
+| Agent event stream | `stream: plan` | `planning.plan_updated` | observer | observe |
+| Agent event stream | `stream: approval` (phase requested) | `approval.requested` | observer | observe |
+| Agent event stream | `stream: compaction` start/end | memory JPs | observer | observe |
+| Agent event stream | `stream: lifecycle` start | `reply_run.before_begin` | observer | observe |
+| Agent event stream | `stream: tool` / `item` / `assistant` after start | `reply_run.phase.running` | observer | observe |
+| Agent event stream | `stream: command_output`, `patch` | (catalog TBD) | not wired | observe (future) |
+| Task API | `runtime.tasks.runs.bindSession().list()` | `task.*` | poll diff | observe |
+| Task hooks | `subagent_*` | `task.after_create`, `task.before_terminal` | yes | observe / spawn veto |
+| Input | `message_received`, `inbound_claim`, `before_dispatch` | `input.received` | yes | observe / extract |
+
+**Important correction:** OpenClaw’s plugin hook `before_tool_call` **is** a pre-execute guard — do not confuse it with `onAgentEvent` `stream: tool`, which fires around tool **start** and is observe-only. Catalog name `tool.before_call` maps to the plugin hook, not `tool.started`.
+
+### 5.3 Tier B — wrapper or weak modulation
+
+| Joinpoint (design) | How to attach | Bridge / OpenCOAT today |
+| --- | --- | --- |
+| `queue.before_enqueue` / `after_enqueue` | wrap `enqueueFollowupRun` or depth poll | poll only (late) |
+| `queue.before_drain` | wrap `scheduleFollowupDrain` | not wired |
+| `input.before_enqueue` | adapter before enqueue | partial (`on_user_input` buffer) |
+| `prompt.before_send_to_model` | `FollowupRun.extraSystemPrompt`, hook fold | plugin + discovery |
+| `model.before_select` | wrap `runAgentTurnWithFallback` | not wired |
+| `reply_run.phase.*` (fine phases) | wrap `ReplyOperation.setPhase` | approximated via lifecycle only |
+| `response.streaming_delta` | `onPartialReply` / block reply callbacks | not wired |
+| `system_event.enqueued` | wrap `enqueueSystemEvent` | not wired |
+
+OpenCOAT applies **weak modulation** here: extra system prompt, queue/task *policy suggestions* in submit results (host must apply), timeouts, tool visibility — not direct Map mutation.
+
+### 5.4 Tier C — native hook or OpenCOAT-internal
+
+**Needs OpenClaw PR (middleware at call site):**
+
+```text
+tool.before_execute          # if stricter than plugin before_tool_call (args rewrite mid-flight)
+queue.before_enqueue         # sync veto at enqueueFollowupRun (bridge poll is too late)
+reply_run.phase.*            # per-phase hooks on ReplyOperation
+memory.before_read / before_write   # unified memory middleware (compaction hooks are partial)
+response.before_final        # unified verifier before channel delivery (message_sending is partial)
+response.before_delivery
+plan_step.before_execute / decision.before_select
+```
+
+**OpenCOAT-internal (not OpenClaw hooks):** parse host payload → COPR / prompt tree → child joinpoints:
+
+```text
+token.*  span.*  prompt.section.*  user_message#msg:N  runtime_prompt.*
+```
+
+Requires `messages[]` / `sections[]` on submit (bridge sends `messages[]` on `before_prompt_build`; JoinpointDiscovery expands).
+
+### 5.5 Observation vs strong control
+
+```text
+Observation (DCN, audit, meta-review):
+  plan / approval / patch / command_output / compaction events
+  queue depth diff, task registry diff, reply_run lifecycle approx
+
+Strong control (host must apply advice):
+  before_prompt_build → prependSystemContext
+  before_tool_call    → block / params
+  message_sending     → cancel
+  subagent_spawning   → error status
+
+Upstream “neurosurgery” (recommended order):
+  1. tool.before_execute middleware (if plugin hook insufficient)
+  2. response.before_final verifier hook
+  3. memory.before_write middleware (beyond compaction)
+```
+
+### 5.6 MVP integration waves
+
+| Wave | Joinpoints | Mechanism |
+| --- | --- | --- |
+| **Shipped (bridge)** | §4.1 MVP rows marked “yes” | plugin hooks + `runtime-observers.ts` |
+| **Next (observe)** | `command.output`, `patch.*`, streaming deltas | extend `onAgentEvent` mapping in bridge |
+| **Next (upstream)** | sync `queue.before_enqueue`, `reply_run.phase.*`, `response.before_final` | OpenClaw plugin hooks at call sites |
+| **OpenCOAT-only** | `span.*`, `token.*`, message children | discovery on prompt payload |
+
+Design catalog lists **17 MVP names**; bridge **strong loop** today is smaller: input → prompt fold → tool guard → optional outbound cancel → task/subagent edges, plus observe-only queue/run/task/event stream for DCN.
+
+---
+
+## 6. Joinpoint map (tree)
 
 ```text
 OpenCOAT Joinpoint (v0.1)
