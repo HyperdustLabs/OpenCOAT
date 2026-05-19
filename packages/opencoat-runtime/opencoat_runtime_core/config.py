@@ -20,12 +20,23 @@ class RuntimeBudgets(BaseModel):
     max_advice_per_concern: int = Field(default=2, ge=1)
 
 
+class HeartbeatMaintenance(BaseModel):
+    """M6 background worker tuning (decay / merge / conflict scan)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    merge_min_keyword_overlap: int = Field(default=3, ge=1)
+    archive_cold_decay_threshold: float = Field(default=0.85, ge=0.0, le=1.0)
+    archive_cold_max_score: float = Field(default=0.15, ge=0.0, le=1.0)
+
+
 class RuntimeLoops(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     heartbeat_interval_seconds: float = Field(default=30.0, gt=0.0)
     #: When false, the daemon does not start the background heartbeat scheduler.
     heartbeat_enabled: bool = Field(default=True)
+    maintenance: HeartbeatMaintenance = Field(default_factory=HeartbeatMaintenance)
 
 
 class JoinpointAutomation(BaseModel):
