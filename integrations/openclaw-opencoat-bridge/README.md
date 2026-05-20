@@ -10,7 +10,8 @@ the generated `opencoat_plugin/` folder.
 
 ## Hook → joinpoint mapping
 
-The bridge registers **26** of **29** OpenClaw plugin hooks (`hook-bindings.ts`).
+The bridge registers **28** OpenClaw plugin hooks (`hook-bindings.ts`), including
+the OpenCOAT fork's native queue hooks.
 Skipped: `before_message_write`, `tool_result_persist` (sync hot path — cannot await daemon RPC),
 `before_install` (install-only).
 
@@ -31,6 +32,8 @@ Skipped: `before_message_write`, `tool_result_persist` (sync hot path — cannot
 | `message_sending` | `before_response` | submit + **`cancel`** when BLOCK advice |
 | `before_tool_call` | `before_tool_call` | submit + **`block`** / param guard |
 | `after_tool_call` | `after_tool_call` | submit (DCN activation) |
+| `queue_before_enqueue` | `queue.before_enqueue` | submit + **`block`** / queue prompt rewrite |
+| `queue_after_enqueue` | `queue.after_enqueue` | submit (observe) |
 | `before_compaction` / `after_compaction` | `before_memory_write` / `after_memory_write` | submit |
 | `subagent_spawning` | `task.before_create` | submit + **`status: error`** when BLOCK |
 | `subagent_delivery_target` / `subagent_spawned` | `task.after_create` | submit |
@@ -46,7 +49,7 @@ that are **not** `api.on` plugin hooks:
 | --- | --- | --- |
 | `api.runtime.events.onAgentEvent` | `reply_run.before_begin`, `reply_run.phase.running`, `planning.plan_updated`, `approval.requested`, compaction → memory JPs | Lifecycle `start` ≈ run begin; first assistant/tool/item after start ≈ `running` |
 | `api.registerHook` `session:compact:*` | `before_memory_write` / `after_memory_write` | Same boundary as plugin compaction hooks |
-| Poll `getFollowupQueueDepth` (host dist) | `queue.before_enqueue`, `queue.before_collect` | Depth diff per tracked `sessionKey` |
+| Poll `getFollowupQueueDepth` (host dist) | `queue.before_enqueue`, `queue.before_collect` | Fallback for OpenClaw builds without native queue hooks; depth diff per tracked `sessionKey` |
 | Poll `api.runtime.tasks.runs.bindSession().list()` | `task.before_create`, `task.after_create`, `task.before_terminal` | First sight + status transitions (incl. non-subagent `createTaskRecord`) |
 
 Tracked sessions: any hook `ctx.sessionKey` plus agent events. Poll interval: `observerPollMs` (default 500).
@@ -90,6 +93,7 @@ openclaw gateway restart
 
 Manual `plugins.entries` key must be `**@hyperdustlabs/opencoat-bridge**` (with slash),
 not `@hyperdustlabs-opencoat-bridge`. Remove legacy `@hyperdust/*` entries. Set
+`hooks.allowPromptInjection=true`, `hooks.allowConversationAccess=true`, and
 `daemonUrl` in plugin config (not `process.env` in the plugin — OpenClaw blocks
 env+network patterns at install time).
 

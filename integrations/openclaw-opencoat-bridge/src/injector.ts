@@ -11,6 +11,10 @@ function isToolTarget(target: string): boolean {
   return target === "tool_call" || target.startsWith("tool_call.");
 }
 
+function isQueueTarget(target: string): boolean {
+  return target === "queue" || target.startsWith("queue.");
+}
+
 /** Fold prompt-level INSERT (etc.) rows into OpenClaw prependSystemContext. */
 export function foldPromptInjection(injection: ConcernInjection | null): string {
   if (!injection?.injections?.length) return "";
@@ -121,6 +125,48 @@ export function subagentSpawnDecision(
     blockReasonFromInjection(injection) ??
     "Blocked by OpenCOAT concern (subagent spawn).";
   return { status: "error", error: reason };
+}
+
+export type QueueBeforeEnqueueDecision = {
+  block?: boolean;
+  blockReason?: string;
+  prompt?: string;
+  summaryLine?: string;
+};
+
+/** Interpret queue-scoped advice for OpenClaw queue_before_enqueue. */
+export function queueBeforeEnqueueDecision(
+  injection: ConcernInjection | null,
+): QueueBeforeEnqueueDecision {
+  if (!injection?.injections?.length) return {};
+
+  const reasons: string[] = [];
+  const decision: QueueBeforeEnqueueDecision = {};
+
+  for (const row of injection.injections) {
+    if (!isQueueTarget(row.target) && !BLOCK_MODES.has(row.mode)) continue;
+
+    if (BLOCK_MODES.has(row.mode)) {
+      decision.block = true;
+      if (row.content.trim()) reasons.push(row.content.trim());
+      continue;
+    }
+
+    if (!row.content.trim()) continue;
+    if (row.target === "queue.prompt" && row.mode === "rewrite") {
+      decision.prompt = row.content.trim();
+    } else if (
+      (row.target === "queue.summary_line" || row.target === "queue.summaryLine") &&
+      row.mode === "rewrite"
+    ) {
+      decision.summaryLine = row.content.trim();
+    }
+  }
+
+  if (reasons.length) {
+    decision.blockReason = reasons.join("\n");
+  }
+  return decision;
 }
 
 export function mergeInjections(

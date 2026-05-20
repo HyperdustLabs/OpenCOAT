@@ -85,7 +85,12 @@ _OPENCLAW_V01_MVP_ONLY = (
     CatalogEntry(
         "queue.before_enqueue",
         JoinpointLevel.LIFECYCLE,
-        "Bridge: queue depth poll (observe; not sync at enqueueFollowupRun)",
+        "Bridge: native queue_before_enqueue hook; queue poll fallback on older OpenClaw",
+    ),
+    CatalogEntry(
+        "queue.after_enqueue",
+        JoinpointLevel.LIFECYCLE,
+        "Bridge: native queue_after_enqueue hook (observe after queue decision)",
     ),
     CatalogEntry(
         "queue.before_collect",

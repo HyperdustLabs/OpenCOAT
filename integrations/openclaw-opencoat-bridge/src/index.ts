@@ -21,6 +21,7 @@ import {
   guardToolCall,
   mergeInjections,
   messageSendingDecision,
+  queueBeforeEnqueueDecision,
   subagentSpawnDecision,
 } from "./injector.js";
 import { promptPayload } from "./messages.js";
@@ -28,6 +29,7 @@ import {
   compactionPayload,
   llmPayload,
   passThroughPayload,
+  queuePayload,
   subagentPayload,
   toolCallPayload,
   toolResultPayload,
@@ -35,6 +37,7 @@ import {
 import { createObserveEmitter } from "./emit-joinpoint.js";
 import {
   installRuntimeObservers,
+  recordQueueDepthSnapshot,
   trackSessionKey,
 } from "./runtime-observers.js";
 import type {
@@ -133,6 +136,10 @@ function buildPayloadForHook(
         error: typeof e.error === "string" ? e.error : undefined,
         durationMs: typeof e.durationMs === "number" ? e.durationMs : undefined,
       });
+    case "queue_before_enqueue":
+      return queuePayload(e, "before_enqueue");
+    case "queue_after_enqueue":
+      return queuePayload(e, "after_enqueue");
     case "message_sending": {
       const content = typeof e.content === "string" ? e.content : "";
       return promptPayload({
@@ -237,8 +244,19 @@ async function handleHook(
         return { status: "ok" };
       }
 
+      case "queue_guard": {
+        const inj = await emit(cfg, api, binding.hook, binding.joinpoint, payload, c);
+        return queueBeforeEnqueueDecision(inj);
+      }
+
       case "observe":
       default: {
+        if (binding.hook === "queue_after_enqueue") {
+          const ev = asRecord(event);
+          const sessionKey =
+            typeof ev.sessionKey === "string" ? ev.sessionKey : c.sessionKey;
+          recordQueueDepthSnapshot(sessionKey, ev.depthAfter);
+        }
         const level =
           binding.hook === "gateway_start" || binding.hook === "gateway_stop"
             ? 0

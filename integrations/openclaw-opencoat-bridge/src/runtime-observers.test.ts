@@ -5,7 +5,10 @@ import {
   agentEventRunningJoinpoint,
   diffQueueDepth,
   diffTaskSnapshots,
+  installRuntimeObservers,
+  recordQueueDepthSnapshot,
 } from "./runtime-observers.js";
+import type { BridgeConfig, BridgePluginApi } from "./types.js";
 
 describe("agentEventJoinpoint", () => {
   it("maps lifecycle start to reply_run.before_begin", () => {
@@ -58,6 +61,13 @@ describe("diffQueueDepth", () => {
       ["queue.before_collect"],
     );
   });
+
+  it("uses native queue hook snapshots as the next poll baseline", () => {
+    const key = `sess-${Math.random()}`;
+    recordQueueDepthSnapshot(key, 2);
+    const events = diffQueueDepth(key, 2);
+    assert.deepEqual(events, []);
+  });
 });
 
 describe("diffTaskSnapshots", () => {
@@ -85,5 +95,37 @@ describe("diffTaskSnapshots", () => {
       },
     ]);
     assert.deepEqual(terminal.map((e) => e.name), ["task.before_terminal"]);
+  });
+});
+
+describe("installRuntimeObservers", () => {
+  it("names the internal compaction hook registration for OpenClaw", () => {
+    let registered:
+      | { events: string | string[]; opts?: { name?: string; description?: string } }
+      | undefined;
+    const api: BridgePluginApi = {
+      on: () => {},
+      registerHook: (events, _handler, opts) => {
+        registered = { events, opts };
+      },
+    };
+    const cfg: BridgeConfig = {
+      daemonUrl: "http://127.0.0.1:7878/rpc",
+      enabled: false,
+      logActivations: false,
+      extractOnUserMessage: false,
+      runtimeObservers: true,
+      observerPollMs: 500,
+    };
+
+    installRuntimeObservers(api, cfg, {
+      observe: async () => null,
+    });
+
+    assert.deepEqual(registered?.events, [
+      "session:compact:before",
+      "session:compact:after",
+    ]);
+    assert.equal(registered?.opts?.name, "opencoat-bridge-session-compact");
   });
 });

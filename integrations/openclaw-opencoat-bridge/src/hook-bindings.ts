@@ -1,8 +1,8 @@
 /**
  * OpenClaw plugin hook → OpenCOAT joinpoint bindings (ADR-0011).
  *
- * Queue / reply_run / non-subagent task moments use runtime-observers.ts
- * (onAgentEvent + poll), not entries here.
+ * Legacy OpenClaw queue observations still use runtime-observers.ts
+ * (queue-depth poll). Native queue hooks are registered here when present.
  *
  * Skipped (sync hot path — cannot await daemon RPC):
  *   before_message_write, tool_result_persist
@@ -16,6 +16,7 @@ export type HookKind =
   | "tool_guard"
   | "message_out"
   | "subagent_spawn"
+  | "queue_guard"
   | "buffer_input";
 
 export type HookBinding = {
@@ -24,7 +25,7 @@ export type HookBinding = {
   kind: HookKind;
 };
 
-/** All hooks the bridge registers (30 OpenClaw plugin hooks − 3 skipped). */
+/** All hooks the bridge registers. */
 export const HOOK_BINDINGS: HookBinding[] = [
   // --- already wired (kept for documentation order) ---
   { hook: "session_start", joinpoint: "runtime_start", kind: "observe" },
@@ -55,6 +56,10 @@ export const HOOK_BINDINGS: HookBinding[] = [
 
   // --- tools ---
   { hook: "after_tool_call", joinpoint: "after_tool_call", kind: "observe" },
+
+  // --- queue ---
+  { hook: "queue_before_enqueue", joinpoint: "queue.before_enqueue", kind: "queue_guard" },
+  { hook: "queue_after_enqueue", joinpoint: "queue.after_enqueue", kind: "observe" },
 
   // --- memory / compaction ---
   { hook: "before_compaction", joinpoint: "before_memory_write", kind: "observe" },

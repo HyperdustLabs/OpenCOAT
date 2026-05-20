@@ -33,6 +33,17 @@ export function trackSessionKey(sessionKey: string | undefined): void {
   if (sessionKey?.trim()) trackedSessionKeys.add(sessionKey.trim());
 }
 
+export function recordQueueDepthSnapshot(
+  sessionKey: string | undefined,
+  depth: unknown,
+): void {
+  if (!sessionKey?.trim() || typeof depth !== "number" || !Number.isFinite(depth)) {
+    return;
+  }
+  trackedSessionKeys.add(sessionKey.trim());
+  queueDepthByKey.set(sessionKey.trim(), Math.max(0, Math.floor(depth)));
+}
+
 export function agentEventJoinpoint(
   evt: AgentEventPayload,
 ): { name: string; payload: Record<string, unknown> } | null {
@@ -297,6 +308,10 @@ export function installRuntimeObservers(
     api.registerHook(
       ["session:compact:before", "session:compact:after"],
       compactHandler,
+      {
+        name: "opencoat-bridge-session-compact",
+        description: "Mirror OpenClaw session compaction events into OpenCOAT memory joinpoints.",
+      },
     );
   }
 

@@ -54,6 +54,7 @@ OPENCLAW_V01_MVP_JOINPOINTS: frozenset[str] = frozenset(
     {
         "input.received",
         "queue.before_enqueue",
+        "queue.after_enqueue",
         "queue.before_collect",
         "reply_run.before_begin",
         "reply_run.phase.running",
