@@ -57,8 +57,24 @@ export function agentEventJoinpoint(
           payload: { phase, run_id: evt.runId, ...data },
         };
       }
+      if (phase === "error") {
+        return {
+          name: "error.detected",
+          payload: { phase, run_id: evt.runId, ...data },
+        };
+      }
       return null;
     }
+    case "command_output":
+      return {
+        name: "command.output_stream",
+        payload: { run_id: evt.runId, stream: evt.stream, ...data },
+      };
+    case "patch":
+      return {
+        name: "patch.summary_created",
+        payload: { run_id: evt.runId, stream: evt.stream, ...data },
+      };
     case "plan":
       return {
         name: "planning.plan_updated",

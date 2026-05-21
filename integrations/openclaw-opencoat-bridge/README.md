@@ -47,7 +47,7 @@ that are **not** `api.on` plugin hooks:
 
 | Source | Joinpoints emitted | Notes |
 | --- | --- | --- |
-| `api.runtime.events.onAgentEvent` | `reply_run.before_begin`, `reply_run.phase.running`, `planning.plan_updated`, `approval.requested`, compaction → memory JPs | Lifecycle `start` ≈ run begin; first assistant/tool/item after start ≈ `running` |
+| `api.runtime.events.onAgentEvent` | `reply_run.before_begin`, `reply_run.phase.running`, `planning.plan_updated`, `approval.requested`, `command.output_stream`, `patch.summary_created`, `error.detected` (lifecycle `error`), compaction → memory JPs | Lifecycle `start` ≈ run begin; first assistant/tool/item after start ≈ `running` |
 | `api.registerHook` `session:compact:*` | `before_memory_write` / `after_memory_write` | Same boundary as plugin compaction hooks |
 | Poll `getFollowupQueueDepth` (host dist) | `queue.before_enqueue`, `queue.before_collect` | Fallback for OpenClaw builds without native queue hooks; depth diff per tracked `sessionKey` |
 | Poll `api.runtime.tasks.runs.bindSession().list()` | `task.before_create`, `task.after_create`, `task.before_terminal` | First sight + status transitions (incl. non-subagent `createTaskRecord`) |

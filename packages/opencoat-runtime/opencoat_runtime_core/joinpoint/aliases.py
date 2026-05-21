@@ -21,6 +21,8 @@ OPENCLAW_V01_ALIASES: dict[str, str] = {
     "planning.before_start": "before_planning",
     "planning.after_start": "after_planning",
     "planning.plan_updated": "after_planning",
+    "command.output_stream": "command.output_stream",
+    "patch.summary_created": "patch.summary_created",
     # Tool
     "tool.before_call": "before_tool_call",
     "tool.after_execute": "after_tool_call",

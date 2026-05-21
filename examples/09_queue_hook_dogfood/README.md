@@ -18,7 +18,8 @@ examples/09_queue_hook_dogfood/
 │   └── oc.dogfood.queue-summary-rewrite.json
 └── scripts/
     ├── smoke-rpc.sh                 # daemon-only smoke (no gateway)
-    └── live-queue-block-test.sh     # live block via gateway chat.send
+    ├── live-queue-block-test.sh     # live block via gateway chat.send
+    └── live-queue-rewrite-test.sh   # live prompt/summary rewrite (chat.send)
 ```
 
 ## Prerequisites
@@ -95,14 +96,28 @@ fresh DCN row for `oc.dogfood.queue-block`.
 Do **not** use two sequential `openclaw agent` calls for overlap — each call blocks
 until the turn finishes, so the queue hook never fires.
 
-**Prompt rewrite**
+**Prompt / summary rewrite** (automated)
+
+Import **one** rewrite concern (disable block first if it shares the joinpoint):
+
+```bash
+chmod +x examples/09_queue_hook_dogfood/scripts/live-queue-rewrite-test.sh
+./examples/09_queue_hook_dogfood/scripts/live-queue-rewrite-test.sh prompt
+# or:
+./examples/09_queue_hook_dogfood/scripts/live-queue-rewrite-test.sh summary
+```
+
+**Pass:** gateway log shows `queue_before_enqueue→…: oc.dogfood.queue-prompt-rewrite`
+(or `…-summary-rewrite`) and DCN activation for that concern. Confirm rewritten
+prompt/summary in queue drain behaviour manually if needed.
+
+**Prompt rewrite** (manual)
 
 1. Remove/disable block concern; import `oc.dogfood.queue-prompt-rewrite.json`
 2. Active run + send: `QUEUE_DOGFOOD_REWRITE_PROMPT — tighten scope to Y`
-3. **Pass:** follow-up is queued with rewritten prompt (check gateway debug or
-   queue drain behaviour — model should see the rewritten text, not the raw line)
+3. **Pass:** follow-up is queued with rewritten prompt (model should see rewritten text)
 
-**Summary line rewrite**
+**Summary line rewrite** (manual)
 
 1. Import `oc.dogfood.queue-summary-rewrite.json`
 2. Active run + send: `QUEUE_DOGFOOD_REWRITE_SUMMARY — minor tweak`

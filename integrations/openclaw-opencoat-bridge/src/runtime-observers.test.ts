@@ -28,6 +28,33 @@ describe("agentEventJoinpoint", () => {
     });
     assert.equal(mapped?.name, "planning.plan_updated");
   });
+
+  it("maps lifecycle error to error.detected", () => {
+    const mapped = agentEventJoinpoint({
+      runId: "r1",
+      stream: "lifecycle",
+      data: { phase: "error", error: "boom" },
+    });
+    assert.equal(mapped?.name, "error.detected");
+  });
+
+  it("maps command_output stream to command.output_stream", () => {
+    const mapped = agentEventJoinpoint({
+      runId: "r1",
+      stream: "command_output",
+      data: { phase: "delta", output: "line 1" },
+    });
+    assert.equal(mapped?.name, "command.output_stream");
+  });
+
+  it("maps patch stream to patch.summary_created", () => {
+    const mapped = agentEventJoinpoint({
+      runId: "r1",
+      stream: "patch",
+      data: { phase: "end", summary: "2 files changed" },
+    });
+    assert.equal(mapped?.name, "patch.summary_created");
+  });
 });
 
 describe("agentEventRunningJoinpoint", () => {

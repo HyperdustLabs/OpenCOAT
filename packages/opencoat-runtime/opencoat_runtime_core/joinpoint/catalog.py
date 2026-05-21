@@ -132,6 +132,16 @@ _OPENCLAW_V01_MVP_ONLY = (
         JoinpointLevel.LIFECYCLE,
         "Concern verifier fail path (not emitted by bridge yet)",
     ),
+    CatalogEntry(
+        "command.output_stream",
+        JoinpointLevel.LIFECYCLE,
+        "Bridge: onAgentEvent command_output stream",
+    ),
+    CatalogEntry(
+        "patch.summary_created",
+        JoinpointLevel.LIFECYCLE,
+        "Bridge: onAgentEvent patch stream (summary)",
+    ),
 )
 
 # v0.1 dotted aliases registered for inspect / pointcut validation (matcher resolves)

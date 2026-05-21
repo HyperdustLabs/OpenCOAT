@@ -392,7 +392,7 @@ error.detected
 | `response.before_final` | partial | `message_sending` cancel path | cancel outbound only |
 | `verification.after_fail` | no | — | — |
 | `heartbeat.before_run` | no | OpenCOAT `runtime_tick` / future hook | — |
-| `error.detected` | partial | `on_error` lifecycle alias via agent error events | no |
+| `error.detected` | yes (observe) | `onAgentEvent` lifecycle `error` | no |
 
 Default: `runtimeObservers: true`, `observerPollMs: 500`. Full hook table: [bridge README](../../integrations/openclaw-opencoat-bridge/README.md).
 
@@ -430,8 +430,8 @@ C. Not direct     — needs OpenClaw middleware/hook PR, or is OpenCOAT-internal
 | Agent event stream | `stream: compaction` start/end | memory JPs | observer | observe |
 | Agent event stream | `stream: lifecycle` start | `reply_run.before_begin` | observer | observe |
 | Agent event stream | `stream: tool` / `item` / `assistant` after start | `reply_run.phase.running` | observer | observe |
-| Agent event stream | `stream: command_output` | `command.output_stream` | not wired | observe (future) |
-| Agent event stream | `stream: patch` | `patch.summary_created` | not wired | observe (future) |
+| Agent event stream | `stream: command_output` | `command.output_stream` | yes (observe) | no |
+| Agent event stream | `stream: patch` | `patch.summary_created` | yes (observe) | no |
 | Task API | `runtime.tasks.runs.bindSession().list()` | `task.*` | poll diff | observe |
 | Task hooks | `subagent_*` | `task.after_create`, `task.before_terminal` | yes | observe / spawn veto |
 | Input | `message_received`, `inbound_claim`, `before_dispatch` | `input.received` | yes | observe / extract |
@@ -499,7 +499,8 @@ Upstream “neurosurgery” (recommended order):
 | Wave | Joinpoints | Mechanism |
 | --- | --- | --- |
 | **Shipped (bridge)** | §4.1 MVP rows marked “yes” | plugin hooks + `runtime-observers.ts` |
-| **Next (observe)** | `command.output_stream`, `patch.summary_created`, streaming deltas | extend `onAgentEvent` mapping in bridge (use catalog names, not `command.output`) |
+| **Shipped (observe)** | `command.output_stream`, `patch.summary_created`, `error.detected` | `onAgentEvent` mapping in bridge `runtime-observers.ts` |
+| **Next (observe)** | streaming deltas | extend `onAgentEvent` / outbound callbacks |
 | **Shipped (fork + bridge)** | `queue.before_enqueue` / `queue.after_enqueue` sync veto + observe | OpenClaw `queue_before_enqueue` / `queue_after_enqueue` + bridge `queue_guard` |
 | **Next (upstream)** | `reply_run.phase.*`, `response.before_final`, `tool.result.before_emit` | OpenClaw plugin hooks at call sites |
 | **OpenCOAT-only** | `span.*`, `token.*`, message children | discovery on prompt payload |
