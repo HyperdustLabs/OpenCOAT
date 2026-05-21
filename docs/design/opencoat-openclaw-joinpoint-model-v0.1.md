@@ -376,7 +376,8 @@ error.detected
 | MVP joinpoint | Emitted today | Bridge source | Sync veto at host call site |
 | --- | --- | --- | --- |
 | `input.received` | yes | `message_received`, `inbound_claim`, `before_dispatch` | no (observe / buffer) |
-| `queue.before_enqueue` | yes (observe) | queue depth poll (`getFollowupQueueDepth`) | no — needs native hook at `enqueueFollowupRun` |
+| `queue.before_enqueue` | yes | **`queue_before_enqueue` plugin hook** (fork); queue depth poll fallback | **yes** — `block` / `queue.prompt` / `queue.summary_line` rewrite via bridge `queue_guard` |
+| `queue.after_enqueue` | yes (observe) | **`queue_after_enqueue` plugin hook** (fork); poll snapshot sync | no |
 | `queue.before_collect` | yes (observe) | queue depth poll (depth decrease) | no |
 | `reply_run.before_begin` | yes (observe) | `onAgentEvent` lifecycle `start` | no |
 | `reply_run.phase.running` | yes (observe) | first `assistant` / `tool` / `item` after start | no |
@@ -413,7 +414,7 @@ C. Not direct     — needs OpenClaw middleware/hook PR, or is OpenCOAT-internal
 
 **Weakest / internal-only:** `token.*`, `span.*`, `prompt.section.*` (until host passes structured sections), implicit planner steps, true memory read/write on every path, unified `response.before_final` verifier (partial via `message_sending` only).
 
-**Strong control gap (upstream):** synchronous veto at `enqueueFollowupRun`, full `reply_run.phase.*`, and any path where only post-hoc agent events exist today.
+**Strong control gap (upstream):** full `reply_run.phase.*`, `tool.result.before_emit`, unified `memory.before_write`, and paths where only post-hoc agent events exist today. **`queue.before_enqueue` sync veto shipped on OpenClaw fork** (`queue_before_enqueue` hook + bridge `queue_guard`); poll remains observe-only fallback.
 
 ### 5.2 Tier A — usable now
 
@@ -434,6 +435,8 @@ C. Not direct     — needs OpenClaw middleware/hook PR, or is OpenCOAT-internal
 | Task API | `runtime.tasks.runs.bindSession().list()` | `task.*` | poll diff | observe |
 | Task hooks | `subagent_*` | `task.after_create`, `task.before_terminal` | yes | observe / spawn veto |
 | Input | `message_received`, `inbound_claim`, `before_dispatch` | `input.received` | yes | observe / extract |
+| Plugin hooks | `queue_before_enqueue` / `queue_after_enqueue` | `queue.before_enqueue` / `queue.after_enqueue` | yes (fork) | **block** / prompt & summaryLine **rewrite** |
+| Queue poll | `getFollowupQueueDepth` | `queue.before_enqueue`, `queue.before_collect` | fallback | observe only (no veto) |
 
 **Important correction:** OpenClaw’s plugin hook `before_tool_call` **is** a pre-execute guard — do not confuse it with `onAgentEvent` `stream: tool`, which fires around tool **start** and is observe-only. Catalog name `tool.before_call` maps to the plugin hook, not `tool.started`.
 
@@ -441,7 +444,6 @@ C. Not direct     — needs OpenClaw middleware/hook PR, or is OpenCOAT-internal
 
 | Joinpoint (design) | How to attach | Bridge / OpenCOAT today |
 | --- | --- | --- |
-| `queue.before_enqueue` / `after_enqueue` | wrap `enqueueFollowupRun` or depth poll | poll only (late) |
 | `queue.before_drain` | wrap `scheduleFollowupDrain` | not wired |
 | `input.before_enqueue` | adapter before enqueue | partial (`on_user_input` buffer) |
 | `prompt.before_send_to_model` | `FollowupRun.extraSystemPrompt`, hook fold | plugin + discovery |
@@ -458,7 +460,6 @@ OpenCOAT applies **weak modulation** here: extra system prompt, queue/task *poli
 
 ```text
 tool.before_execute          # if stricter than plugin before_tool_call (args rewrite mid-flight)
-queue.before_enqueue         # sync veto at enqueueFollowupRun (bridge poll is too late)
 reply_run.phase.*            # per-phase hooks on ReplyOperation
 memory.before_read / before_write   # unified memory middleware (compaction hooks are partial)
 response.before_final        # unified verifier before channel delivery (message_sending is partial)
@@ -499,10 +500,11 @@ Upstream “neurosurgery” (recommended order):
 | --- | --- | --- |
 | **Shipped (bridge)** | §4.1 MVP rows marked “yes” | plugin hooks + `runtime-observers.ts` |
 | **Next (observe)** | `command.output_stream`, `patch.summary_created`, streaming deltas | extend `onAgentEvent` mapping in bridge (use catalog names, not `command.output`) |
-| **Next (upstream)** | sync `queue.before_enqueue`, `reply_run.phase.*`, `response.before_final` | OpenClaw plugin hooks at call sites |
+| **Shipped (fork + bridge)** | `queue.before_enqueue` / `queue.after_enqueue` sync veto + observe | OpenClaw `queue_before_enqueue` / `queue_after_enqueue` + bridge `queue_guard` |
+| **Next (upstream)** | `reply_run.phase.*`, `response.before_final`, `tool.result.before_emit` | OpenClaw plugin hooks at call sites |
 | **OpenCOAT-only** | `span.*`, `token.*`, message children | discovery on prompt payload |
 
-Design catalog lists **17 MVP names**; bridge **strong loop** today is smaller: input → prompt fold → tool guard → optional outbound cancel → task/subagent edges, plus observe-only queue/run/task/event stream for DCN.
+Design catalog lists **17 MVP names**; bridge **strong loop** today: input → prompt fold → tool guard → optional outbound cancel → **queue enqueue veto/rewrite (fork)** → task/subagent edges, plus observe-only run/task/event stream for DCN. Dogfood: [`examples/09_queue_hook_dogfood`](../../examples/09_queue_hook_dogfood/README.md).
 
 ---
 

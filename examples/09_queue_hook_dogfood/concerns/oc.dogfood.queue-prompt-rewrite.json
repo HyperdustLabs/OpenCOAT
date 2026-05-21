@@ -1,0 +1,29 @@
+{
+  "id": "oc.dogfood.queue-prompt-rewrite",
+  "kind": "concern",
+  "name": "Dogfood — rewrite queued follow-up prompt",
+  "description": "Rewrites queue.prompt when the incoming prompt contains QUEUE_DOGFOOD_REWRITE_PROMPT.",
+  "schema_version": "0.1.0",
+  "pointcuts": [
+    {
+      "id": "pc-queue-prompt",
+      "joinpoints": ["queue.before_enqueue"],
+      "match": { "any_keywords": ["QUEUE_DOGFOOD_REWRITE_PROMPT"] }
+    }
+  ],
+  "advices": [
+    {
+      "id": "adv-rewrite-prompt",
+      "kind": "around",
+      "pointcut_ref": "pc-queue-prompt",
+      "template": "rewrite_guidance",
+      "content": "[OpenCOAT rewrite] Summarized follow-up: continue the prior task with the new constraint only.",
+      "effect": {
+        "mode": "rewrite",
+        "level": "output_level",
+        "target": "queue.prompt",
+        "priority": 0.8
+      }
+    }
+  ]
+}

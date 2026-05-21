@@ -12,6 +12,7 @@ End-to-end usage of the OpenCOAT Runtime.
 | 05 | `05_langgraph_with_runtime/` | M7 |
 | 06 | `06_long_running_daemon/` | M4 (PR-23) — programmatic Daemon ↔ HTTP JSON-RPC end-to-end |
 | 07 | `07_meta_governance_soak/` | M6 — heartbeat maintenance soak (decay / merge / conflict scan) |
+| 09 | `09_queue_hook_dogfood/` | M7 — OpenClaw fork `queue_before_enqueue` block / rewrite dogfood |
 
 Each example contains a `README.md` with the user story, a runnable
 `main.py`, and a frozen transcript so we can diff future runs.
