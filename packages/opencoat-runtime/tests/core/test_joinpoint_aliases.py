@@ -50,6 +50,16 @@ def test_matcher_accepts_v01_pointcut_against_legacy_event_name() -> None:
     assert result.matched
 
 
-def test_queue_joinpoint_in_catalog_not_emitted_by_bridge_yet() -> None:
+def test_queue_joinpoints_in_catalog() -> None:
     assert "queue.before_enqueue" in JOINPOINT_CATALOG
+    assert "queue.after_enqueue" in JOINPOINT_CATALOG
     assert canonical_joinpoint_name("queue.before_enqueue") == "queue.before_enqueue"
+
+
+def test_observe_wave_joinpoints_in_catalog() -> None:
+    for name in (
+        "command.output_stream",
+        "patch.summary_created",
+        "error.detected",
+    ):
+        assert name in JOINPOINT_CATALOG, name

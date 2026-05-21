@@ -1,0 +1,29 @@
+{
+  "id": "oc.dogfood.queue-summary-rewrite",
+  "kind": "concern",
+  "name": "Dogfood — rewrite queued follow-up summary line",
+  "description": "Rewrites queue.summary_line when the incoming prompt contains QUEUE_DOGFOOD_REWRITE_SUMMARY.",
+  "schema_version": "0.1.0",
+  "pointcuts": [
+    {
+      "id": "pc-queue-summary",
+      "joinpoints": ["queue.before_enqueue"],
+      "match": { "any_keywords": ["QUEUE_DOGFOOD_REWRITE_SUMMARY"] }
+    }
+  ],
+  "advices": [
+    {
+      "id": "adv-rewrite-summary",
+      "kind": "around",
+      "pointcut_ref": "pc-queue-summary",
+      "template": "rewrite_guidance",
+      "content": "OpenCOAT: queued follow-up (summary rewritten)",
+      "effect": {
+        "mode": "rewrite",
+        "level": "output_level",
+        "target": "queue.summary_line",
+        "priority": 0.8
+      }
+    }
+  ]
+}

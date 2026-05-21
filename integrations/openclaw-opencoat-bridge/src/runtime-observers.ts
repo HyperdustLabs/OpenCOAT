@@ -33,6 +33,17 @@ export function trackSessionKey(sessionKey: string | undefined): void {
   if (sessionKey?.trim()) trackedSessionKeys.add(sessionKey.trim());
 }
 
+export function recordQueueDepthSnapshot(
+  sessionKey: string | undefined,
+  depth: unknown,
+): void {
+  if (!sessionKey?.trim() || typeof depth !== "number" || !Number.isFinite(depth)) {
+    return;
+  }
+  trackedSessionKeys.add(sessionKey.trim());
+  queueDepthByKey.set(sessionKey.trim(), Math.max(0, Math.floor(depth)));
+}
+
 export function agentEventJoinpoint(
   evt: AgentEventPayload,
 ): { name: string; payload: Record<string, unknown> } | null {
@@ -46,8 +57,24 @@ export function agentEventJoinpoint(
           payload: { phase, run_id: evt.runId, ...data },
         };
       }
+      if (phase === "error") {
+        return {
+          name: "error.detected",
+          payload: { phase, run_id: evt.runId, ...data },
+        };
+      }
       return null;
     }
+    case "command_output":
+      return {
+        name: "command.output_stream",
+        payload: { run_id: evt.runId, stream: evt.stream, ...data },
+      };
+    case "patch":
+      return {
+        name: "patch.summary_created",
+        payload: { run_id: evt.runId, stream: evt.stream, ...data },
+      };
     case "plan":
       return {
         name: "planning.plan_updated",
@@ -297,6 +324,10 @@ export function installRuntimeObservers(
     api.registerHook(
       ["session:compact:before", "session:compact:after"],
       compactHandler,
+      {
+        name: "opencoat-bridge-session-compact",
+        description: "Mirror OpenClaw session compaction events into OpenCOAT memory joinpoints.",
+      },
     );
   }
 

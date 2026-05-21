@@ -43,7 +43,10 @@ for stale in ("@hyperdust/opencoat-bridge", "@hyperdust-opencoat-bridge"):
 
 entries[os.environ["EXT_ID"]] = {
     "enabled": True,
-    "hooks": {"allowPromptInjection": True},
+    "hooks": {
+        "allowPromptInjection": True,
+        "allowConversationAccess": True,
+    },
     "config": {
         "daemonUrl": os.environ.get("OPENCOAT_DAEMON_URL", "http://127.0.0.1:7878/rpc"),
         "logActivations": True,

@@ -1,0 +1,29 @@
+{
+  "id": "oc.dogfood.queue-block",
+  "kind": "concern",
+  "name": "Dogfood — block follow-up queue enqueue",
+  "description": "Blocks queue_before_enqueue when the queued prompt contains QUEUE_DOGFOOD_BLOCK.",
+  "schema_version": "0.1.0",
+  "pointcuts": [
+    {
+      "id": "pc-queue-block",
+      "joinpoints": ["queue.before_enqueue"],
+      "match": { "any_keywords": ["QUEUE_DOGFOOD_BLOCK"] }
+    }
+  ],
+  "advices": [
+    {
+      "id": "adv-block",
+      "kind": "before",
+      "pointcut_ref": "pc-queue-block",
+      "template": "memory_write_guard",
+      "content": "Follow-up queue blocked by OpenCOAT dogfood concern (oc.dogfood.queue-block).",
+      "effect": {
+        "mode": "block",
+        "level": "memory_level",
+        "target": "queue.prompt",
+        "priority": 0.95
+      }
+    }
+  ]
+}

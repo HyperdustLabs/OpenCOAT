@@ -59,6 +59,34 @@ export function toolResultPayload(event: {
   };
 }
 
+export function queuePayload(
+  event: Record<string, unknown>,
+  stage: "before_enqueue" | "after_enqueue",
+): Record<string, unknown> {
+  const text = safeJson(event);
+  return {
+    text,
+    raw_text: text,
+    content: text,
+    stage,
+    queue_key: event.queueKey,
+    queue_mode: event.queueMode,
+    drop_policy: event.dropPolicy,
+    depth_before: event.depthBefore,
+    depth_after: event.depthAfter,
+    enqueued: event.enqueued,
+    prompt: event.prompt,
+    summary_line: event.summaryLine,
+    message_id: event.messageId,
+    originating_channel: event.originatingChannel,
+    originating_to: event.originatingTo,
+    originating_account_id: event.originatingAccountId,
+    originating_thread_id: event.originatingThreadId,
+    session_id: event.sessionId,
+    session_key: event.sessionKey,
+  };
+}
+
 export function messageContentPayload(
   content: string,
   extra?: Record<string, unknown>,

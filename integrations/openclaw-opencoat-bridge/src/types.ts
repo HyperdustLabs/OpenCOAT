@@ -57,7 +57,7 @@ export type BridgePluginApi = {
       sessionKey?: string;
       context?: Record<string, unknown>;
     }) => void | Promise<void>,
-    opts?: { priority?: number },
+    opts?: { name?: string; description?: string; priority?: number },
   ) => void;
 };
 

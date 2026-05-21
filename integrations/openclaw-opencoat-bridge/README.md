@@ -10,7 +10,8 @@ the generated `opencoat_plugin/` folder.
 
 ## Hook → joinpoint mapping
 
-The bridge registers **26** of **29** OpenClaw plugin hooks (`hook-bindings.ts`).
+The bridge registers **29** OpenClaw plugin hooks (`hook-bindings.ts`), including
+the OpenCOAT fork's native queue hooks.
 Skipped: `before_message_write`, `tool_result_persist` (sync hot path — cannot await daemon RPC),
 `before_install` (install-only).
 
@@ -31,11 +32,14 @@ Skipped: `before_message_write`, `tool_result_persist` (sync hot path — cannot
 | `message_sending` | `before_response` | submit + **`cancel`** when BLOCK advice |
 | `before_tool_call` | `before_tool_call` | submit + **`block`** / param guard |
 | `after_tool_call` | `after_tool_call` | submit (DCN activation) |
+| `queue_before_enqueue` | `queue.before_enqueue` | submit + **`block`** / queue prompt rewrite |
+| `queue_after_enqueue` | `queue.after_enqueue` | submit (observe) |
 | `before_compaction` / `after_compaction` | `before_memory_write` / `after_memory_write` | submit |
 | `subagent_spawning` | `task.before_create` | submit + **`status: error`** when BLOCK |
 | `subagent_delivery_target` / `subagent_spawned` | `task.after_create` | submit |
 | `subagent_ended` | `task.before_terminal` | submit |
 | `before_model_resolve` | `before_reasoning` | submit |
+| `before_agent_run` | `input.received` | submit (observe only; fork gate not overridden) |
 
 ### Runtime observers (no extra OpenClaw plugin hooks)
 
@@ -44,9 +48,9 @@ that are **not** `api.on` plugin hooks:
 
 | Source | Joinpoints emitted | Notes |
 | --- | --- | --- |
-| `api.runtime.events.onAgentEvent` | `reply_run.before_begin`, `reply_run.phase.running`, `planning.plan_updated`, `approval.requested`, compaction → memory JPs | Lifecycle `start` ≈ run begin; first assistant/tool/item after start ≈ `running` |
+| `api.runtime.events.onAgentEvent` | `reply_run.before_begin`, `reply_run.phase.running`, `planning.plan_updated`, `approval.requested`, `command.output_stream`, `patch.summary_created`, `error.detected` (lifecycle `error`), compaction → memory JPs | Lifecycle `start` ≈ run begin; first assistant/tool/item after start ≈ `running` |
 | `api.registerHook` `session:compact:*` | `before_memory_write` / `after_memory_write` | Same boundary as plugin compaction hooks |
-| Poll `getFollowupQueueDepth` (host dist) | `queue.before_enqueue`, `queue.before_collect` | Depth diff per tracked `sessionKey` |
+| Poll `getFollowupQueueDepth` (host dist) | `queue.before_enqueue`, `queue.before_collect` | Fallback for OpenClaw builds without native queue hooks; depth diff per tracked `sessionKey` |
 | Poll `api.runtime.tasks.runs.bindSession().list()` | `task.before_create`, `task.after_create`, `task.before_terminal` | First sight + status transitions (incl. non-subagent `createTaskRecord`) |
 
 Tracked sessions: any hook `ctx.sessionKey` plus agent events. Poll interval: `observerPollMs` (default 500).
@@ -58,8 +62,13 @@ Pointcuts may use legacy names (`before_tool_call`) or v0.1 aliases (`tool.befor
 
 1. Daemon running: `opencoat runtime up`
 2. Concerns in the daemon store: `opencoat concern extract …` and/or `opencoat concern import --demo`
-3. OpenClaw gateway **≥ 2026.3.24** with plugin prompt injection allowed
-4. **Optional — B.AI for both daemon and OpenClaw chat:** see `[docs/config/bai-llm.md` § OpenClaw + B.AI](../../docs/config/bai-llm.md#openclaw--bai)
+3. **OpenClaw fork (required for queue hooks):** global CLI and gateway must be **1:1**
+   with `~/openclaw-fork` (branch `opencoat/hooks-v0.1`). From OpenCOAT repo root:
+   `./scripts/use-openclaw-fork.sh` then `./scripts/check-openclaw-fork.sh`.
+   See [openclaw-fork-dev.md](../../docs/guides/openclaw-fork-dev.md). Do **not** use
+   npm registry `openclaw` or upstream `~/openclaw` for bridge dogfood.
+4. OpenClaw gateway **≥ 2026.5.19** (fork) with plugin prompt injection allowed
+5. **Optional — B.AI for both daemon and OpenClaw chat:** see [`docs/config/bai-llm.md`](../../docs/config/bai-llm.md#openclaw--bai)
 
 ## Install (recommended)
 
@@ -90,8 +99,20 @@ openclaw gateway restart
 
 Manual `plugins.entries` key must be `**@hyperdustlabs/opencoat-bridge**` (with slash),
 not `@hyperdustlabs-opencoat-bridge`. Remove legacy `@hyperdust/*` entries. Set
+`hooks.allowPromptInjection=true`, `hooks.allowConversationAccess=true`, and
 `daemonUrl` in plugin config (not `process.env` in the plugin — OpenClaw blocks
 env+network patterns at install time).
+
+### Pre-flight checklist (fork gateway)
+
+1. `./scripts/check-openclaw-fork.sh` — CLI and LaunchAgent use `~/openclaw-fork/dist`
+2. `opencoat runtime up` — daemon on `127.0.0.1:7878`
+3. `openclaw plugins install -l …/integrations/openclaw-opencoat-bridge` then `openclaw gateway restart`
+4. In `~/.openclaw/openclaw.json`: `hooks.allowPromptInjection=true`, **`hooks.allowConversationAccess=true`**
+5. Plugin entry `@hyperdustlabs/opencoat-bridge` with `daemonUrl` and optional `logActivations: true`
+6. Queue dogfood: [`examples/09_queue_hook_dogfood`](../../examples/09_queue_hook_dogfood/README.md)
+
+If conversation-access hooks are skipped at startup, fix `allowConversationAccess` before debugging weave logic.
 
 ## Verify
 
@@ -275,7 +296,7 @@ Requires **JoinpointDiscovery** (`expand_prompt_surface` on by default). Older d
 cd /path/to/OpenCOAT/integrations/openclaw-opencoat-bridge
 npm run build
 openclaw gateway restart
-grep opencoat-bridge ~/.openclaw/logs/gateway.log   # expect "registered 26 hooks" + runtime observers
+grep opencoat-bridge ~/.openclaw/logs/gateway.log   # expect "registered 28 hooks" + runtime observers
 ```
 
 ## Weaving expectations
@@ -296,9 +317,12 @@ daemon). Extraction updates the concern store; it does not always add rows to
 ## Limitations (v0.1 bridge)
 
 - Prompt folding uses `prependSystemContext` only (not full dotted-path injector parity with Python `OpenClawInjector`).
-- Queue/task joinpoints are **observe-only** (poll / diff), not synchronous veto at `enqueueFollowupRun` / `createTaskRecord` — true before-moment guards need OpenClaw to call plugin hooks at those call sites or accept policy suggestions from submit results.
+- **`queue.before_enqueue`** sync veto/rewrite requires OpenClaw **fork** (`queue_before_enqueue` hook). Poll fallback in `runtime-observers.ts` is observe-only.
+- Non-subagent **`task.before_create`** is observe-only (task poll); spawn veto works on `subagent_spawning` only.
 - `reply_run.*` from agent events approximates `ReplyRunRegistry` phases; sub-second phase edges may be missed without native hooks.
 - Double joinpoint fire (`on_user_input` + `before_response`) is intentional when concerns list both.
 - Section discovery depends on hosts passing `sections` on message objects (uncommon today); message-level JPs always apply when `messages` is present.
+
+Queue dogfood: [`examples/09_queue_hook_dogfood/README.md`](../../examples/09_queue_hook_dogfood/README.md).
 
 See also: `[examples/04_openclaw_with_runtime/README.md](../../examples/04_openclaw_with_runtime/README.md)` (toy bus), `[docs/guides/concern-authoring-aop.md](../../docs/guides/concern-authoring-aop.md)`, and `[docs/design/v0.2-system-design.md](../../docs/design/v0.2-system-design.md)` §4.7.1.

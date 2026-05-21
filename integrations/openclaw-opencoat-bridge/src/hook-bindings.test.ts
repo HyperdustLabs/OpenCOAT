@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { HOOK_BINDINGS, SKIPPED_HOOKS } from "./hook-bindings.js";
 
 describe("hook-bindings", () => {
-  it("registers all async-safe plugin hooks (29 total minus 3 skipped)", () => {
-    assert.equal(HOOK_BINDINGS.length, 26);
+  it("registers async-safe plugin hooks plus native queue hooks", () => {
+    assert.equal(HOOK_BINDINGS.length, 29);
     assert.equal(SKIPPED_HOOKS.length, 3);
   });
 
@@ -19,6 +19,8 @@ describe("hook-bindings", () => {
       "before_prompt_build",
       "before_tool_call",
       "after_tool_call",
+      "queue_before_enqueue",
+      "queue_after_enqueue",
       "subagent_spawning",
       "before_compaction",
     ]) {

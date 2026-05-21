@@ -85,7 +85,12 @@ _OPENCLAW_V01_MVP_ONLY = (
     CatalogEntry(
         "queue.before_enqueue",
         JoinpointLevel.LIFECYCLE,
-        "Bridge: queue depth poll (observe; not sync at enqueueFollowupRun)",
+        "Bridge: native queue_before_enqueue hook; queue poll fallback on older OpenClaw",
+    ),
+    CatalogEntry(
+        "queue.after_enqueue",
+        JoinpointLevel.LIFECYCLE,
+        "Bridge: native queue_after_enqueue hook (observe after queue decision)",
     ),
     CatalogEntry(
         "queue.before_collect",
@@ -126,6 +131,16 @@ _OPENCLAW_V01_MVP_ONLY = (
         "verification.after_fail",
         JoinpointLevel.LIFECYCLE,
         "Concern verifier fail path (not emitted by bridge yet)",
+    ),
+    CatalogEntry(
+        "command.output_stream",
+        JoinpointLevel.LIFECYCLE,
+        "Bridge: onAgentEvent command_output stream",
+    ),
+    CatalogEntry(
+        "patch.summary_created",
+        JoinpointLevel.LIFECYCLE,
+        "Bridge: onAgentEvent patch stream (summary)",
     ),
 )
 
