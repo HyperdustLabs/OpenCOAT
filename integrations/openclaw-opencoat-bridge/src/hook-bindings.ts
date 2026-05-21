@@ -48,6 +48,7 @@ export const HOOK_BINDINGS: HookBinding[] = [
   { hook: "before_reset", joinpoint: "runtime_recovery", kind: "observe" },
 
   // --- messages / dispatch ---
+  { hook: "before_agent_run", joinpoint: "input.received", kind: "observe" },
   { hook: "inbound_claim", joinpoint: "on_user_input", kind: "observe" },
   { hook: "before_dispatch", joinpoint: "on_user_input", kind: "observe" },
   { hook: "reply_dispatch", joinpoint: "before_response", kind: "observe" },

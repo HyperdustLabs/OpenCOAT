@@ -659,7 +659,7 @@ Bridge module `runtime-observers.ts` — uses host APIs already available to plu
 
 | Source | Joinpoints | Mechanism |
 | --- | --- | --- |
-| `api.runtime.events.onAgentEvent` | `reply_run.before_begin`, `reply_run.phase.running`, `planning.plan_updated`, `approval.requested`, compaction → `before_memory_write` / `after_memory_write` | event stream |
+| `api.runtime.events.onAgentEvent` | `reply_run.before_begin`, `reply_run.phase.running`, `planning.plan_updated`, `approval.requested`, `command.output_stream`, `patch.summary_created`, `error.detected` (lifecycle `error`), compaction → `before_memory_write` / `after_memory_write` | event stream |
 | `api.registerHook` | `session:compact:before` / `after` → memory JPs | internal gateway hooks |
 | Host `getFollowupQueueDepth` | `queue.before_enqueue`, `queue.before_collect` | `registerService` poll per tracked `sessionKey` |
 | `api.runtime.tasks.runs.bindSession().list()` | `task.before_create`, `task.after_create`, `task.before_terminal` | task registry diff poll |

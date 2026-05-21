@@ -73,6 +73,20 @@ openclaw gateway status                   # CLI version == Gateway version
 | Fork pulled but not rebuilt | `cd ~/openclaw-fork && pnpm build` then `./scripts/use-openclaw-fork.sh` |
 | Old BAIclaw shim on PATH | removed by `use-openclaw-fork.sh`; use fork shim only |
 
+## Fork hook backlog (post-queue)
+
+After [PR #77](https://github.com/HyperdustLabs/OpenCOAT/pull/77) (queue `queue_before_enqueue` / `queue_after_enqueue` + bridge `queue_guard`) lands on `main`, plan **paired fork + OpenCOAT PRs** on `opencoat/hooks-v0.1`:
+
+| Priority | Fork hook / joinpoint | Notes |
+| --- | --- | --- |
+| 1 | `tool_result_persist` | Fork hook is **sync-only** today; needs async or local policy cache before bridge can weave |
+| 2 | `reply_run.phase.*` | Native hooks at `ReplyOperation` phase edges (not lifecycle approx) |
+| 3 | `response.before_final` | Unified verifier before channel delivery (beyond `message_sending` cancel) |
+| 4 | `memory.before_write` | Unified memory middleware (compaction hooks are observe-only today) |
+| 5 | `queue.before_drain` | Wrap `scheduleFollowupDrain` |
+
+Bridge skipped (fork has hook, hot path): `before_message_write`, `tool_result_persist` until sync/async contract is extended.
+
 ## Related
 
 - [OpenClaw bridge README](../../integrations/openclaw-opencoat-bridge/README.md)

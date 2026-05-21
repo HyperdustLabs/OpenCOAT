@@ -37,11 +37,22 @@ legacy `pointcut` / `advice` / `weaving_policy` are optional and sync automatica
 
 ## Message-level guard (OpenClaw bridge)
 
-The gateway bridge registers **28** plugin hooks plus **runtime observers** (`onAgentEvent`,
+The gateway bridge registers **29** plugin hooks plus **runtime observers** (`onAgentEvent`,
 queue/task poll) for MVP joinpoints such as `queue.before_enqueue` (sync **block/rewrite**
 on OpenClaw fork via `queue_before_enqueue`) and `reply_run.before_begin`
 (observe-only — see [joinpoint model §4.1](../design/opencoat-openclaw-joinpoint-model-v0.1.md#41-mvp-emit-status-bridge-integrationsopenclaw-opencoat-bridge)).
 Dogfood concerns: [`examples/09_queue_hook_dogfood`](../examples/09_queue_hook_dogfood/README.md).
+
+### Decision vs observe (OpenClaw fork + bridge)
+
+Use the **HyperdustLabs fork** (`opencoat/hooks-v0.1`, see [openclaw-fork-dev.md](openclaw-fork-dev.md)) — not npm registry OpenClaw — for native queue hooks and dogfood.
+
+| Class | Joinpoints (examples) | Host effect today |
+| --- | --- | --- |
+| **Decision** | `queue.before_enqueue`, `tool.before_call`, `subagent_spawning` → `task.before_create` | block, rewrite, spawn veto, prompt prepend, outbound cancel |
+| **Observe** | `reply_run.*`, `planning.*`, `approval.requested`, `command.output_stream`, `patch.summary_created`, `error.detected`, queue poll fallback | DCN / activation only; no sync veto |
+
+**Next decision hooks** ship on the **same fork branch** (`tool_result_persist`, `reply_run.phase.*`, `response.before_final`, …) — not upstream `openclaw/openclaw`. See [fork hook backlog](openclaw-fork-dev.md#fork-hook-backlog-post-queue).
 
 Prefer `user_message()` over flat `before_response` when the bridge sends `messages[]`:
 

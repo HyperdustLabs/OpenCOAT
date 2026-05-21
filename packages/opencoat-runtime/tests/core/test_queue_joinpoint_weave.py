@@ -112,9 +112,7 @@ def test_queue_block_advice_woven() -> None:
 
     injection = loop.run(_queue_joinpoint("QUEUE_DOGFOOD_BLOCK enqueue me"))
     assert injection is not None
-    assert any(
-        row.mode == "block" and row.target == "queue.prompt" for row in injection.injections
-    )
+    assert any(row.mode == "block" and row.target == "queue.prompt" for row in injection.injections)
 
 
 def test_queue_prompt_rewrite_woven() -> None:
@@ -134,9 +132,7 @@ def test_queue_prompt_rewrite_woven() -> None:
     )
     assert injection is not None
     assert any(
-        row.mode == "rewrite"
-        and row.target == "queue.prompt"
-        and "rewritten prompt" in row.content
+        row.mode == "rewrite" and row.target == "queue.prompt" and "rewritten prompt" in row.content
         for row in injection.injections
     )
 
@@ -158,6 +154,5 @@ def test_queue_summary_rewrite_woven() -> None:
     )
     assert injection is not None
     assert any(
-        row.mode == "rewrite" and row.target == "queue.summary_line"
-        for row in injection.injections
+        row.mode == "rewrite" and row.target == "queue.summary_line" for row in injection.injections
     )

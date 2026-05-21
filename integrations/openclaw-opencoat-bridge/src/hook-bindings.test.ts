@@ -4,7 +4,7 @@ import { HOOK_BINDINGS, SKIPPED_HOOKS } from "./hook-bindings.js";
 
 describe("hook-bindings", () => {
   it("registers async-safe plugin hooks plus native queue hooks", () => {
-    assert.equal(HOOK_BINDINGS.length, 28);
+    assert.equal(HOOK_BINDINGS.length, 29);
     assert.equal(SKIPPED_HOOKS.length, 3);
   });
 

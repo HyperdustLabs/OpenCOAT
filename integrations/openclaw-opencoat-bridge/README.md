@@ -10,7 +10,7 @@ the generated `opencoat_plugin/` folder.
 
 ## Hook → joinpoint mapping
 
-The bridge registers **28** OpenClaw plugin hooks (`hook-bindings.ts`), including
+The bridge registers **29** OpenClaw plugin hooks (`hook-bindings.ts`), including
 the OpenCOAT fork's native queue hooks.
 Skipped: `before_message_write`, `tool_result_persist` (sync hot path — cannot await daemon RPC),
 `before_install` (install-only).
@@ -39,6 +39,7 @@ Skipped: `before_message_write`, `tool_result_persist` (sync hot path — cannot
 | `subagent_delivery_target` / `subagent_spawned` | `task.after_create` | submit |
 | `subagent_ended` | `task.before_terminal` | submit |
 | `before_model_resolve` | `before_reasoning` | submit |
+| `before_agent_run` | `input.received` | submit (observe only; fork gate not overridden) |
 
 ### Runtime observers (no extra OpenClaw plugin hooks)
 
@@ -101,6 +102,17 @@ not `@hyperdustlabs-opencoat-bridge`. Remove legacy `@hyperdust/*` entries. Set
 `hooks.allowPromptInjection=true`, `hooks.allowConversationAccess=true`, and
 `daemonUrl` in plugin config (not `process.env` in the plugin — OpenClaw blocks
 env+network patterns at install time).
+
+### Pre-flight checklist (fork gateway)
+
+1. `./scripts/check-openclaw-fork.sh` — CLI and LaunchAgent use `~/openclaw-fork/dist`
+2. `opencoat runtime up` — daemon on `127.0.0.1:7878`
+3. `openclaw plugins install -l …/integrations/openclaw-opencoat-bridge` then `openclaw gateway restart`
+4. In `~/.openclaw/openclaw.json`: `hooks.allowPromptInjection=true`, **`hooks.allowConversationAccess=true`**
+5. Plugin entry `@hyperdustlabs/opencoat-bridge` with `daemonUrl` and optional `logActivations: true`
+6. Queue dogfood: [`examples/09_queue_hook_dogfood`](../../examples/09_queue_hook_dogfood/README.md)
+
+If conversation-access hooks are skipped at startup, fix `allowConversationAccess` before debugging weave logic.
 
 ## Verify
 
