@@ -45,8 +45,8 @@ from typing import Any
 
 from opencoat_runtime_core import OpenCOATRuntime
 from opencoat_runtime_core.config import HeartbeatMaintenance
-from opencoat_runtime_core.llm import StubLLMClient
 from opencoat_runtime_core.credit.rt_plasticity_service import RtPlasticityService
+from opencoat_runtime_core.llm import StubLLMClient
 from opencoat_runtime_core.loops.heartbeat_loop import MaintenanceFn
 from opencoat_runtime_core.ports import ConcernStore, DCNStore, LLMClient
 from opencoat_runtime_storage.memory import MemoryConcernStore, MemoryDCNStore
@@ -76,9 +76,7 @@ def build_heartbeat_maintenance(
         archive_cold_max_score=maint.archive_cold_max_score,
     )
     conflict = ConflictScannerWorker(concern_store=concern_store, dcn_store=dcn_store)
-    rt_worker = (
-        RtPlasticityWorker(rt_service=rt_plasticity) if rt_plasticity is not None else None
-    )
+    rt_worker = RtPlasticityWorker(rt_service=rt_plasticity) if rt_plasticity is not None else None
 
     def maintenance(now: datetime) -> dict[str, int]:
         decay_stats = decay.run(now)
