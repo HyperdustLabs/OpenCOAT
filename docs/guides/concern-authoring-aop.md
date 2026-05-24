@@ -41,7 +41,7 @@ The gateway bridge registers **29** plugin hooks plus **runtime observers** (`on
 queue/task poll) for MVP joinpoints such as `queue.before_enqueue` (sync **block/rewrite**
 on OpenClaw fork via `queue_before_enqueue`) and `reply_run.before_begin`
 (observe-only — see [joinpoint model §4.1](../design/opencoat-openclaw-joinpoint-model-v0.1.md#41-mvp-emit-status-bridge-integrationsopenclaw-opencoat-bridge)).
-Dogfood concerns: [`examples/09_queue_hook_dogfood`](../examples/09_queue_hook_dogfood/README.md).
+Dogfood concerns: [`examples/09_queue_hook_dogfood`](../../examples/09_queue_hook_dogfood/README.md).
 
 ### Decision vs observe (OpenClaw fork + bridge)
 
@@ -115,7 +115,7 @@ from `expression()` today). Bridge maps woven advice to OpenClaw `queue_before_e
 }
 ```
 
-Full dogfood set: [`examples/09_queue_hook_dogfood`](../examples/09_queue_hook_dogfood/README.md).
+Full dogfood set: [`examples/09_queue_hook_dogfood`](../../examples/09_queue_hook_dogfood/README.md).
 
 ## Declare precedence
 
