@@ -450,8 +450,7 @@ class JsonRpcHandler:
             "all",
         ):
             raise JsonRpcParamsError(
-                "action_kind must be one of: tool_call, spawn, message_out, "
-                "queue_enqueue, all"
+                "action_kind must be one of: tool_call, spawn, message_out, queue_enqueue, all"
             )
         concerns = self._rt.concern_store.list()
         return export_reflex_policies(concerns, action_kind=action_kind)

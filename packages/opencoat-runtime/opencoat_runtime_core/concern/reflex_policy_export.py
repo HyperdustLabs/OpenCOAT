@@ -31,9 +31,7 @@ _BLOCK_MODES = frozenset(
 )
 
 _TOOL_JOINPOINTS = frozenset({"before_tool_call", "tool.before_call"})
-_SPAWN_JOINPOINTS = frozenset(
-    {"task.before_create", "subagent_spawning", "subagent.before_spawn"}
-)
+_SPAWN_JOINPOINTS = frozenset({"task.before_create", "subagent_spawning", "subagent.before_spawn"})
 _MESSAGE_JOINPOINTS = frozenset(
     {
         "before_response",

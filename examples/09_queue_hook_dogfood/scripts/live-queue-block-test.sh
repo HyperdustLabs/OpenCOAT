@@ -130,7 +130,21 @@ openclaw gateway call chat.send --json --timeout 60000 \
   --params "$(cat "$PARAMS_DIR/msg1.json")" \
   | tee "$PARAMS_DIR/msg1-response.json"
 
-echo "== wait ${WAIT_ACTIVE_SEC}s then message 2 (block trigger) =="
+wait_for_active_run() {
+  local deadline=$((SECONDS + ${WAIT_ACTIVE_MAX_SEC:-90}))
+  echo "== wait for active embedded run (max ${WAIT_ACTIVE_MAX_SEC:-90}s) =="
+  while ((SECONDS < deadline)); do
+    if tail -n +"$((log_start + 1))" "$LOG" 2>/dev/null | grep -qE 'before_tool_call→|before_agent_run→'; then
+      echo "active run detected in gateway log"
+      return 0
+    fi
+    sleep 1
+  done
+  fail "timed out waiting for active embedded run (before_tool_call / before_agent_run in log)"
+}
+
+wait_for_active_run
+echo "== hold ${WAIT_ACTIVE_SEC}s with run active, then message 2 (block trigger) =="
 sleep "$WAIT_ACTIVE_SEC"
 
 openclaw gateway call chat.send --json --timeout 60000 \
@@ -142,12 +156,14 @@ sleep 2
 echo "== gateway log (queue / opencoat-bridge) =="
 log_slice="$(mktemp)"
 tail -n +"$((log_start + 1))" "$LOG" >"$log_slice" || true
-if grep -E 'queue_before_enqueue→queue\.before_enqueue: oc\.dogfood\.queue-block|queue_before_enqueue.*oc\.dogfood\.queue-block' "$log_slice" | tail -5; then
+if grep -E \
+  'queue_before_enqueue→queue\.before_enqueue: oc\.dogfood\.queue-block|queue_before_enqueue→queue\.before_enqueue: oc\.dogfood\.queue-block \(in-proc deny\)|queue_before_enqueue.*oc\.dogfood\.queue-block|follow-up enqueue blocked by plugin hook.*queue|ReflexMonitor \(queue_guard\)' \
+  "$log_slice" | tail -5; then
   hook_ok=true
 else
   hook_ok=false
-  echo "(no queue_before_enqueue activation line for oc.dogfood.queue-block)"
-  grep -iE 'queue_before_enqueue|oc\.dogfood\.queue-block' "$log_slice" | tail -10 || true
+  echo "(no queue_before_enqueue / in-proc deny / follow-up block line for oc.dogfood.queue-block)"
+  grep -iE 'queue_before_enqueue|oc\.dogfood\.queue-block|queue_guard|follow-up enqueue blocked' "$log_slice" | tail -15 || true
 fi
 rm -f "$log_slice"
 

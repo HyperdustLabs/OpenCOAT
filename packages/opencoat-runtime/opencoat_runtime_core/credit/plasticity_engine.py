@@ -153,11 +153,7 @@ class PlasticityEngine:
             if concern.lifecycle_state in {"archived", "merged", "deleted"}:
                 skipped += 1
                 continue
-            score = (
-                concern.activation_state.score
-                if concern.activation_state is not None
-                else None
-            )
+            score = concern.activation_state.score if concern.activation_state is not None else None
             if score is None:
                 skipped += 1
                 continue

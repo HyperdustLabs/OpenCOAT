@@ -80,15 +80,40 @@ export function reflexToolGuardDecision(
   return { block: false, params, record };
 }
 
+function failClosedReason(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  return `OpenCOAT ReflexMonitor fail-closed: ${msg}`;
+}
+
 /** Fail-closed when the monitor itself throws (TCB unavailable). */
 export function failClosedToolGuard(
   params: Record<string, unknown>,
   err: unknown,
 ): ToolGuardDecision {
-  const msg = err instanceof Error ? err.message : String(err);
   return {
     block: true,
-    blockReason: `OpenCOAT ReflexMonitor fail-closed: ${msg}`,
+    blockReason: failClosedReason(err),
     params,
   };
+}
+
+export function failClosedMessageGuard(err: unknown): {
+  cancel: true;
+  content: string;
+} {
+  return { cancel: true, content: failClosedReason(err) };
+}
+
+export function failClosedSpawnGuard(err: unknown): {
+  status: "error";
+  error: string;
+} {
+  return { status: "error", error: failClosedReason(err) };
+}
+
+export function failClosedQueueGuard(err: unknown): {
+  block: true;
+  blockReason: string;
+} {
+  return { block: true, blockReason: failClosedReason(err) };
 }

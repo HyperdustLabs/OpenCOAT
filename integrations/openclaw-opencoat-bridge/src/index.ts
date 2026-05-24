@@ -49,6 +49,9 @@ import { buildPayloadAction } from "./reflex-policies.js";
 import {
   buildReflexState,
   buildToolCallAction,
+  failClosedMessageGuard,
+  failClosedQueueGuard,
+  failClosedSpawnGuard,
   failClosedToolGuard,
   reflexDenyDecision,
   reflexToolGuardDecision,
@@ -409,6 +412,13 @@ async function handleHook(
             buildReflexState(c),
           );
           if (decision.block) {
+            const policyId =
+              decision.record?.policy_id?.trim() || "ReflexMonitor";
+            if (cfg.logActivations) {
+              api.logger?.info?.(
+                `[opencoat-bridge] ${binding.hook}→${binding.joinpoint}: ${policyId} (in-proc deny)`,
+              );
+            }
             return {
               block: true,
               blockReason:
@@ -476,14 +486,27 @@ async function handleHook(
         err instanceof Error ? err.message : String(err)
       }`,
     );
-    return binding.kind === "tool_guard"
-      ? inProcReflexEnabled(cfg)
-        ? failClosedToolGuard(
-            {},
-            err instanceof Error ? err : new Error(String(err)),
-          )
-        : {}
-      : undefined;
+    if (inProcReflexEnabled(cfg)) {
+      switch (binding.kind) {
+        case "tool_guard": {
+          const e = asRecord(event);
+          const params =
+            e.params && typeof e.params === "object"
+              ? { ...(e.params as Record<string, unknown>) }
+              : {};
+          return failClosedToolGuard(params, err);
+        }
+        case "message_out":
+          return failClosedMessageGuard(err);
+        case "subagent_spawn":
+          return failClosedSpawnGuard(err);
+        case "queue_guard":
+          return failClosedQueueGuard(err);
+        default:
+          break;
+      }
+    }
+    return binding.kind === "tool_guard" ? {} : undefined;
   }
 }
 
