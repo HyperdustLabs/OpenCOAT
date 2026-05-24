@@ -362,7 +362,17 @@ fire-and-forgets structured outcome records to daemon `credit.r_t.append`:
 | `llm_output` | `llm_output` |
 | `agent_end` | `turn_complete` |
 
-Log file: `~/.opencoat/r_t.jsonl`. Each append runs warm-path **reweight** (v0.3 §3.6 subset): reflex `tool_blocked` / `deny` reinforces the matching concern (`policy_id`). Heartbeat also drains unread lines via `RtPlasticityWorker`. Inspect:
+Log file: `~/.opencoat/r_t.jsonl`. Each append runs warm-path **reweight** (v0.3 §3.6 subset):
+
+| `r_t` signal | Plasticity (when `policy_id` present) |
+| --- | --- |
+| `tool_blocked` / reflex `deny` | **reinforce** — policy did its job |
+| `tool_outcome` + `r=1` | **reinforce** — guarded tool succeeded |
+| `tool_outcome` + error / `r=0` | **weaken** — attributed tool failed |
+
+`before_tool_call` stores reflex metadata when a policy matches; `after_tool_call` emits `tool_outcome` with that `policy_id` for daemon reweight. Heartbeat also drains unread lines via `RtPlasticityWorker`.
+
+Inspect:
 
 ```bash
 curl -sS http://127.0.0.1:7878/rpc -H 'Content-Type: application/json' \
@@ -371,6 +381,7 @@ curl -sS http://127.0.0.1:7878/rpc -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"credit.r_t.consume","params":{},"id":2}' | python3 -m json.tool
 tail -3 ~/.opencoat/r_t.jsonl | python3 -m json.tool
 opencoat concern show demo-tool-block
+# activation_state.score should move after tool_blocked (reinforce) or failed tool_outcome (weaken)
 ```
 
 Requires daemon built from repo (includes `credit.r_t.append` / `credit.r_t.consume` RPCs).

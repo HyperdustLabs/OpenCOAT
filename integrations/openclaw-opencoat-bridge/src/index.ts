@@ -303,7 +303,7 @@ async function handleHook(
                 params: decision.params,
               };
             }
-            if (decision.record) {
+            if (decision.record?.policy_id) {
               lastReflexByRunTool.set(
                 reflexToolKey(run, toolName),
                 decision.record,

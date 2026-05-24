@@ -80,6 +80,16 @@ export function buildToolOutcomeRt(
     typeof event.durationMs === "number" ? event.durationMs : undefined;
   const blocked = reflex?.decision === "deny";
   const success = !error && !blocked;
+  const reflexPayload =
+    reflex && (reflex.policy_id || reflex.decision)
+      ? {
+          policy_id: reflex.policy_id,
+          decision: reflex.decision,
+          reason: reflex.reason,
+          criticality: reflex.criticality,
+          action_name: reflex.action_name,
+        }
+      : undefined;
 
   return {
     record_version: 1,
@@ -96,7 +106,7 @@ export function buildToolOutcomeRt(
       blocked,
       error,
       duration_ms: durationMs,
-      reflex: reflex ? { ...reflex } : undefined,
+      reflex: reflexPayload,
       payload: {
         has_result: event.result !== undefined,
       },

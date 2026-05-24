@@ -97,10 +97,12 @@ export class ReflexMonitor {
   mediate(action: Action, state: State): { decision: Decision; record: DecisionRecord } {
     let decision: Decision = { kind: "allow" };
     let winningPolicy: ReflexPolicy | undefined;
+    let matchedPolicyId: string | undefined;
 
     for (const policy of this.policies) {
       try {
         if (!policy.applies(action, state)) continue;
+        matchedPolicyId = policy.id;
         const next = policy.decide(action, state);
         if (next.kind === "allow") continue;
         decision = winningPolicy
@@ -138,7 +140,10 @@ export class ReflexMonitor {
       action_kind: action.kind,
       action_name: action.name,
       decision: decision.kind,
-      policy_id: decision.kind === "allow" ? undefined : decision.policy_id,
+      policy_id:
+        decision.kind === "allow"
+          ? matchedPolicyId
+          : decision.policy_id ?? matchedPolicyId,
       reason: decision.kind === "allow" ? undefined : decision.reason,
       criticality: winningPolicy?.criticality,
     };
