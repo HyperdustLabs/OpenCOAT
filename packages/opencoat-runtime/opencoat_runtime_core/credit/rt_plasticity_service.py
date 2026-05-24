@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
-from typing import Any
-
 from pathlib import Path
+from typing import Any
 
 from opencoat_runtime_core.concern.lifecycle import ConcernLifecycleManager
 from opencoat_runtime_core.credit.plasticity_engine import PlasticityEngine, ReweightStats
@@ -24,6 +24,7 @@ class RtPlasticityService:
     _recorder: RtJsonlRecorder | None = field(default=None, repr=False)
     _reader: RtJsonlTailReader | None = field(default=None, repr=False)
     _lifecycle: ConcernLifecycleManager | None = field(default=None, repr=False)
+    _consume_lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
     last_consume: ReweightStats | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
@@ -42,15 +43,17 @@ class RtPlasticityService:
         return self._recorder.append(normalized)
 
     def consume(self, *, max_records: int | None = None) -> ReweightStats:
+        """Single-consumer drain: safe under concurrent JSON-RPC and heartbeat."""
         assert self._reader is not None and self._lifecycle is not None
-        records = self._reader.read_new(max_records=max_records)
-        stats = self.engine.reweight(
-            records,
-            concern_store=self.concern_store,
-            lifecycle=self._lifecycle,
-        )
-        self.last_consume = stats
-        return stats
+        with self._consume_lock:
+            records = self._reader.read_new(max_records=max_records)
+            stats = self.engine.reweight(
+                records,
+                concern_store=self.concern_store,
+                lifecycle=self._lifecycle,
+            )
+            self.last_consume = stats
+            return stats
 
     def stats(self) -> dict[str, Any]:
         assert self._recorder is not None and self._reader is not None
