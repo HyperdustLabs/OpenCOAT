@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from opencoat_runtime_core.concern.lifecycle import ConcernLifecycleManager
 from opencoat_runtime_core.credit.r_t_record import RtRecord
@@ -83,27 +84,43 @@ class PlasticityEngine:
         reflex = record.signal.reflex if isinstance(record.signal.reflex, dict) else None
         policy_id = reflex.get("policy_id") if reflex else None
         if isinstance(policy_id, str) and policy_id.strip():
-            concern_id = policy_id.strip()
-            if record.signal.kind == "tool_blocked":
-                return concern_id, +1.0
-            decision = reflex.get("decision") if reflex else None
-            if decision == "deny":
-                return concern_id, +1.0
-            advantage = record.r - record.baseline_b
-            if advantage > 0:
-                return concern_id, +advantage
-            if advantage < 0:
-                return concern_id, advantage
-            return None, 0.0
+            return self._attribute_policy(record, concern_id=policy_id.strip(), reflex=reflex)
 
         if record.signal.kind in {"llm_output", "turn_complete"}:
             return None, 0.0
 
+        return None, 0.0
+
+    def _attribute_policy(
+        self,
+        record: RtRecord,
+        *,
+        concern_id: str,
+        reflex: dict[str, Any] | None,
+    ) -> tuple[str | None, float]:
+        """Attribute rows that carry a reflex ``policy_id`` (tool guard outcomes)."""
+        if record.signal.kind == "tool_blocked":
+            return concern_id, +1.0
+
+        decision = reflex.get("decision") if reflex else None
+        if decision == "deny":
+            return concern_id, +1.0
+
+        if record.signal.kind == "tool_outcome":
+            advantage = record.r - record.baseline_b
+            if advantage > 0:
+                return concern_id, advantage
+            if advantage < 0:
+                return concern_id, advantage
+            if record.signal.error:
+                return concern_id, -1.0
+            return None, 0.0
+
         advantage = record.r - record.baseline_b
         if advantage > 0:
-            return None, 0.0
+            return concern_id, advantage
         if advantage < 0:
-            return None, 0.0
+            return concern_id, advantage
         return None, 0.0
 
 

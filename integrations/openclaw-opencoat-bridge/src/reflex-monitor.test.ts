@@ -78,4 +78,22 @@ describe("ReflexMonitor", () => {
     );
     assert.equal(decision.kind, "deny");
   });
+
+  it("does not latch policy_id when advisory policy throws", () => {
+    const flaky: ReflexPolicy = {
+      id: "flaky-advisory",
+      criticality: "advisory",
+      applies: () => true,
+      decide: () => {
+        throw new Error("predicate bug");
+      },
+    };
+    const monitor = new ReflexMonitor([flaky]);
+    const { decision, record } = monitor.mediate(
+      { kind: "tool_call", name: "read", args: {} },
+      state,
+    );
+    assert.equal(decision.kind, "allow");
+    assert.equal(record.policy_id, undefined);
+  });
 });

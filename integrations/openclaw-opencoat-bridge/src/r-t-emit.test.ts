@@ -41,6 +41,26 @@ describe("r_t record builders", () => {
     assert.equal(row.signal.kind, "tool_outcome");
   });
 
+  it("builds tool_outcome with reflex policy_id for plasticity", () => {
+    const row = buildToolOutcomeRt(
+      "after_tool_call",
+      "after_tool_call",
+      ctx,
+      { toolName: "read", durationMs: 12 },
+      {
+        turn_id: "run-1",
+        action_kind: "tool_call",
+        action_name: "read",
+        decision: "rewrite",
+        policy_id: "demo-tool-block",
+        criticality: "safety_critical",
+      },
+    );
+    assert.equal(row.r, 1);
+    assert.equal(row.signal.reflex?.policy_id, "demo-tool-block");
+    assert.equal(row.signal.reflex?.decision, "rewrite");
+  });
+
   it("builds turn_complete", () => {
     const row = buildTurnCompleteRt(
       "agent_end",
