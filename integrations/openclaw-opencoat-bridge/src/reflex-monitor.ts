@@ -102,9 +102,9 @@ export class ReflexMonitor {
     for (const policy of this.policies) {
       try {
         if (!policy.applies(action, state)) continue;
-        matchedPolicyId = policy.id;
         const next = policy.decide(action, state);
         if (next.kind === "allow") continue;
+        matchedPolicyId = policy.id;
         decision = winningPolicy
           ? mergeDecisions(decision, next)
           : next;
