@@ -2,7 +2,7 @@ import {
   parseReflexPolicyExport,
   type ReflexPolicyExport,
 } from "./reflex-policy-spec.js";
-import { compileReflexPolicies, DEMO_TOOL_BLOCK_SPEC } from "./reflex-policies.js";
+import { compileReflexPolicies, DEMO_TOOL_BLOCK_SPEC, DEMO_QUEUE_BLOCK_SPEC } from "./reflex-policies.js";
 import { ReflexMonitor } from "./reflex-monitor.js";
 import type { BridgeConfig } from "./types.js";
 
@@ -21,7 +21,7 @@ export async function fetchReflexPolicyExport(
     jsonrpc: "2.0",
     method: "reflex.policies.export",
     id: `reflex-export-${crypto.randomUUID()}`,
-    params: { action_kind: "tool_call" },
+    params: { action_kind: "all" },
   };
 
   let res: Response;
@@ -46,6 +46,10 @@ export async function fetchReflexPolicyExport(
   return parseReflexPolicyExport(json.result);
 }
 
+export function inProcReflexEnabled(cfg: BridgeConfig): boolean {
+  return cfg.inProcReflexToolGuard || cfg.inProcReflexGuards;
+}
+
 export function buildReflexRuntime(
   cfg: BridgeConfig,
   exported: ReflexPolicyExport | null,
@@ -54,7 +58,7 @@ export function buildReflexRuntime(
   ...(cfg.reflexPolicies ?? []),
   ...(exported?.policies ?? []),
   ...(cfg.reflexIncludeDemoPolicy && !exported?.policies?.length
-    ? [DEMO_TOOL_BLOCK_SPEC]
+    ? [DEMO_TOOL_BLOCK_SPEC, DEMO_QUEUE_BLOCK_SPEC]
     : []),
   ];
 
@@ -78,7 +82,7 @@ export function buildReflexRuntime(
 
 export async function loadReflexRuntime(cfg: BridgeConfig): Promise<ReflexRuntime> {
   const exported =
-    cfg.inProcReflexToolGuard && cfg.reflexSyncFromDaemon
+    inProcReflexEnabled(cfg) && cfg.reflexSyncFromDaemon
       ? await fetchReflexPolicyExport(cfg)
       : null;
   return buildReflexRuntime(cfg, exported);

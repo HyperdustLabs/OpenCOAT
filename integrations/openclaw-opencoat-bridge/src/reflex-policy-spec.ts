@@ -2,18 +2,23 @@
 
 export type ReflexCriticality = "safety_critical" | "advisory";
 
+export type ReflexActionKind =
+  | "tool_call"
+  | "spawn"
+  | "message_out"
+  | "queue_enqueue";
+
 export type ReflexPolicySpec = {
   id: string;
   criticality: ReflexCriticality;
-  /** Only `tool_call` is implemented in the TCB prototype. */
-  action_kind: "tool_call";
+  action_kind: ReflexActionKind;
   predicate: ReflexPredicateSpec;
   deny_reason: string;
 };
 
 export type ReflexPredicateSpec =
   | {
-      kind: "args_contains";
+      kind: "args_contains" | "text_contains";
       needles: string[];
       case_insensitive?: boolean;
     }
@@ -27,6 +32,13 @@ export type ReflexPolicyExport = {
   policies: ReflexPolicySpec[];
 };
 
+const ACTION_KINDS = new Set<ReflexActionKind>([
+  "tool_call",
+  "spawn",
+  "message_out",
+  "queue_enqueue",
+]);
+
 export function parseReflexPolicyExport(raw: unknown): ReflexPolicyExport | null {
   if (!raw || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
@@ -37,7 +49,9 @@ export function parseReflexPolicyExport(raw: unknown): ReflexPolicyExport | null
     if (!row || typeof row !== "object") continue;
     const p = row as Record<string, unknown>;
     if (typeof p.id !== "string" || !p.id.trim()) continue;
-    if (p.action_kind !== "tool_call") continue;
+    if (typeof p.action_kind !== "string" || !ACTION_KINDS.has(p.action_kind as ReflexActionKind)) {
+      continue;
+    }
     if (p.criticality !== "safety_critical" && p.criticality !== "advisory") continue;
     if (typeof p.deny_reason !== "string") continue;
 
@@ -46,11 +60,14 @@ export function parseReflexPolicyExport(raw: unknown): ReflexPolicyExport | null
     const pr = pred as Record<string, unknown>;
 
     let predicate: ReflexPredicateSpec | null = null;
-    if (pr.kind === "args_contains" && Array.isArray(pr.needles)) {
+    if (
+      (pr.kind === "args_contains" || pr.kind === "text_contains") &&
+      Array.isArray(pr.needles)
+    ) {
       const needles = pr.needles.filter((n): n is string => typeof n === "string" && n.length > 0);
       if (needles.length) {
         predicate = {
-          kind: "args_contains",
+          kind: pr.kind,
           needles,
           case_insensitive: pr.case_insensitive === true,
         };
@@ -64,7 +81,7 @@ export function parseReflexPolicyExport(raw: unknown): ReflexPolicyExport | null
     policies.push({
       id: p.id,
       criticality: p.criticality,
-      action_kind: "tool_call",
+      action_kind: p.action_kind as ReflexActionKind,
       predicate,
       deny_reason: p.deny_reason,
     });

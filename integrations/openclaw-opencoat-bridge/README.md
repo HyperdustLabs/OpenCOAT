@@ -337,15 +337,16 @@ guard decision). Enable in OpenClaw plugin config:
 
 **Behavior**
 
-- Policies load from daemon `reflex.policies.export` (hard `TOOL_GUARD` + BLOCK concerns).
-- Falls back to built-in `demo-tool-block` needles when export is empty.
+- Policies load from daemon `reflex.policies.export` with `action_kind: all` (tool, spawn, message, queue hard BLOCK concerns).
+- In-proc guards: `before_tool_call`, `subagent_spawning`, `message_sending`, `queue_before_enqueue`.
+- Falls back to built-in `demo-tool-block` + `oc.dogfood.queue-block` when export is empty.
 - **Fail-closed** on monitor errors (contrast: collaborative path fail-open).
 - Optional async `joinpoint.submit` audit (`reflexAuditToDaemon`) for DCN without blocking the hook.
 
 Gateway log when enabled:
 
 ```text
-[opencoat-bridge] in-proc ReflexMonitor tool_guard policies: demo-tool-block, …
+[opencoat-bridge] in-proc ReflexMonitor policies: demo-tool-block, oc.dogfood.queue-block, …
 ```
 
 See [v0.3 §10.5](../../docs/design/v0.3-morphogenetic-architecture.md#105-实现分期-2026-05).

@@ -1,8 +1,8 @@
 """Export portable in-proc reflex policy specs from the concern store (v0.3 §10.4).
 
 The bridge ``ReflexMonitor`` consumes the JSON returned by
-``reflex.policies.export`` so hot-path tool guards can run synchronously
-without ``joinpoint.submit`` on every ``before_tool_call``.
+``reflex.policies.export`` so hot-path guards can run synchronously
+without ``joinpoint.submit`` on every hook.
 """
 
 from __future__ import annotations
@@ -20,14 +20,35 @@ from opencoat_runtime_protocol import (
 )
 
 ReflexCriticality = Literal["safety_critical", "advisory"]
-ActionKind = Literal["tool_call"]
+ActionKind = Literal["tool_call", "spawn", "message_out", "queue_enqueue", "all"]
 
-_TOOL_JOINPOINTS = frozenset(
+_BLOCK_MODES = frozenset(
     {
-        "before_tool_call",
-        "tool.before_call",
+        WeavingOperation.BLOCK,
+        WeavingOperation.SUPPRESS,
+        WeavingOperation.ESCALATE,
     }
 )
+
+_TOOL_JOINPOINTS = frozenset({"before_tool_call", "tool.before_call"})
+_SPAWN_JOINPOINTS = frozenset(
+    {"task.before_create", "subagent_spawning", "subagent.before_spawn"}
+)
+_MESSAGE_JOINPOINTS = frozenset(
+    {
+        "before_response",
+        "response.before_final",
+        "message_sending",
+    }
+)
+_QUEUE_JOINPOINTS = frozenset({"queue.before_enqueue"})
+
+_ACTION_PROFILES: dict[str, tuple[frozenset[str], tuple[str, ...], bool]] = {
+    "tool_call": (_TOOL_JOINPOINTS, ("tool_call",), True),
+    "spawn": (_SPAWN_JOINPOINTS, ("task", "subagent"), False),
+    "message_out": (_MESSAGE_JOINPOINTS, ("runtime_prompt", "response"), False),
+    "queue_enqueue": (_QUEUE_JOINPOINTS, ("queue",), False),
+}
 
 
 def _joinpoint_path(jp: str | JoinpointSelector) -> str:
@@ -40,36 +61,39 @@ def _joinpoint_path(jp: str | JoinpointSelector) -> str:
     return ""
 
 
-def _expression_mentions_tool(expr: str) -> bool:
-    return "before_tool_call" in expr or "tool.before_call" in expr
+def _expression_mentions_joinpoints(expr: str, joinpoints: frozenset[str]) -> bool:
+    return any(jp in expr for jp in joinpoints)
 
 
-def _pointcut_def_is_tool(pc: PointcutDef) -> bool:
+def _pointcut_def_matches(pc: PointcutDef, joinpoints: frozenset[str]) -> bool:
     jps = pc.joinpoints or []
     expr = pc.expression or ""
     return (
         not jps
-        or any(_joinpoint_path(j) in _TOOL_JOINPOINTS for j in jps)
-        or _expression_mentions_tool(expr)
+        or any(_joinpoint_path(j) in joinpoints for j in jps)
+        or _expression_mentions_joinpoints(expr, joinpoints)
     )
 
 
-def _legacy_pointcut_is_tool(pc: Pointcut) -> bool:
-    """Legacy ``concern.pointcut`` must explicitly target tool joinpoints."""
+def _legacy_pointcut_matches(pc: Pointcut, joinpoints: frozenset[str]) -> bool:
     jps = pc.joinpoints or []
-    return any(_joinpoint_path(j) in _TOOL_JOINPOINTS for j in jps)
+    return any(_joinpoint_path(j) in joinpoints for j in jps)
 
 
-def _pointcut_keywords(concern: Concern) -> list[str]:
+def _target_matches(target: str, prefixes: tuple[str, ...]) -> bool:
+    return any(target == p or target.startswith(f"{p}.") for p in prefixes)
+
+
+def _pointcut_keywords(concern: Concern, joinpoints: frozenset[str]) -> list[str]:
     keys: list[str] = []
     for pc in concern.pointcuts:
-        if not _pointcut_def_is_tool(pc):
+        if not _pointcut_def_matches(pc, joinpoints):
             continue
         if pc.match and pc.match.any_keywords:
             keys.extend(pc.match.any_keywords)
     if (
         concern.pointcut
-        and _legacy_pointcut_is_tool(concern.pointcut)
+        and _legacy_pointcut_matches(concern.pointcut, joinpoints)
         and concern.pointcut.match
         and concern.pointcut.match.any_keywords
     ):
@@ -84,38 +108,33 @@ def _pointcut_keywords(concern: Concern) -> list[str]:
     return out
 
 
-def _is_hard_tool_block(concern: Concern) -> tuple[str, list[str]] | None:
-    """Return (deny_reason, needles) when concern is a hard tool guard block."""
+def _is_hard_block(
+    concern: Concern,
+    *,
+    joinpoints: frozenset[str],
+    target_prefixes: tuple[str, ...],
+    require_tool_guard: bool,
+) -> tuple[str, list[str]] | None:
+    """Return (deny_reason, needles) when concern is a hard block for the profile."""
     for adv in concern.advices:
-        template = adv.template
-        if template is None or template != AdviceType.TOOL_GUARD:
+        if require_tool_guard and adv.template != AdviceType.TOOL_GUARD:
             continue
         effect = adv.effect or concern.weaving_policy
-        if effect is None:
-            continue
-        if effect.mode not in {
-            WeavingOperation.BLOCK,
-            WeavingOperation.SUPPRESS,
-            WeavingOperation.ESCALATE,
-        }:
+        if effect is None or effect.mode not in _BLOCK_MODES:
             continue
         target = effect.target or ""
-        if not (target == "tool_call" or target.startswith("tool_call.")):
+        if not _target_matches(target, target_prefixes):
             continue
-        needles = _pointcut_keywords(concern)
+        needles = _pointcut_keywords(concern, joinpoints)
         if not needles:
             continue
         reason = (adv.content or concern.description or f"Blocked by {concern.id}").strip()
         return reason, needles
 
-    if concern.advice and concern.advice.type == AdviceType.TOOL_GUARD:
+    if require_tool_guard and concern.advice and concern.advice.type == AdviceType.TOOL_GUARD:
         wp = concern.weaving_policy
-        if wp and wp.mode in {
-            WeavingOperation.BLOCK,
-            WeavingOperation.SUPPRESS,
-            WeavingOperation.ESCALATE,
-        }:
-            needles = _pointcut_keywords(concern)
+        if wp and wp.mode in _BLOCK_MODES:
+            needles = _pointcut_keywords(concern, joinpoints)
             if needles:
                 reason = (
                     concern.advice.content or concern.description or f"Blocked by {concern.id}"
@@ -124,39 +143,60 @@ def _is_hard_tool_block(concern: Concern) -> tuple[str, list[str]] | None:
     return None
 
 
+def _export_one_kind(concerns: list[Concern], action_kind: ActionKind) -> list[dict[str, Any]]:
+    if action_kind == "all":
+        return []
+
+    profile = _ACTION_PROFILES.get(action_kind)
+    if profile is None:
+        return []
+
+    joinpoints, target_prefixes, require_tool_guard = profile
+    predicate_kind = "args_contains" if action_kind == "tool_call" else "text_contains"
+
+    policies: list[dict[str, Any]] = []
+    for concern in concerns:
+        if concern.lifecycle_state in {LifecycleState.ARCHIVED, LifecycleState.MERGED}:
+            continue
+        hit = _is_hard_block(
+            concern,
+            joinpoints=joinpoints,
+            target_prefixes=target_prefixes,
+            require_tool_guard=require_tool_guard,
+        )
+        if hit is None:
+            continue
+        reason, needles = hit
+        policies.append(
+            {
+                "id": concern.id,
+                "criticality": "safety_critical",
+                "action_kind": action_kind,
+                "predicate": {
+                    "kind": predicate_kind,
+                    "needles": needles,
+                },
+                "deny_reason": reason,
+            }
+        )
+    policies.sort(key=lambda p: p["id"])
+    return policies
+
+
 def export_reflex_policies(
     concerns: list[Concern],
     *,
     action_kind: ActionKind = "tool_call",
 ) -> dict[str, Any]:
     """Build portable reflex policy export for the bridge TCB."""
-    if action_kind != "tool_call":
-        return {"version": "0.1", "policies": []}
+    if action_kind == "all":
+        merged: list[dict[str, Any]] = []
+        for kind in ("tool_call", "spawn", "message_out", "queue_enqueue"):
+            merged.extend(_export_one_kind(concerns, kind))
+        merged.sort(key=lambda p: (p["action_kind"], p["id"]))
+        return {"version": "0.1", "policies": merged}
 
-    policies: list[dict[str, Any]] = []
-    for concern in concerns:
-        if concern.lifecycle_state in {LifecycleState.ARCHIVED, LifecycleState.MERGED}:
-            continue
-        hit = _is_hard_tool_block(concern)
-        if hit is None:
-            continue
-        reason, needles = hit
-        criticality: ReflexCriticality = "safety_critical"
-        policies.append(
-            {
-                "id": concern.id,
-                "criticality": criticality,
-                "action_kind": "tool_call",
-                "predicate": {
-                    "kind": "args_contains",
-                    "needles": needles,
-                },
-                "deny_reason": reason,
-            }
-        )
-
-    policies.sort(key=lambda p: p["id"])
-    return {"version": "0.1", "policies": policies}
+    return {"version": "0.1", "policies": _export_one_kind(concerns, action_kind)}
 
 
 __all__ = ["export_reflex_policies"]

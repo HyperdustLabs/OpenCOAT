@@ -4,6 +4,7 @@ Each worker corresponds to a v0.1 §22.3 maintenance step. M0 only declares
 the worker classes; M6 wires them into the scheduler.
 """
 
+from .cold_plasticity_worker import ColdPlasticityWorker
 from .conflict_scanner import ConflictScannerWorker
 from .decay_worker import DecayWorker
 from .extraction_worker import ExtractionWorker
@@ -13,6 +14,7 @@ from .rt_plasticity_worker import RtPlasticityWorker
 from .verification_worker import VerificationWorker
 
 __all__ = [
+    "ColdPlasticityWorker",
     "ConflictScannerWorker",
     "DecayWorker",
     "ExtractionWorker",

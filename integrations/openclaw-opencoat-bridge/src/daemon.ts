@@ -29,6 +29,8 @@ export function resolveConfig(raw: Record<string, unknown> | undefined): BridgeC
     runtimeObservers: raw?.runtimeObservers !== false,
     observerPollMs,
     inProcReflexToolGuard: raw?.inProcReflexToolGuard === true,
+    inProcReflexGuards:
+      raw?.inProcReflexGuards === true || raw?.inProcReflexToolGuard === true,
     reflexSyncFromDaemon: raw?.reflexSyncFromDaemon !== false,
     reflexAuditToDaemon: raw?.reflexAuditToDaemon !== false,
     reflexPolicies: parseInlineReflexPolicies(raw?.reflexPolicies),

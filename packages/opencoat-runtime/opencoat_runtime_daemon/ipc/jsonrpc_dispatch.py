@@ -442,8 +442,17 @@ class JsonRpcHandler:
         """Portable deterministic reflex specs for in-proc bridge ``ReflexMonitor``."""
         p = _expect_params_dict(params)
         action_kind = p.get("action_kind", "tool_call")
-        if action_kind not in ("tool_call",):
-            raise JsonRpcParamsError("action_kind must be 'tool_call'")
+        if action_kind not in (
+            "tool_call",
+            "spawn",
+            "message_out",
+            "queue_enqueue",
+            "all",
+        ):
+            raise JsonRpcParamsError(
+                "action_kind must be one of: tool_call, spawn, message_out, "
+                "queue_enqueue, all"
+            )
         concerns = self._rt.concern_store.list()
         return export_reflex_policies(concerns, action_kind=action_kind)
 
