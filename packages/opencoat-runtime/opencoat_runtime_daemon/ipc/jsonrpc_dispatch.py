@@ -62,8 +62,8 @@ from typing import Any
 
 from opencoat_runtime_core import OpenCOATRuntime
 from opencoat_runtime_core.concern import ConcernBuilder, ConcernExtractor
-from opencoat_runtime_core.concern.reflex_policy_export import export_reflex_policies
 from opencoat_runtime_core.concern.chat_extract import chat_text_for_extraction
+from opencoat_runtime_core.concern.reflex_policy_export import export_reflex_policies
 from opencoat_runtime_protocol import Concern, ConcernInjection, JoinpointEvent
 from pydantic import ValidationError
 

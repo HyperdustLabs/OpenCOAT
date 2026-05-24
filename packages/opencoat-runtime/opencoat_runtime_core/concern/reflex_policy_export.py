@@ -93,7 +93,11 @@ def _is_hard_tool_block(concern: Concern) -> tuple[str, list[str]] | None:
         effect = adv.effect or concern.weaving_policy
         if effect is None:
             continue
-        if effect.mode not in {WeavingOperation.BLOCK, WeavingOperation.SUPPRESS, WeavingOperation.ESCALATE}:
+        if effect.mode not in {
+            WeavingOperation.BLOCK,
+            WeavingOperation.SUPPRESS,
+            WeavingOperation.ESCALATE,
+        }:
             continue
         target = effect.target or ""
         if not (target == "tool_call" or target.startswith("tool_call.")):
@@ -113,7 +117,9 @@ def _is_hard_tool_block(concern: Concern) -> tuple[str, list[str]] | None:
         }:
             needles = _pointcut_keywords(concern)
             if needles:
-                reason = (concern.advice.content or concern.description or f"Blocked by {concern.id}").strip()
+                reason = (
+                    concern.advice.content or concern.description or f"Blocked by {concern.id}"
+                ).strip()
                 return reason, needles
     return None
 

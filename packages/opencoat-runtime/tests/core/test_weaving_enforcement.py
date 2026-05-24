@@ -16,8 +16,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-import pytest
-
 from opencoat_runtime_core.dcn.evolution import DCNEvolver
 from opencoat_runtime_core.weaving.enforcement import (
     ADVICE_TYPE_ENFORCEMENT,
@@ -107,7 +105,7 @@ class TestOperationCoverage:
             assert meta.fail_mode in ("deny", "allow")
 
     def test_hard_operations_are_block_and_verify(self) -> None:
-        assert HARD_OPERATIONS == {WeavingOperation.BLOCK, WeavingOperation.VERIFY}
+        assert {WeavingOperation.BLOCK, WeavingOperation.VERIFY} == HARD_OPERATIONS
 
     def test_soft_operations_fail_open(self) -> None:
         for op in WeavingOperation:
@@ -150,11 +148,11 @@ class TestAdviceTypeCoverage:
             assert meta.neuron_type in ("inhibitory", "excitatory")
 
     def test_hard_advice_types_are_guards_and_verification(self) -> None:
-        assert HARD_ADVICE_TYPES == {
+        assert {
             AdviceType.TOOL_GUARD,
             AdviceType.MEMORY_WRITE_GUARD,
             AdviceType.VERIFICATION_RULE,
-        }
+        } == HARD_ADVICE_TYPES
 
     def test_inhibitory_equals_hard_advice_types(self) -> None:
         """All inhibitory advice types must be hard, and vice-versa."""
@@ -217,9 +215,7 @@ class TestConcernFields:
 
 
 class TestReflexExcludedFromEvolution:
-    def _make_evolver(
-        self, store: MemoryConcernStore, dcn: MemoryDCNStore
-    ) -> DCNEvolver:
+    def _make_evolver(self, store: MemoryConcernStore, dcn: MemoryDCNStore) -> DCNEvolver:
         return DCNEvolver(
             concern_store=store,
             dcn_store=dcn,
@@ -230,7 +226,9 @@ class TestReflexExcludedFromEvolution:
         """A reflex concern must survive even when it overlaps keywords with another."""
         store = MemoryConcernStore()
         dcn = MemoryDCNStore()
-        store.upsert(_concern("reflex-a", keywords=["tool", "guard"], reflex=True, neuron_type="inhibitory"))
+        store.upsert(
+            _concern("reflex-a", keywords=["tool", "guard"], reflex=True, neuron_type="inhibitory")
+        )
         store.upsert(_concern("soft-b", keywords=["tool", "guard"], score=0.3))
         result = self._make_evolver(store, dcn).run(_NOW)
         assert result.merged == 0, "reflex concern must not be merged"
@@ -290,8 +288,12 @@ class TestReflexExcludedFromEvolution:
         """Two reflex concerns with identical keywords must both survive."""
         store = MemoryConcernStore()
         dcn = MemoryDCNStore()
-        store.upsert(_concern("r1", keywords=["tool", "safety"], reflex=True, neuron_type="inhibitory"))
-        store.upsert(_concern("r2", keywords=["tool", "safety"], reflex=True, neuron_type="inhibitory"))
+        store.upsert(
+            _concern("r1", keywords=["tool", "safety"], reflex=True, neuron_type="inhibitory")
+        )
+        store.upsert(
+            _concern("r2", keywords=["tool", "safety"], reflex=True, neuron_type="inhibitory")
+        )
         result = self._make_evolver(store, dcn).run(_NOW)
         assert result.merged == 0
         assert store.get("r1") is not None
