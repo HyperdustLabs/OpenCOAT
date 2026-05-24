@@ -1,7 +1,7 @@
 /**
  * OpenCOAT ↔ OpenClaw bridge (daemon-backed).
  *
- * - Plugin hooks (`api.on`): 26/29 async-safe hooks — see hook-bindings.ts.
+ * - Plugin hooks (`api.on`): 29 async-safe hooks — see hook-bindings.ts.
  * - Runtime observers: `onAgentEvent`, internal compact hooks, queue/task poll —
  *   see runtime-observers.ts (ADR-0011 MVP queue/reply_run/task observe paths).
  *
@@ -35,6 +35,14 @@ import {
   toolResultPayload,
 } from "./payloads.js";
 import { createObserveEmitter } from "./emit-joinpoint.js";
+import { loadReflexRuntime, buildReflexRuntime } from "./reflex-policy-sync.js";
+import type { ReflexRuntime } from "./reflex-policy-sync.js";
+import {
+  buildReflexState,
+  buildToolCallAction,
+  failClosedToolGuard,
+  reflexToolGuardDecision,
+} from "./reflex-tool-guard.js";
 import {
   installRuntimeObservers,
   recordQueueDepthSnapshot,
@@ -48,6 +56,23 @@ import type {
 } from "./types.js";
 
 const pendingByRun = new Map<string, ConcernInjection | null>();
+const reflexState: { runtime: ReflexRuntime | null } = { runtime: null };
+
+function auditToolGuardJoinpoint(
+  cfg: BridgeConfig,
+  api: BridgePluginApi,
+  binding: (typeof HOOK_BINDINGS)[number],
+  payload: Record<string, unknown>,
+  c: AgentHookCtx,
+  block: boolean,
+  reason?: string,
+): void {
+  if (!cfg.reflexAuditToDaemon || !cfg.enabled) return;
+  void emit(cfg, api, binding.hook, binding.joinpoint, {
+    ...payload,
+    reflex_monitor: { block, reason },
+  }, c).catch(() => undefined);
+}
 
 function rememberInjection(run: string, inj: ConcernInjection | null): void {
   if (!inj?.injections?.length) return;
@@ -218,6 +243,48 @@ async function handleHook(
           e.params && typeof e.params === "object"
             ? { ...(e.params as Record<string, unknown>) }
             : {};
+        const toolName = typeof e.toolName === "string" ? e.toolName : "tool";
+
+        if (cfg.inProcReflexToolGuard) {
+          const runtime = reflexState.runtime;
+          if (!runtime) {
+            return failClosedToolGuard(
+              params,
+              new Error("ReflexMonitor not initialized"),
+            );
+          }
+          try {
+            const action = buildToolCallAction({ toolName, params });
+            const decision = reflexToolGuardDecision(
+              runtime.monitor,
+              action,
+              buildReflexState(c),
+              params,
+            );
+            auditToolGuardJoinpoint(
+              cfg,
+              api,
+              binding,
+              payload,
+              c,
+              decision.block,
+              decision.blockReason,
+            );
+            if (decision.block) {
+              return {
+                block: true,
+                blockReason:
+                  decision.blockReason ??
+                  "Blocked by OpenCOAT ReflexMonitor (tool_guard).",
+                params: decision.params,
+              };
+            }
+            return decision.params !== params ? { params: decision.params } : {};
+          } catch (err) {
+            return failClosedToolGuard(params, err);
+          }
+        }
+
         const inj = await emit(cfg, api, binding.hook, binding.joinpoint, payload, c);
         const decision = guardToolCall(inj, params);
         if (!decision.block) {
@@ -273,12 +340,39 @@ async function handleHook(
         err instanceof Error ? err.message : String(err)
       }`,
     );
-    return binding.kind === "tool_guard" ? {} : undefined;
+    return binding.kind === "tool_guard"
+      ? cfg.inProcReflexToolGuard
+        ? failClosedToolGuard(
+            {},
+            err instanceof Error ? err : new Error(String(err)),
+          )
+        : {}
+      : undefined;
   }
 }
 
 export default function register(api: BridgePluginApi): void {
   const cfg = resolveConfig(api.pluginConfig);
+
+  if (cfg.inProcReflexToolGuard) {
+    reflexState.runtime = buildReflexRuntime(cfg, null);
+    void loadReflexRuntime(cfg)
+      .then((runtime) => {
+        reflexState.runtime = runtime;
+        api.logger?.info?.(
+          `[opencoat-bridge] in-proc ReflexMonitor tool_guard policies: ${
+            runtime.policyIds.join(", ") || "(none)"
+          }`,
+        );
+      })
+      .catch((err) => {
+        api.logger?.warn?.(
+          `[opencoat-bridge] reflex policy sync failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      });
+  }
 
   for (const binding of HOOK_BINDINGS) {
     api.on(binding.hook, (event: unknown, ctx: unknown) =>
@@ -297,6 +391,8 @@ export default function register(api: BridgePluginApi): void {
     `[opencoat-bridge] registered ${HOOK_BINDINGS.length} hooks ` +
       `(skipped: ${SKIPPED_HOOKS.join(", ")}; daemon=${
         cfg.enabled ? cfg.daemonUrl : "disabled"
-      }${observerNote})`,
+      }${observerNote}${
+        cfg.inProcReflexToolGuard ? "; in-proc ReflexMonitor tool_guard" : ""
+      })`,
   );
 }

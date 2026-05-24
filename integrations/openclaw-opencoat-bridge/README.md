@@ -30,7 +30,7 @@ Skipped: `before_message_write`, `tool_result_persist` (sync hot path — cannot
 | `llm_output` | `after_reasoning` | submit |
 | `agent_end` / `message_sent` | `after_response` | submit |
 | `message_sending` | `before_response` | submit + **`cancel`** when BLOCK advice |
-| `before_tool_call` | `before_tool_call` | submit + **`block`** / param guard |
+| `before_tool_call` | `before_tool_call` | submit + **`block`** / param guard (or **in-proc ReflexMonitor** when enabled) |
 | `after_tool_call` | `after_tool_call` | submit (DCN activation) |
 | `queue_before_enqueue` | `queue.before_enqueue` | submit + **`block`** / queue prompt rewrite |
 | `queue_after_enqueue` | `queue.after_enqueue` | submit (observe) |
@@ -296,7 +296,7 @@ Requires **JoinpointDiscovery** (`expand_prompt_surface` on by default). Older d
 cd /path/to/OpenCOAT/integrations/openclaw-opencoat-bridge
 npm run build
 openclaw gateway restart
-grep opencoat-bridge ~/.openclaw/logs/gateway.log   # expect "registered 28 hooks" + runtime observers
+grep opencoat-bridge ~/.openclaw/logs/gateway.log   # expect "registered 29 hooks" + runtime observers
 ```
 
 ## Weaving expectations
@@ -314,8 +314,45 @@ heartbeat enabled — see root [`README.md`](../../README.md) § Heartbeat + DCN
 daemon). Extraction updates the concern store; it does not always add rows to
 `injections` on that same submit.
 
+## In-proc ReflexMonitor — `tool_guard` TCB prototype (v0.3)
+
+Optional **authoritative** hot path for `before_tool_call` (no daemon RPC on the
+guard decision). Enable in OpenClaw plugin config:
+
+```json
+{
+  "plugins": {
+    "entries": {
+      "@hyperdustlabs/opencoat-bridge": {
+        "config": {
+          "inProcReflexToolGuard": true,
+          "reflexSyncFromDaemon": true,
+          "reflexAuditToDaemon": true
+        }
+      }
+    }
+  }
+}
+```
+
+**Behavior**
+
+- Policies load from daemon `reflex.policies.export` (hard `TOOL_GUARD` + BLOCK concerns).
+- Falls back to built-in `demo-tool-block` needles when export is empty.
+- **Fail-closed** on monitor errors (contrast: collaborative path fail-open).
+- Optional async `joinpoint.submit` audit (`reflexAuditToDaemon`) for DCN without blocking the hook.
+
+Gateway log when enabled:
+
+```text
+[opencoat-bridge] in-proc ReflexMonitor tool_guard policies: demo-tool-block, …
+```
+
+See [v0.3 §10.5](../../docs/design/v0.3-morphogenetic-architecture.md#105-实现分期-2026-05).
+
 ## Limitations (v0.1 bridge)
 
+- **v0.3 gap:** when `inProcReflexToolGuard` is off, guards are **collaborative** (daemon RPC, fail-open on bridge error). Enable in-proc mode for authoritative fail-closed `tool_guard` ([v0.3 §10.5](../../docs/design/v0.3-morphogenetic-architecture.md#105-实现分期-2026-05)).
 - Prompt folding uses `prependSystemContext` only (not full dotted-path injector parity with Python `OpenClawInjector`).
 - **`queue.before_enqueue`** sync veto/rewrite requires OpenClaw **fork** (`queue_before_enqueue` hook). Poll fallback in `runtime-observers.ts` is observe-only.
 - Non-subagent **`task.before_create`** is observe-only (task poll); spawn veto works on `subagent_spawning` only.

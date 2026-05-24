@@ -8,7 +8,8 @@ import {
   installRuntimeObservers,
   recordQueueDepthSnapshot,
 } from "./runtime-observers.js";
-import type { BridgeConfig, BridgePluginApi } from "./types.js";
+import type { BridgePluginApi } from "./types.js";
+import { resolveConfig } from "./daemon.js";
 
 describe("agentEventJoinpoint", () => {
   it("maps lifecycle start to reply_run.before_begin", () => {
@@ -136,14 +137,9 @@ describe("installRuntimeObservers", () => {
         registered = { events, opts };
       },
     };
-    const cfg: BridgeConfig = {
-      daemonUrl: "http://127.0.0.1:7878/rpc",
-      enabled: false,
-      logActivations: false,
-      extractOnUserMessage: false,
-      runtimeObservers: true,
-      observerPollMs: 500,
-    };
+    const cfg = resolveConfig(undefined);
+    cfg.enabled = false;
+    cfg.runtimeObservers = true;
 
     installRuntimeObservers(api, cfg, {
       observe: async () => null,
