@@ -13,7 +13,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test dist/messages.test.js dist/hook-bindings.test.js dist/injector.test.js dist/runtime-observers.test.js",
+    "test": "npm run build && node --test dist/messages.test.js dist/hook-bindings.test.js dist/injector.test.js dist/runtime-observers.test.js dist/reflex-monitor.test.js dist/reflex-tool-guard.test.js dist/r-t-emit.test.js",
     "prepare": "npm run build"
   },
   "devDependencies": {

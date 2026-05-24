@@ -18,6 +18,26 @@
       "logActivations": {
         "type": "boolean",
         "description": "Log concern ids when injections are non-empty"
+      },
+      "inProcReflexToolGuard": {
+        "type": "boolean",
+        "description": "Run before_tool_call through in-proc ReflexMonitor (v0.3 TCB prototype; fail-closed)"
+      },
+      "reflexSyncFromDaemon": {
+        "type": "boolean",
+        "description": "Load reflex.policies.export from daemon on plugin start (default true when in-proc enabled)"
+      },
+      "reflexAuditToDaemon": {
+        "type": "boolean",
+        "description": "Async joinpoint.submit after in-proc tool guard for DCN audit"
+      },
+      "reflexIncludeDemoPolicy": {
+        "type": "boolean",
+        "description": "Include built-in demo-tool-block spec when daemon export is empty"
+      },
+      "emitRtJsonl": {
+        "type": "boolean",
+        "description": "Emit structured r_t records to daemon credit.r_t.append (default on when inProcReflexToolGuard)"
       }
     }
   },

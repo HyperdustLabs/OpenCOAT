@@ -1,3 +1,5 @@
+import type { ReflexPolicySpec } from "./reflex-policy-spec.js";
+
 export type BridgeConfig = {
   daemonUrl: string;
   enabled: boolean;
@@ -8,6 +10,18 @@ export type BridgeConfig = {
   runtimeObservers: boolean;
   /** Interval for queue/task poll service (ms). */
   observerPollMs: number;
+  /** Run ``before_tool_call`` through in-proc ``ReflexMonitor`` (v0.3 TCB prototype). */
+  inProcReflexToolGuard: boolean;
+  /** Pull ``reflex.policies.export`` from daemon on plugin load. */
+  reflexSyncFromDaemon: boolean;
+  /** Emit joinpoint.submit after in-proc guard for DCN audit (async). */
+  reflexAuditToDaemon: boolean;
+  /** Inline portable policy specs (merged with daemon export). */
+  reflexPolicies: ReflexPolicySpec[];
+  /** When daemon export is empty, include built-in ``demo-tool-block`` spec. */
+  reflexIncludeDemoPolicy: boolean;
+  /** Append structured ``r_t`` records via daemon ``credit.r_t.append`` (v0.3 step 3). */
+  emitRtJsonl: boolean;
 };
 
 export type AgentEventPayload = {

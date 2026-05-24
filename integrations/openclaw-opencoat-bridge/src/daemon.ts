@@ -5,6 +5,10 @@ import type {
   ConcernInjection,
   JoinpointWire,
 } from "./types.js";
+import {
+  parseReflexPolicyExport,
+  type ReflexPolicySpec,
+} from "./reflex-policy-spec.js";
 
 const JOINPOINT_LEVEL_RUNTIME = 0;
 const JOINPOINT_LEVEL_LIFECYCLE = 1;
@@ -24,7 +28,26 @@ export function resolveConfig(raw: Record<string, unknown> | undefined): BridgeC
     extractOnUserMessage: raw?.extractOnUserMessage === true,
     runtimeObservers: raw?.runtimeObservers !== false,
     observerPollMs,
+    inProcReflexToolGuard: raw?.inProcReflexToolGuard === true,
+    reflexSyncFromDaemon: raw?.reflexSyncFromDaemon !== false,
+    reflexAuditToDaemon: raw?.reflexAuditToDaemon !== false,
+    reflexPolicies: parseInlineReflexPolicies(raw?.reflexPolicies),
+    reflexIncludeDemoPolicy: raw?.reflexIncludeDemoPolicy !== false,
+    emitRtJsonl:
+      raw?.emitRtJsonl === true ||
+      (raw?.emitRtJsonl !== false && raw?.inProcReflexToolGuard === true),
   };
+}
+
+function parseInlineReflexPolicies(raw: unknown): ReflexPolicySpec[] {
+  const parsed = parseReflexPolicyExport(
+    raw && typeof raw === "object" && Array.isArray((raw as { policies?: unknown }).policies)
+      ? { version: "0.1", policies: (raw as { policies: unknown[] }).policies }
+      : Array.isArray(raw)
+        ? { version: "0.1", policies: raw }
+        : null,
+  );
+  return parsed?.policies ?? [];
 }
 
 export function runKey(ctx: AgentHookCtx): string {
