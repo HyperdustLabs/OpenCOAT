@@ -10,10 +10,9 @@ the generated `opencoat_plugin/` folder.
 
 ## Hook → joinpoint mapping
 
-The bridge registers **29** OpenClaw plugin hooks (`hook-bindings.ts`), including
-the OpenCOAT fork's native queue hooks.
-Skipped: `before_message_write`, `tool_result_persist` (sync hot path — cannot await daemon RPC),
-`before_install` (install-only).
+The bridge registers **29** async OpenClaw plugin hooks plus **2 sync** hooks when
+in-proc ReflexMonitor is enabled (`hook-bindings.ts`, `SYNC_HOOK_BINDINGS`).
+Skipped: `before_install` (install-only).
 
 | OpenClaw hook | OpenCOAT joinpoint | Effect |
 | --- | --- | --- |
@@ -29,7 +28,7 @@ Skipped: `before_message_write`, `tool_result_persist` (sync hot path — cannot
 | `llm_input` | `before_reasoning` | submit |
 | `llm_output` | `after_reasoning` | submit |
 | `agent_end` / `message_sent` | `after_response` | submit |
-| `message_sending` | `before_response` | submit + **`cancel`** when BLOCK advice |
+| `message_sending` | `before_response` | submit + **`cancel`** / **`content` rewrite** (in-proc verify→repair) |
 | `before_tool_call` | `before_tool_call` | submit + **`block`** / param guard (or **in-proc ReflexMonitor** when enabled) |
 | `after_tool_call` | `after_tool_call` | submit (DCN activation) |
 | `queue_before_enqueue` | `queue.before_enqueue` | submit + **`block`** / queue prompt rewrite |
@@ -38,6 +37,8 @@ Skipped: `before_message_write`, `tool_result_persist` (sync hot path — cannot
 | `subagent_spawning` | `task.before_create` | submit + **`status: error`** when BLOCK |
 | `subagent_delivery_target` / `subagent_spawned` | `task.after_create` | submit |
 | `subagent_ended` | `task.before_terminal` | submit |
+| `before_message_write` | `memory.before_write` | **in-proc sync** block / message rewrite (no daemon RPC) |
+| `tool_result_persist` | — | **in-proc sync** tool-result rewrite before JSONL persist |
 | `before_model_resolve` | `before_reasoning` | submit |
 | `before_agent_run` | `input.received` | submit (observe only; fork gate not overridden) |
 

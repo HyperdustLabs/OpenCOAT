@@ -754,8 +754,8 @@ Wire catalog for [v0.3 §10](./v0.3-morphogenetic-architecture.md#10-openclaw--�
 | `message_sending` | `response.before_final` | `message_send` | `reflex.response_verifier` | `message_out` | cancel only | in-proc + verify→repair |
 | `subagent_spawning` | `task.before_create` | `subagent_spawn` | `reflex.spawn_guard` | `subagent_spawn` | spawn veto | in-proc deny |
 | `queue_before_enqueue` | `queue.before_enqueue` | `queue_enqueue` | `reflex.queue_guard` | `queue_guard` | **yes (fork)** | in-proc |
-| `before_message_write` | `memory.before_write` | `memory_write` | `reflex.memory_guard` | *(skipped)* | no | in-proc when TCB lands |
-| `tool_result_persist` | — | — | — | *(skipped)* | no | in-proc when TCB lands |
+| `before_message_write` | `memory.before_write` | `memory_write` | `reflex.memory_guard` | **in-proc sync** | no | ✅ v0.3 delivery |
+| `tool_result_persist` | — | `tool_result` | `reflex.memory_guard` | **in-proc sync** | no | ✅ v0.3 delivery |
 | `after_tool_call` / `llm_output` / `agent_end` | observe JPs | — | — | `observe` | DCN only | **`r_t` emit** (not done) |
 
 \* v0.3 verify→repair uses `before_agent_reply`; bridge today cancels at `message_sending`.

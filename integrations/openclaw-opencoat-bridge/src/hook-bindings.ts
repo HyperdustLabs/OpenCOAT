@@ -4,10 +4,8 @@
  * Legacy OpenClaw queue observations still use runtime-observers.ts
  * (queue-depth poll). Native queue hooks are registered here when present.
  *
- * Skipped (sync hot path — cannot await daemon RPC):
- *   before_message_write, tool_result_persist
- * Skipped (install-only):
- *   before_install
+ * Sync-only hooks (in-proc ReflexMonitor, no daemon RPC): see SYNC_HOOK_BINDINGS.
+ * Skipped (install-only): before_install
  */
 
 export type HookKind =
@@ -17,12 +15,16 @@ export type HookKind =
   | "message_out"
   | "subagent_spawn"
   | "queue_guard"
-  | "buffer_input";
+  | "buffer_input"
+  | "memory_write"
+  | "tool_result_persist";
 
 export type HookBinding = {
   hook: string;
   joinpoint: string;
   kind: HookKind;
+  /** When true, handler must be synchronous (no Promise return). */
+  syncOnly?: boolean;
 };
 
 /** All hooks the bridge registers. */
@@ -73,11 +75,23 @@ export const HOOK_BINDINGS: HookBinding[] = [
   { hook: "subagent_ended", joinpoint: "task.before_terminal", kind: "observe" },
 ];
 
-export const SKIPPED_HOOKS = [
-  "before_message_write",
-  "tool_result_persist",
-  "before_install",
-] as const;
+/** Sync-only hooks — registered with synchronous handlers (v0.3 §10.5 memory TCB). */
+export const SYNC_HOOK_BINDINGS: HookBinding[] = [
+  {
+    hook: "before_message_write",
+    joinpoint: "memory.before_write",
+    kind: "memory_write",
+    syncOnly: true,
+  },
+  {
+    hook: "tool_result_persist",
+    joinpoint: "after_tool_call",
+    kind: "tool_result_persist",
+    syncOnly: true,
+  },
+];
+
+export const SKIPPED_HOOKS = ["before_install"] as const;
 
 export function bindingForHook(hook: string): HookBinding | undefined {
   return HOOK_BINDINGS.find((b) => b.hook === hook);

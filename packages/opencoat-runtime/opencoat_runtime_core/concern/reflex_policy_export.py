@@ -20,7 +20,15 @@ from opencoat_runtime_protocol import (
 )
 
 ReflexCriticality = Literal["safety_critical", "advisory"]
-ActionKind = Literal["tool_call", "spawn", "message_out", "queue_enqueue", "all"]
+ActionKind = Literal[
+    "tool_call",
+    "spawn",
+    "message_out",
+    "queue_enqueue",
+    "memory_write",
+    "tool_result_persist",
+    "all",
+]
 
 _BLOCK_MODES = frozenset(
     {
@@ -29,6 +37,7 @@ _BLOCK_MODES = frozenset(
         WeavingOperation.ESCALATE,
     }
 )
+_REWRITE_MODES = frozenset({WeavingOperation.REWRITE})
 
 _TOOL_JOINPOINTS = frozenset({"before_tool_call", "tool.before_call"})
 _SPAWN_JOINPOINTS = frozenset({"task.before_create", "subagent_spawning", "subagent.before_spawn"})
@@ -40,12 +49,32 @@ _MESSAGE_JOINPOINTS = frozenset(
     }
 )
 _QUEUE_JOINPOINTS = frozenset({"queue.before_enqueue"})
+_MEMORY_JOINPOINTS = frozenset(
+    {
+        "memory.before_write",
+        "before_memory_write",
+        "before_message_write",
+    }
+)
+_TOOL_RESULT_JOINPOINTS = frozenset(
+    {
+        "after_tool_call",
+        "tool.result.before_emit",
+        "tool_result_persist",
+    }
+)
 
 _ACTION_PROFILES: dict[str, tuple[frozenset[str], tuple[str, ...], bool]] = {
     "tool_call": (_TOOL_JOINPOINTS, ("tool_call",), True),
     "spawn": (_SPAWN_JOINPOINTS, ("task", "subagent"), False),
     "message_out": (_MESSAGE_JOINPOINTS, ("runtime_prompt", "response"), False),
     "queue_enqueue": (_QUEUE_JOINPOINTS, ("queue",), False),
+    "memory_write": (_MEMORY_JOINPOINTS, ("memory_write", "memory"), False),
+    "tool_result_persist": (
+        _TOOL_RESULT_JOINPOINTS,
+        ("tool_result", "memory_write"),
+        False,
+    ),
 }
 
 
@@ -141,6 +170,34 @@ def _is_hard_block(
     return None
 
 
+def _is_hard_rewrite(
+    concern: Concern,
+    *,
+    joinpoints: frozenset[str],
+    target_prefixes: tuple[str, ...],
+    require_tool_guard: bool,
+) -> tuple[str, list[str], str] | None:
+    """Return (reason, needles, rewrite_content) for REWRITE advice on the profile."""
+    for adv in concern.advices:
+        if require_tool_guard and adv.template != AdviceType.TOOL_GUARD:
+            continue
+        effect = adv.effect or concern.weaving_policy
+        if effect is None or effect.mode not in _REWRITE_MODES:
+            continue
+        target = effect.target or ""
+        if not _target_matches(target, target_prefixes):
+            continue
+        needles = _pointcut_keywords(concern, joinpoints)
+        if not needles:
+            continue
+        content = (adv.content or "").strip()
+        if not content:
+            continue
+        reason = (concern.description or f"Rewritten by {concern.id}").strip()
+        return reason, needles, content
+    return None
+
+
 def _export_one_kind(concerns: list[Concern], action_kind: ActionKind) -> list[dict[str, Any]]:
     if action_kind == "all":
         return []
@@ -163,6 +220,29 @@ def _export_one_kind(concerns: list[Concern], action_kind: ActionKind) -> list[d
             require_tool_guard=require_tool_guard,
         )
         if hit is None:
+            hit_rewrite = _is_hard_rewrite(
+                concern,
+                joinpoints=joinpoints,
+                target_prefixes=target_prefixes,
+                require_tool_guard=require_tool_guard,
+            )
+            if hit_rewrite is None:
+                continue
+            reason, needles, rewrite_content = hit_rewrite
+            policies.append(
+                {
+                    "id": concern.id,
+                    "criticality": "safety_critical",
+                    "action_kind": action_kind,
+                    "effect": "rewrite",
+                    "predicate": {
+                        "kind": predicate_kind,
+                        "needles": needles,
+                    },
+                    "deny_reason": reason,
+                    "rewrite_content": rewrite_content,
+                }
+            )
             continue
         reason, needles = hit
         policies.append(
@@ -170,6 +250,7 @@ def _export_one_kind(concerns: list[Concern], action_kind: ActionKind) -> list[d
                 "id": concern.id,
                 "criticality": "safety_critical",
                 "action_kind": action_kind,
+                "effect": "deny",
                 "predicate": {
                     "kind": predicate_kind,
                     "needles": needles,
@@ -189,7 +270,14 @@ def export_reflex_policies(
     """Build portable reflex policy export for the bridge TCB."""
     if action_kind == "all":
         merged: list[dict[str, Any]] = []
-        for kind in ("tool_call", "spawn", "message_out", "queue_enqueue"):
+        for kind in (
+            "tool_call",
+            "spawn",
+            "message_out",
+            "queue_enqueue",
+            "memory_write",
+            "tool_result_persist",
+        ):
             merged.extend(_export_one_kind(concerns, kind))
         merged.sort(key=lambda p: (p["action_kind"], p["id"]))
         return {"version": "0.1", "policies": merged}

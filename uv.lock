@@ -1031,7 +1031,7 @@ wheels = [
 
 [[package]]
 name = "opencoat-runtime"
-version = "0.1.5"
+version = "0.2.0"
 source = { editable = "packages/opencoat-runtime" }
 dependencies = [
     { name = "opencoat-runtime-protocol" },

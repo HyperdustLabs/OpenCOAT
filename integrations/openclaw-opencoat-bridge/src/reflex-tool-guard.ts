@@ -1,6 +1,23 @@
+import { applyAgentMessageContent, extractAgentMessageText } from "./message-text.js";
 import type { AgentHookCtx } from "./types.js";
 import type { Action, ActionKind, ReflexMonitor, State } from "./reflex-monitor.js";
 import type { ToolGuardDecision } from "./injector.js";
+
+export function buildMemoryWriteAction(message: unknown): Action {
+  const text = extractAgentMessageText(message);
+  const role =
+    message &&
+    typeof message === "object" &&
+    typeof (message as { role?: unknown }).role === "string"
+      ? (message as { role: string }).role
+      : "message";
+  return {
+    kind: "memory_write",
+    name: role,
+    args: { text, content: text, role },
+    raw: message,
+  };
+}
 
 export function buildToolCallAction(event: {
   toolName?: string;
@@ -33,6 +50,99 @@ export type ReflexDenyResult = {
   blockReason?: string;
   record?: ReturnType<ReflexMonitor["mediate"]>["record"];
 };
+
+export type MessageGuardDecision = {
+  cancel?: boolean;
+  content?: string;
+  record?: ReturnType<ReflexMonitor["mediate"]>["record"];
+};
+
+/** Map ReflexMonitor output to OpenClaw ``message_sending`` (verify / repair). */
+export function reflexMessageGuardDecision(
+  monitor: ReflexMonitor,
+  action: Action,
+  state: State,
+): MessageGuardDecision {
+  const { decision, record } = monitor.mediate(action, state);
+  if (decision.kind === "deny") {
+    return { cancel: true, content: decision.reason, record };
+  }
+  if (decision.kind === "rewrite") {
+    const content =
+      typeof decision.action.args.content === "string"
+        ? decision.action.args.content
+        : undefined;
+    if (content !== undefined) return { content, record };
+  }
+  return { record };
+}
+
+export type MemoryWriteDecision = {
+  block?: boolean;
+  message?: unknown;
+  record?: ReturnType<ReflexMonitor["mediate"]>["record"];
+};
+
+export function reflexMemoryWriteDecision(
+  monitor: ReflexMonitor,
+  action: Action,
+  state: State,
+  rawMessage: unknown,
+): MemoryWriteDecision {
+  const { decision, record } = monitor.mediate(action, state);
+  if (decision.kind === "deny") {
+    return { block: true, record };
+  }
+  if (decision.kind === "rewrite") {
+    const content =
+      typeof decision.action.args.content === "string"
+        ? decision.action.args.content
+        : undefined;
+    if (content !== undefined) {
+      return {
+        message: applyAgentMessageContent(rawMessage, content),
+        record,
+      };
+    }
+  }
+  return { record };
+}
+
+export type ToolResultPersistDecision = {
+  message?: unknown;
+  record?: ReturnType<ReflexMonitor["mediate"]>["record"];
+};
+
+export function reflexToolResultPersistDecision(
+  monitor: ReflexMonitor,
+  action: Action,
+  state: State,
+  rawMessage: unknown,
+): ToolResultPersistDecision {
+  const { decision, record } = monitor.mediate(action, state);
+  if (decision.kind === "deny") {
+    return {
+      message: applyAgentMessageContent(
+        rawMessage,
+        `[OpenCOAT blocked] ${decision.reason}`,
+      ),
+      record,
+    };
+  }
+  if (decision.kind === "rewrite") {
+    const content =
+      typeof decision.action.args.content === "string"
+        ? decision.action.args.content
+        : undefined;
+    if (content !== undefined) {
+      return {
+        message: applyAgentMessageContent(rawMessage, content),
+        record,
+      };
+    }
+  }
+  return { record };
+}
 
 /** Generic deny-only ReflexMonitor path for spawn/message/queue hooks. */
 export function reflexDenyDecision(
@@ -116,4 +226,23 @@ export function failClosedQueueGuard(err: unknown): {
   blockReason: string;
 } {
   return { block: true, blockReason: failClosedReason(err) };
+}
+
+export function failClosedMemoryWriteGuard(err: unknown): { block: true } {
+  void err;
+  return { block: true };
+}
+
+export function failClosedToolResultPersistGuard(
+  message: unknown,
+  err: unknown,
+): { message: unknown } {
+  return {
+    message: applyAgentMessageContent(
+      message,
+      `[OpenCOAT ReflexMonitor fail-closed] ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    ),
+  };
 }
