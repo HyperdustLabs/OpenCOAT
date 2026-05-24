@@ -13,7 +13,7 @@ from opencoat_runtime_protocol import (
     WeavingOperation,
     WeavingPolicy,
 )
-from opencoat_runtime_protocol.envelopes import PointcutMatch
+from opencoat_runtime_protocol.envelopes import Pointcut, PointcutMatch
 
 
 def _demo_tool_block() -> Concern:
@@ -54,6 +54,64 @@ def test_export_demo_tool_block() -> None:
     assert row["id"] == "demo-tool-block"
     assert row["predicate"]["kind"] == "args_contains"
     assert "rm -rf" in row["predicate"]["needles"]
+
+
+def test_skips_untemplated_aop_advice() -> None:
+    concern = Concern(
+        id="untemplated-guard",
+        name="bad row",
+        pointcuts=[
+            PointcutDef(
+                id="pc-tool",
+                joinpoints=["before_tool_call"],
+                match=PointcutMatch(any_keywords=["rm -rf"]),
+            ),
+        ],
+        advices=[
+            AopAdvice(
+                id="a1",
+                kind=AdviceKind.BEFORE,
+                pointcut_ref="pc-tool",
+                content="would block",
+                template=None,
+                effect=WeavingPolicy(
+                    mode=WeavingOperation.BLOCK,
+                    level=WeavingLevel.TOOL_LEVEL,
+                    target="tool_call.arguments",
+                ),
+            ),
+        ],
+    )
+    out = export_reflex_policies([concern])
+    assert out["policies"] == []
+
+
+def test_legacy_pointcut_requires_tool_joinpoint() -> None:
+    concern = Concern(
+        id="response-guard",
+        name="response only",
+        pointcut=Pointcut(
+            joinpoints=["before_response"],
+            match=PointcutMatch(any_keywords=["secret"]),
+        ),
+        advices=[
+            AopAdvice(
+                id="a1",
+                kind=AdviceKind.BEFORE,
+                pointcut_ref="pc",
+                content="block",
+                template=AdviceType.TOOL_GUARD,
+                effect=WeavingPolicy(
+                    mode=WeavingOperation.BLOCK,
+                    level=WeavingLevel.TOOL_LEVEL,
+                    target="tool_call.arguments",
+                ),
+            ),
+        ],
+        pointcuts=[PointcutDef(id="pc", expression="before_response()")],
+    )
+    out = export_reflex_policies([concern])
+    assert out["policies"] == []
 
 
 def test_skips_soft_advice() -> None:
