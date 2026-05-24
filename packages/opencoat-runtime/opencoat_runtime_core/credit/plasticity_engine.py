@@ -5,7 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from opencoat_runtime_protocol import Concern
+
 from opencoat_runtime_core.concern.lifecycle import ConcernLifecycleManager
+from opencoat_runtime_core.credit.connectome_split import (
+    materialize_split,
+    propose_keyword_split,
+)
 from opencoat_runtime_core.credit.r_t_record import RtRecord
 from opencoat_runtime_core.ports import ConcernStore
 
@@ -30,22 +36,26 @@ class ReweightStats:
 class ColdStepStats:
     lifted: int = 0
     archived: int = 0
+    split: int = 0
     skipped: int = 0
 
     def as_dict(self) -> dict[str, int]:
         return {
             "lifted": self.lifted,
             "archived": self.archived,
+            "split": self.split,
             "skipped": self.skipped,
         }
 
 
 class PlasticityEngine:
-    """Prototype ``⇩_slow`` reweight + cold lift/archive (v0.3 §11 subset)."""
+    """Prototype ``⇩_slow`` reweight + cold lift/archive/split (v0.3 §11)."""
 
     DEFAULT_DELTA = 0.05
     LIFT_SCORE = 0.75
     ARCHIVE_SCORE = 0.08
+    SPLIT_SCORE = 0.65
+    SPLIT_MIN_ACTIVATIONS = 3
 
     def __init__(self, *, step_delta: float = DEFAULT_DELTA) -> None:
         if not 0.0 < step_delta <= 1.0:
@@ -145,11 +155,12 @@ class PlasticityEngine:
         concern_store: ConcernStore,
         lifecycle: ConcernLifecycleManager,
     ) -> ColdStepStats:
-        """Cold-path lift (reflex flag) and archive weak concerns."""
+        """Cold-path lift (reflex flag), split, and archive weak concerns."""
         lifted = 0
         archived = 0
+        split = 0
         skipped = 0
-        for concern in concern_store.list():
+        for concern in list(concern_store.list()):
             if concern.lifecycle_state in {"archived", "merged", "deleted"}:
                 skipped += 1
                 continue
@@ -161,6 +172,20 @@ class PlasticityEngine:
                 skipped += 1
                 continue
             try:
+                if self._should_split(concern, score=score):
+                    proposal = propose_keyword_split(concern)
+                    if proposal is None:
+                        skipped += 1
+                        continue
+                    child_a, child_b = materialize_split(proposal, concern)
+                    concern_store.upsert(child_a)
+                    concern_store.upsert(child_b)
+                    lifecycle.archive(
+                        concern,
+                        reason="cold plasticity: connectome split into specialized children",
+                    )
+                    split += 1
+                    continue
                 if score >= self.LIFT_SCORE and concern.lifecycle_state == "reinforced":
                     updated = concern.model_copy(update={"reflex": True})
                     concern_store.upsert(updated)
@@ -172,7 +197,16 @@ class PlasticityEngine:
                     skipped += 1
             except Exception:
                 skipped += 1
-        return ColdStepStats(lifted=lifted, archived=archived, skipped=skipped)
+        return ColdStepStats(lifted=lifted, archived=archived, split=split, skipped=skipped)
+
+    def _should_split(self, concern: Concern, *, score: float) -> bool:
+        if concern.lifecycle_state != "reinforced":
+            return False
+        if score < self.SPLIT_SCORE:
+            return False
+        if concern.metrics.activations < self.SPLIT_MIN_ACTIVATIONS:
+            return False
+        return propose_keyword_split(concern) is not None
 
 
 def concern_ids_from_records(records: list[RtRecord]) -> list[str]:
