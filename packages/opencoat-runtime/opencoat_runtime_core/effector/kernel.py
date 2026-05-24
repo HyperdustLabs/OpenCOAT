@@ -9,9 +9,10 @@ from typing import Any, Literal
 from opencoat_runtime_protocol import ConcernInjection, JoinpointEvent
 
 from ..concern.reflex_policy_export import export_reflex_policies
+from ..concern.verifier import ConcernVerifier
 from ..credit.r_t_record import RtRecord, RtSignal, reward_from_signal
 from ..loops.joinpoint_pipeline import JoinpointPipeline
-from ..ports import ConcernStore
+from ..ports import ConcernStore, LLMClient
 from .reflex_monitor import EffectorAction, EffectorState, ReflexMonitor
 
 ActionKind = Literal[
@@ -49,12 +50,14 @@ class EffectorKernel:
         pipeline: JoinpointPipeline,
         concern_store: ConcernStore,
         monitor: ReflexMonitor | None = None,
+        llm: LLMClient | None = None,
         max_repair: int = DEFAULT_MAX_REPAIR,
         host: str = "effector",
     ) -> None:
         self._pipeline = pipeline
         self._concern_store = concern_store
         self._monitor = monitor
+        self._verifier = ConcernVerifier(llm=llm)
         self._max_repair = max(0, max_repair)
         self._host = host
 
@@ -123,6 +126,33 @@ class EffectorKernel:
                 current = reflex_decision.action
                 repair_attempts = attempt + 1
                 break
+
+        host_output = (context or {}).get("host_output")
+        if (
+            isinstance(host_output, str)
+            and decision_kind != "deny"
+            and self._pipeline.last_vector is not None
+        ):
+            verify_results = self._verifier.verify_turn(
+                active=self._pipeline.last_vector,
+                concerns=list(self._concern_store.iter_all()),
+                host_output=host_output,
+                host_context=context,
+            )
+            failed = [
+                v for v in verify_results if not v.satisfied and v.notes != "no verification advice"
+            ]
+            if failed and repair_attempts < self._max_repair:
+                repair_text = failed[0].notes or "verification repair"
+                if current.kind == "message_out":
+                    current = EffectorAction(
+                        kind=current.kind,
+                        name=current.name,
+                        args={**current.args, "content": repair_text},
+                        raw=current.raw,
+                    )
+                    decision_kind = "rewrite"
+                    repair_attempts += 1
 
         allowed = decision_kind != "deny"
         signal = self._build_signal(

@@ -31,7 +31,7 @@ def test_cold_step_splits_reinforced_multi_keyword_concern() -> None:
         )
     )
     lifecycle = ConcernLifecycleManager(concern_store=store, dcn_store=dcn)
-    stats = PlasticityEngine().cold_step(concern_store=store, lifecycle=lifecycle)
+    stats = PlasticityEngine().cold_step(concern_store=store, dcn_store=dcn, lifecycle=lifecycle)
 
     assert stats.split == 1
     assert store.get("wide-policy--a") is not None

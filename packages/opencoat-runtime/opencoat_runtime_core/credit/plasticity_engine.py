@@ -8,12 +8,21 @@ from typing import Any
 from opencoat_runtime_protocol import Concern
 
 from opencoat_runtime_core.concern.lifecycle import ConcernLifecycleManager
-from opencoat_runtime_core.credit.connectome_split import (
-    materialize_split,
-    propose_keyword_split,
+from opencoat_runtime_core.credit.connectome_plasticity import (
+    connect_coactivated,
+    find_lift_candidates,
+    find_merge_candidates,
+    lift_coalition,
+    merge_near_duplicate_pair,
+    prune_weak_edges,
+    split_with_spec_or_keywords,
 )
 from opencoat_runtime_core.credit.r_t_record import RtRecord
-from opencoat_runtime_core.ports import ConcernStore
+from opencoat_runtime_core.credit.rt_buffer import ConcernRtBuffer
+from opencoat_runtime_core.credit.split_spec import evaluate_split_guards
+from opencoat_runtime_core.credit.tier2_calibration import Tier2Calibrator
+from opencoat_runtime_core.connectome.model import build_connectome_view
+from opencoat_runtime_core.ports import ConcernStore, DCNStore
 
 
 @dataclass(frozen=True)
@@ -33,10 +42,32 @@ class ReweightStats:
 
 
 @dataclass(frozen=True)
+class WarmStepStats:
+    reinforced: int = 0
+    weakened: int = 0
+    connected: int = 0
+    pruned: int = 0
+    skipped: int = 0
+
+    def as_dict(self) -> dict[str, int]:
+        return {
+            "reinforced": self.reinforced,
+            "weakened": self.weakened,
+            "connected": self.connected,
+            "pruned": self.pruned,
+            "skipped": self.skipped,
+        }
+
+
+@dataclass(frozen=True)
 class ColdStepStats:
     lifted: int = 0
     archived: int = 0
     split: int = 0
+    merged: int = 0
+    lifted_aspect: int = 0
+    connected: int = 0
+    pruned: int = 0
     skipped: int = 0
 
     def as_dict(self) -> dict[str, int]:
@@ -44,23 +75,60 @@ class ColdStepStats:
             "lifted": self.lifted,
             "archived": self.archived,
             "split": self.split,
+            "merged": self.merged,
+            "lifted_aspect": self.lifted_aspect,
+            "connected": self.connected,
+            "pruned": self.pruned,
             "skipped": self.skipped,
         }
 
 
 class PlasticityEngine:
-    """Prototype ``⇩_slow`` reweight + cold lift/archive/split (v0.3 §11)."""
+    """``⇩_slow`` reweight + connect/prune (warm) + split/lift/merge (cold)."""
 
     DEFAULT_DELTA = 0.05
     LIFT_SCORE = 0.75
     ARCHIVE_SCORE = 0.08
     SPLIT_SCORE = 0.65
     SPLIT_MIN_ACTIVATIONS = 3
+    DEFAULT_TEMPERATURE = 1.0
 
-    def __init__(self, *, step_delta: float = DEFAULT_DELTA) -> None:
+    def __init__(
+        self,
+        *,
+        step_delta: float = DEFAULT_DELTA,
+        temperature: float = DEFAULT_TEMPERATURE,
+        tier2: Tier2Calibrator | None = None,
+    ) -> None:
         if not 0.0 < step_delta <= 1.0:
             raise ValueError(f"step_delta must be in (0, 1]; got {step_delta!r}")
         self._step_delta = step_delta
+        self._temperature = temperature
+        self._tier2 = tier2 or Tier2Calibrator()
+
+    def warm_step(
+        self,
+        records: list[RtRecord],
+        *,
+        concern_store: ConcernStore,
+        dcn_store: DCNStore,
+        lifecycle: ConcernLifecycleManager,
+        co_pairs: list[tuple[str, str]] | None = None,
+    ) -> WarmStepStats:
+        reweight = self.reweight(records, concern_store=concern_store, lifecycle=lifecycle)
+        connected = connect_coactivated(
+            concern_store=concern_store,
+            dcn_store=dcn_store,
+            co_pairs=co_pairs or [],
+        )
+        pruned = prune_weak_edges(concern_store=concern_store, dcn_store=dcn_store)
+        return WarmStepStats(
+            reinforced=reweight.reinforced,
+            weakened=reweight.weakened,
+            connected=connected,
+            pruned=pruned,
+            skipped=reweight.skipped,
+        )
 
     def reweight(
         self,
@@ -153,13 +221,21 @@ class PlasticityEngine:
         self,
         *,
         concern_store: ConcernStore,
+        dcn_store: DCNStore,
         lifecycle: ConcernLifecycleManager,
+        buffer: ConcernRtBuffer | None = None,
     ) -> ColdStepStats:
-        """Cold-path lift (reflex flag), split, and archive weak concerns."""
+        """Cold: ΔF-gated split, reflex lift, merge, archive, connectome lift."""
+        rt_buffer = buffer or ConcernRtBuffer()
         lifted = 0
         archived = 0
         split = 0
+        merged = 0
+        lifted_aspect = 0
         skipped = 0
+
+        view = build_connectome_view(concern_store=concern_store, dcn_store=dcn_store)
+
         for concern in list(concern_store.list()):
             if concern.lifecycle_state in {"archived", "merged", "deleted"}:
                 skipped += 1
@@ -172,20 +248,27 @@ class PlasticityEngine:
                 skipped += 1
                 continue
             try:
-                if self._should_split(concern, score=score):
-                    proposal = propose_keyword_split(concern)
-                    if proposal is None:
-                        skipped += 1
-                        continue
-                    child_a, child_b = materialize_split(proposal, concern)
-                    concern_store.upsert(child_a)
-                    concern_store.upsert(child_b)
-                    lifecycle.archive(
-                        concern,
-                        reason="cold plasticity: connectome split into specialized children",
+                if self._should_split(concern, score=score, buffer=rt_buffer):
+                    guard = evaluate_split_guards(
+                        rt_buffer,
+                        concern.id,
+                        temperature=self._temperature,
                     )
-                    split += 1
-                    continue
+                    if guard.partition is not None and guard.eligible:
+                        self._tier2.calibrate_split(
+                            concern.id,
+                            tier1_gain=guard.partition.separability_gain,
+                            context=guard.reason,
+                        )
+                    if split_with_spec_or_keywords(
+                        concern=concern,
+                        concern_store=concern_store,
+                        buffer=rt_buffer,
+                        lifecycle=lifecycle,
+                        guard=guard,
+                    ):
+                        split += 1
+                        continue
                 if score >= self.LIFT_SCORE and concern.lifecycle_state == "reinforced":
                     updated = concern.model_copy(update={"reflex": True})
                     concern_store.upsert(updated)
@@ -197,15 +280,58 @@ class PlasticityEngine:
                     skipped += 1
             except Exception:
                 skipped += 1
-        return ColdStepStats(lifted=lifted, archived=archived, split=split, skipped=skipped)
 
-    def _should_split(self, concern: Concern, *, score: float) -> bool:
+        for a, b in find_merge_candidates(view)[:4]:
+            if merge_near_duplicate_pair(
+                concern_store=concern_store,
+                dcn_store=dcn_store,
+                a_id=a,
+                b_id=b,
+            ):
+                merged += 1
+
+        for coalition in find_lift_candidates(view)[:2]:
+            coalition_id = f"lift.{'--'.join(coalition)}"
+            if lift_coalition(
+                concern_store=concern_store,
+                members=coalition,
+                coalition_id=coalition_id,
+            ):
+                lifted_aspect += 1
+
+        pruned = prune_weak_edges(concern_store=concern_store, dcn_store=dcn_store)
+
+        return ColdStepStats(
+            lifted=lifted,
+            archived=archived,
+            split=split,
+            merged=merged,
+            lifted_aspect=lifted_aspect,
+            pruned=pruned,
+            skipped=skipped,
+        )
+
+    def _should_split(
+        self,
+        concern: Concern,
+        *,
+        score: float,
+        buffer: ConcernRtBuffer,
+    ) -> bool:
         if concern.lifecycle_state != "reinforced":
             return False
         if score < self.SPLIT_SCORE:
             return False
         if concern.metrics.activations < self.SPLIT_MIN_ACTIVATIONS:
             return False
+        if buffer.count(concern.id) >= 8:
+            return evaluate_split_guards(
+                buffer,
+                concern.id,
+                temperature=self._temperature,
+            ).eligible
+        from opencoat_runtime_core.credit.connectome_split import propose_keyword_split
+
         return propose_keyword_split(concern) is not None
 
 
@@ -223,5 +349,6 @@ __all__ = [
     "ColdStepStats",
     "PlasticityEngine",
     "ReweightStats",
+    "WarmStepStats",
     "concern_ids_from_records",
 ]

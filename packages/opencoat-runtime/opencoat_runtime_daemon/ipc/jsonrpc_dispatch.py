@@ -76,6 +76,8 @@ from opencoat_runtime_core.concern import ConcernBuilder, ConcernExtractor
 from opencoat_runtime_core.concern.chat_extract import chat_text_for_extraction
 from opencoat_runtime_core.concern.reflex_policy_export import export_reflex_policies
 from opencoat_runtime_core.credit.r_t_record import RtRecord
+from opencoat_runtime_core.effector import EffectorAction, EffectorKernel
+from opencoat_runtime_protocol import JoinpointEvent
 from opencoat_runtime_core.credit.rt_plasticity_service import RtPlasticityService
 from opencoat_runtime_protocol import Concern, ConcernInjection, JoinpointEvent
 from pydantic import ValidationError
@@ -196,6 +198,9 @@ class JsonRpcHandler:
             "credit.r_t.append": self._credit_rt_append,
             "credit.r_t.stats": self._credit_rt_stats,
             "credit.r_t.consume": self._credit_rt_consume,
+            "credit.connectome.stats": self._credit_connectome_stats,
+            "plasticity.cold_step": self._plasticity_cold_step,
+            "effector.run_turn": self._effector_run_turn,
         }
 
     def handle(self, message: str | dict[str, Any]) -> dict[str, Any] | None:
@@ -447,10 +452,13 @@ class JsonRpcHandler:
             "spawn",
             "message_out",
             "queue_enqueue",
+            "memory_write",
+            "tool_result_persist",
             "all",
         ):
             raise JsonRpcParamsError(
-                "action_kind must be one of: tool_call, spawn, message_out, queue_enqueue, all"
+                "action_kind must be one of: tool_call, spawn, message_out, "
+                "queue_enqueue, memory_write, tool_result_persist, all"
             )
         concerns = self._rt.concern_store.list()
         return export_reflex_policies(concerns, action_kind=action_kind)
@@ -479,6 +487,64 @@ class JsonRpcHandler:
         max_records = int(max_raw) if isinstance(max_raw, int) and max_raw > 0 else None
         stats = self._rt_service.consume(max_records=max_records)
         return {"ok": True, **stats.as_dict()}
+
+    def _credit_connectome_stats(self, _params: dict[str, Any] | list[Any]) -> dict[str, Any]:
+        return self._rt_service.connectome_stats()
+
+    def _plasticity_cold_step(self, _params: dict[str, Any] | list[Any]) -> dict[str, Any]:
+        return {"ok": True, **self._rt_service.cold_step()}
+
+    def _effector_run_turn(self, params: dict[str, Any] | list[Any]) -> dict[str, Any]:
+        p = _expect_params_dict(params)
+        raw_jp = p.get("joinpoint")
+        raw_action = p.get("action")
+        if not isinstance(raw_jp, dict) or not isinstance(raw_action, dict):
+            raise JsonRpcParamsError("joinpoint and action must be objects")
+        joinpoint = JoinpointEvent.model_validate(raw_jp)
+        kind = raw_action.get("kind", "tool_call")
+        if kind not in {
+            "tool_call",
+            "spawn",
+            "message_out",
+            "queue_enqueue",
+            "memory_write",
+            "tool_result_persist",
+        }:
+            raise JsonRpcParamsError("action.kind invalid")
+        action = EffectorAction(
+            kind=kind,
+            name=str(raw_action.get("name", kind)),
+            args=dict(raw_action.get("args") or {}),
+        )
+        kernel = EffectorKernel(
+            pipeline=self._rt._joinpoint_pipeline,
+            concern_store=self._rt.concern_store,
+            llm=self._rt._llm,
+        )
+        ctx = p.get("context") if isinstance(p.get("context"), dict) else None
+        session_id = p.get("session_id") if isinstance(p.get("session_id"), str) else "default"
+        turn_id = p.get("turn_id") if isinstance(p.get("turn_id"), str) else None
+        outcome = kernel.run_turn(
+            joinpoint,
+            action,
+            context=ctx,
+            session_id=session_id,
+            turn_id=turn_id,
+        )
+        self._rt_service.append(outcome.record)
+        return {
+            "ok": True,
+            "allowed": outcome.allowed,
+            "decision": outcome.decision,
+            "policy_id": outcome.policy_id,
+            "repair_attempts": outcome.repair_attempts,
+            "record": outcome.record.model_dump(mode="json"),
+            "action": {
+                "kind": outcome.action.kind,
+                "name": outcome.action.name,
+                "args": outcome.action.args,
+            },
+        }
 
 
 __all__ = ["JsonRpcHandler", "JsonRpcParamsError"]

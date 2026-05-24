@@ -83,24 +83,31 @@ def build_heartbeat_maintenance(
     )
     conflict = ConflictScannerWorker(concern_store=concern_store, dcn_store=dcn_store)
     rt_worker = RtPlasticityWorker(rt_service=rt_plasticity) if rt_plasticity is not None else None
-    cold_worker = ColdPlasticityWorker(concern_store=concern_store, dcn_store=dcn_store)
+    cold_worker = (
+        ColdPlasticityWorker(rt_service=rt_plasticity) if rt_plasticity is not None else None
+    )
 
     def maintenance(now: datetime) -> dict[str, int]:
         decay_stats = decay.run(now)
         merge_stats = merge_archiver.run(now)
         conflict_stats = conflict.run(now)
         rt_stats = rt_worker.run(now) if rt_worker is not None else {}
-        cold_stats = cold_worker.run(now)
+        cold_stats = cold_worker.run(now) if cold_worker is not None else {}
         return {
             "decay_count": int(decay_stats.get("touched", 0)),
             "archive_count": int(decay_stats.get("archived", 0))
             + int(merge_stats.get("archived", 0))
             + int(cold_stats.get("archived", 0)),
-            "merge_count": int(merge_stats.get("merged", 0)),
+            "merge_count": int(merge_stats.get("merged", 0))
+            + int(cold_stats.get("merged", 0)),
             "conflict_count": int(conflict_stats.get("edges_added", 0)),
             "rt_reinforced": int(rt_stats.get("reinforced", 0)),
             "rt_weakened": int(rt_stats.get("weakened", 0)),
+            "rt_connected": int(rt_stats.get("connected", 0)),
+            "rt_pruned": int(rt_stats.get("pruned", 0)),
             "cold_lifted": int(cold_stats.get("lifted", 0)),
+            "cold_split": int(cold_stats.get("split", 0)),
+            "cold_lifted_aspect": int(cold_stats.get("lifted_aspect", 0)),
         }
 
     return maintenance

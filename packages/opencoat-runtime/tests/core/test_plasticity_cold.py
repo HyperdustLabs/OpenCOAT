@@ -20,7 +20,7 @@ def test_cold_step_lifts_reinforced_high_score() -> None:
         )
     )
     lifecycle = ConcernLifecycleManager(concern_store=store, dcn_store=dcn)
-    stats = PlasticityEngine().cold_step(concern_store=store, lifecycle=lifecycle)
+    stats = PlasticityEngine().cold_step(concern_store=store, dcn_store=dcn, lifecycle=lifecycle)
 
     assert stats.lifted == 1
     updated = store.get("strong-guard")
@@ -40,7 +40,7 @@ def test_cold_step_archives_weak_low_score() -> None:
         )
     )
     lifecycle = ConcernLifecycleManager(concern_store=store, dcn_store=dcn)
-    stats = PlasticityEngine().cold_step(concern_store=store, lifecycle=lifecycle)
+    stats = PlasticityEngine().cold_step(concern_store=store, dcn_store=dcn, lifecycle=lifecycle)
 
     assert stats.archived == 1
     updated = store.get("weak-hint")

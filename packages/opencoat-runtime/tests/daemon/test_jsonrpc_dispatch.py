@@ -611,3 +611,54 @@ class TestReflexPoliciesExport:
         assert result["version"] == "0.1"
         ids = [p["id"] for p in result["policies"]]
         assert "demo-tool-block" in ids
+
+
+class TestV03FullSpecRpc:
+    def test_effector_run_turn_and_plasticity_cold(self) -> None:
+        from opencoat_runtime_cli.demo_concerns import demo_concerns
+
+        store = MemoryConcernStore()
+        dcn = MemoryDCNStore()
+        for c in demo_concerns():
+            store.upsert(c)
+        rt = OpenCOATRuntime(
+            concern_store=store,
+            dcn_store=dcn,
+            llm=StubLLMClient(),
+        )
+        from opencoat_runtime_core.credit.rt_plasticity_service import RtPlasticityService
+
+        svc = RtPlasticityService(concern_store=store, dcn_store=dcn)
+        h = JsonRpcHandler(rt, rt_service=svc)
+
+        turn = h.handle(
+            _req(
+                "effector.run_turn",
+                {
+                    "joinpoint": {
+                        "id": "jp-1",
+                        "level": 3,
+                        "name": "before_tool_call",
+                        "host": "test",
+                        "ts": "2026-05-24T00:00:00+00:00",
+                    },
+                    "action": {
+                        "kind": "tool_call",
+                        "name": "shell.exec",
+                        "args": {"command": "rm -rf /tmp"},
+                    },
+                    "turn_id": "run-rpc",
+                },
+            )
+        )
+        assert "error" not in turn
+        assert turn["result"]["allowed"] is False
+
+        stats = h.handle(_req("credit.connectome.stats"))
+        assert "error" not in stats
+        assert stats["result"]["aspects"] >= 1
+
+        cold = h.handle(_req("plasticity.cold_step"))
+        assert "error" not in cold
+        assert cold["result"]["ok"] is True
+        svc.close()
