@@ -8,7 +8,7 @@ Re-run automation: `./scripts/verify-m6-prerequisites.sh` from repo root (daemon
 | --- | --- | --- | --- |
 | **P1** | Joinpoint hot path on `main` | **PASS** | `uv run pytest packages/opencoat-runtime/tests/core` |
 | **P2a** | Daemon RPC smoke (`messages[]`, `#msg:`) | **PASS** | `./scripts/verify-m6-prerequisites.sh`; `user-shell-guard` in injections |
-| **P2b** | Live OpenClaw gateway + bridge | **PASS** | 2026-05-18 local smoke — bridge README § Verify; 26 hooks + runtime observers (`queue.*` / `reply_run.*` / task poll) per [joinpoint model §4.1](../design/opencoat-openclaw-joinpoint-model-v0.1.md#41-mvp-emit-status-bridge-integrationsopenclaw-opencoat-bridge) |
+| **P2b** | Live OpenClaw gateway + bridge | **PASS** | 2026-05-18 local smoke — bridge README § Verify; **29 hooks** + runtime observers; **`queue.before_enqueue` sync veto requires OpenClaw fork** (`queue_before_enqueue`); poll fallback observe-only per [joinpoint model §4.1](../design/opencoat-openclaw-joinpoint-model-v0.1.md#41-mvp-emit-status-bridge-integrationsopenclaw-opencoat-bridge) |
 | **P3** | Conflict paths documented | **PASS** | [m6-conflict-paths.md](./m6-conflict-paths.md); [ADR-0010](../adr/0010-concern-aop-syntax.md) |
 
 ## M6 implementation

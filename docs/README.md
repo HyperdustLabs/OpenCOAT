@@ -4,7 +4,7 @@ Documentation is structured per the design (`docs/design/v0.2-system-design.md` 
 
 | Section | Folder | Status |
 | --- | --- | --- |
-| Design (v0.1, v0.2) | [`design/`](design/) | done — includes [OpenClaw joinpoint model v0.1](design/opencoat-openclaw-joinpoint-model-v0.1.md) |
+| Design (v0.1, v0.2) | [`design/`](design/) | done — includes [OpenClaw joinpoint model v0.1](design/opencoat-openclaw-joinpoint-model-v0.1.md), [self-built effector & control plane](design/self-built-effector-control-plane.md) |
 | Concept primer | [`01-concepts/`](01-concepts/) | M2 |
 | Architecture | [`02-architecture/`](02-architecture/) | M2 |
 | Protocols | [`03-protocols/`](03-protocols/) | M2 |

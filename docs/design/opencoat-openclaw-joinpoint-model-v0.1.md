@@ -1,8 +1,8 @@
 # OpenCOAT × OpenClaw Joinpoint Model v0.1
 
 **Status:** accepted — [ADR-0011](../adr/0011-openclaw-joinpoint-model-v0.1.md)  
-**Implementation:** `joinpoint/catalog.py`, `joinpoint/aliases.py`, `PointcutMatcher` alias equivalence; bridge `hook-bindings.ts` + `runtime-observers.ts`  
-**Related:** [v0.2 system design](./v0.2-system-design.md) §2.2, [ADR-0002 AOP](../adr/0002-aop-as-mechanism.md), [OpenClaw bridge README](../../integrations/openclaw-opencoat-bridge/README.md)
+**Implementation:** `joinpoint/catalog.py`, `joinpoint/aliases.py`, `PointcutMatcher` alias equivalence; bridge **29** `hook-bindings.ts` + `runtime-observers.ts` (collaborative guards; fork `queue_before_enqueue` + `queue_guard`)  
+**Related:** [v0.2 system design](./v0.2-system-design.md) §2.2, [v0.3 MAN](./v0.3-morphogenetic-architecture.md) §10, [ADR-0012](../adr/0012-self-built-effector-control-plane.md), [self-built effector](./self-built-effector-control-plane.md), [ADR-0002 AOP](../adr/0002-aop-as-mechanism.md), [OpenClaw bridge README](../../integrations/openclaw-opencoat-bridge/README.md)
 
 ---
 
@@ -19,6 +19,8 @@ Joinpoint connects them.
 Host Adapter maps host events → `JoinpointEvent`; COT Runtime runs extract → match → vector → advice → weave → verify → lifecycle (see v0.2 §2.2).
 
 **Mutation boundary:** advice may return `tool_guard`, `prependSystemContext`, queue/run *policy suggestions*, etc. OpenClaw (or its plugin host) applies them via public APIs. OpenCOAT must not write `activeRunsByKey`, `queue.items`, `tasks` Map, or session store internals.
+
+**v0.3 (i) note:** [v0.3 §10](./v0.3-morphogenetic-architecture.md#10-openclaw--效应器内核改造权威反射监视器) reclaims **effect-boundary gate semantics** (in-proc `ReflexMonitor`, fail-closed) without changing who owns internal Maps. Today’s bridge is still **collaborative** (daemon RPC on guard hooks). See [Appendix E](#appendix-e--v03-action--a_reflex-mapping).
 
 ---
 
@@ -375,7 +377,7 @@ error.detected
 
 | MVP joinpoint | Emitted today | Bridge source | Sync veto at host call site |
 | --- | --- | --- | --- |
-| `input.received` | yes | `message_received`, `inbound_claim`, `before_dispatch` | no (observe / buffer) |
+| `input.received` | yes | `message_received`, `inbound_claim`, `before_dispatch`, `before_agent_run` | no (observe / buffer) |
 | `queue.before_enqueue` | yes | **`queue_before_enqueue` plugin hook** (fork); queue depth poll fallback | **yes** — `block` / `queue.prompt` / `queue.summary_line` rewrite via bridge `queue_guard` |
 | `queue.after_enqueue` | yes (observe) | **`queue_after_enqueue` plugin hook** (fork); poll snapshot sync | no |
 | `queue.before_collect` | yes (observe) | queue depth poll (depth decrease) | no |
@@ -393,6 +395,16 @@ error.detected
 | `verification.after_fail` | no | — | — |
 | `heartbeat.before_run` | no | OpenCOAT `runtime_tick` / future hook | — |
 | `error.detected` | yes (observe) | `onAgentEvent` lifecycle `error` | no |
+
+**Queue advice targets** (bridge `queue_guard` → OpenClaw `queue_before_enqueue`):
+
+| `effect.target` | `effect.mode` | OpenClaw result |
+| --- | --- | --- |
+| `queue.prompt` | `block` | skip enqueue / steering injection |
+| `queue.prompt` | `rewrite` | replace queued prompt |
+| `queue.summary_line` | `rewrite` | replace summary line |
+
+Dogfood: [`examples/09_queue_hook_dogfood`](../../examples/09_queue_hook_dogfood/README.md). Guards are **collaborative** (daemon RPC), not v0.3 in-proc TCB — see [Appendix E](#appendix-e--v03-action--a_reflex-mapping).
 
 Default: `runtimeObservers: true`, `observerPollMs: 500`. Full hook table: [bridge README](../../integrations/openclaw-opencoat-bridge/README.md).
 
@@ -482,11 +494,12 @@ Observation (DCN, audit, meta-review):
   plan / approval / patch / command_output / compaction events
   queue depth diff, task registry diff, reply_run lifecycle approx
 
-Strong control (host must apply advice):
-  before_prompt_build → prependSystemContext
-  before_tool_call    → block / params
-  message_sending     → cancel
-  subagent_spawning   → error status
+Strong control (host must apply advice — collaborative guard today, not v0.3 TCB):
+  before_prompt_build     → prependSystemContext
+  before_tool_call        → block / params
+  message_sending         → cancel
+  subagent_spawning       → error status
+  queue_before_enqueue    → block / queue.prompt / queue.summary_line rewrite (fork + queue_guard)
 
 Upstream “neurosurgery” (recommended order):
   1. tool.before_execute middleware (if plugin hook insufficient)
@@ -506,6 +519,20 @@ Upstream “neurosurgery” (recommended order):
 | **OpenCOAT-only** | `span.*`, `token.*`, message children | discovery on prompt payload |
 
 Design catalog lists **17 MVP names**; bridge **strong loop** today: input → prompt fold → tool guard → optional outbound cancel → **queue enqueue veto/rewrite (fork)** → task/subagent edges, plus observe-only run/task/event stream for DCN. Dogfood: [`examples/09_queue_hook_dogfood`](../../examples/09_queue_hook_dogfood/README.md).
+
+### 5.7 Fork gateway ops (queue + native hooks)
+
+Queue sync veto requires the **HyperdustLabs OpenClaw fork** (`opencoat/hooks-v0.1`), not npm registry OpenClaw. From OpenCOAT repo root:
+
+```bash
+./scripts/use-openclaw-fork.sh
+./scripts/check-openclaw-fork.sh
+openclaw gateway restart
+```
+
+**Pass:** gateway log shows `[opencoat-bridge] registered 29 hooks` and **no** `unknown typed hook "queue_before_enqueue" ignored`. If that warning appears, the running gateway is stale or not on fork `dist/` — poll fallback may still emit `queue.before_enqueue` to DCN but **cannot** sync veto.
+
+See [openclaw-fork-dev.md](../guides/openclaw-fork-dev.md).
 
 ---
 
@@ -639,7 +666,7 @@ New v0.1-only names (no legacy alias): all `queue.*`, `reply_run.*`, `task.*`, `
 
 ## Appendix B — OpenClaw → v0.1 (integration)
 
-### B.1 Gateway plugin hooks (`api.on`, 26/29)
+### B.1 Gateway plugin hooks (`api.on`, 29 registered + 3 skipped)
 
 Canonical table lives in [bridge README § Hook → joinpoint mapping](../../integrations/openclaw-opencoat-bridge/README.md). Summary:
 
@@ -647,11 +674,14 @@ Canonical table lives in [bridge README § Hook → joinpoint mapping](../../int
 | --- | --- | --- | --- |
 | Weave | `before_prompt_build` | `before_response` | `prependSystemContext` |
 | Guard | `before_tool_call` | `before_tool_call` | `block` / params |
+| Queue guard | `queue_before_enqueue` | `queue.before_enqueue` | `block` / prompt & summaryLine rewrite (fork) |
 | Outbound | `message_sending` | `before_response` | `cancel` |
 | Task | `subagent_spawning` … `subagent_ended` | `task.*` | spawn veto + observe |
-| Observe | `session_*`, `gateway_*`, `llm_*`, compaction, … | various | submit only |
+| Observe | `session_*`, `gateway_*`, `llm_*`, `queue_after_enqueue`, compaction, … | various | submit only |
 
-Skipped (sync hot path): `before_message_write`, `tool_result_persist`. Skipped (install): `before_install`.
+Skipped (sync hot path — v0.3 in-proc TCB may re-admit): `before_message_write`, `tool_result_persist`. Skipped (install): `before_install`.
+
+Dogfood queue concerns: [`examples/09_queue_hook_dogfood`](../../examples/09_queue_hook_dogfood/README.md).
 
 ### B.2 Runtime observers (not `api.on`)
 
@@ -661,12 +691,12 @@ Bridge module `runtime-observers.ts` — uses host APIs already available to plu
 | --- | --- | --- |
 | `api.runtime.events.onAgentEvent` | `reply_run.before_begin`, `reply_run.phase.running`, `planning.plan_updated`, `approval.requested`, `command.output_stream`, `patch.summary_created`, `error.detected` (lifecycle `error`), compaction → `before_memory_write` / `after_memory_write` | event stream |
 | `api.registerHook` | `session:compact:before` / `after` → memory JPs | internal gateway hooks |
-| Host `getFollowupQueueDepth` | `queue.before_enqueue`, `queue.before_collect` | `registerService` poll per tracked `sessionKey` |
+| Host `getFollowupQueueDepth` | `queue.before_enqueue`, `queue.before_collect` | **fallback only** when native `queue_before_enqueue` absent; poll cannot veto |
 | `api.runtime.tasks.runs.bindSession().list()` | `task.before_create`, `task.after_create`, `task.before_terminal` | task registry diff poll |
 
 **Tracked sessions:** any hook `ctx.sessionKey` and agent events with `sessionKey`.
 
-**Limits:** observe-only at poll/event granularity; does not replace native hooks at `enqueueFollowupRun`, `ReplyRunRegistry` phase edges, or `createTaskRecord` for synchronous policy veto.
+**Limits:** poll/event paths are observe-only. **`queue.before_enqueue` sync veto** is provided by fork `queue_before_enqueue` + bridge `queue_guard` (not poll). Still missing native hooks at `ReplyRunRegistry` phase edges and generic `createTaskRecord` for non-subagent tasks.
 
 ### B.3 Python host event map (design, not in TS bridge)
 
@@ -687,7 +717,8 @@ Bridge module `runtime-observers.ts` — uses host APIs already available to plu
 
 | OpenClaw module | v0.1 emit | Bridge today | Native hook for veto |
 | --- | --- | --- | --- |
-| `auto-reply/reply/queue.ts` | `queue.*` | depth poll → before_enqueue / before_collect | yes — enqueue/collect call sites |
+| `auto-reply/reply/queue.ts` | `queue.before_enqueue` | fork hook + `queue_guard`; poll fallback observe | **shipped (fork)** — `queue_before_enqueue`; `queue.before_drain` still needed |
+| `auto-reply/reply/queue.ts` | `queue.before_collect` | depth poll | yes — collect/drain call sites |
 | `auto-reply/reply/reply-run-registry.ts` | `reply_run.*` phases | lifecycle + running approx | yes — per-phase hooks |
 | `auto-reply/reply/agent-runner.ts` | `prompt.before_send_to_model` | plugin hooks | partial |
 | `agents/pi-embedded-runner` | `planning.*`, `patch.*`, … | `onAgentEvent` observe | optional |
@@ -704,10 +735,30 @@ Repo: [github.com/openclaw/openclaw](https://github.com/openclaw/openclaw) — `
 | --- | --- | --- |
 | **P0** (done) | Legacy 38 + MVP 17 catalog + alias matching + ADR-0011 | `catalog.py`, `aliases.py`, matcher |
 | **P1** (done) | Bridge docs + concern AOP examples | bridge README, authoring guide |
-| **P2** (done) | 26 plugin hooks + weave/guard paths | `hook-bindings.ts`, bridge |
-| **P3** (done, observe) | `queue.*`, `reply_run.*`, plan/approval via runtime observers | `runtime-observers.ts` |
+| **P2** (done) | **29** plugin hooks + weave/guard/queue_guard paths | `hook-bindings.ts`, bridge |
+| **P3** (done, observe) | `reply_run.*`, plan/approval/command/patch/error via runtime observers; queue poll fallback | `runtime-observers.ts` |
 | **P4** (partial) | `task.*` poll + subagent hooks; `flow.*` TBD | bridge; optional daemon mirror |
-| **P5** | Sync native hooks at queue/run/task call sites | OpenClaw upstream PR |
+| **P5a** (done) | Sync `queue.before_enqueue` / `queue.after_enqueue` on fork | HyperdustLabs/openclaw `opencoat/hooks-v0.1` + OpenCOAT bridge #77 |
+| **P5b** (next) | `reply_run.phase.*`, `tool.result.before_emit`, unified `memory.before_write`, generic `task.before_create` | OpenClaw fork PRs |
+| **P6** (v0.3) | In-proc `ReflexMonitor` (fail-closed TCB) + `r_t` emission + daemon `PlasticityEngine` | [v0.3 §10](./v0.3-morphogenetic-architecture.md), [ADR-0012](../adr/0012-self-built-effector-control-plane.md) |
+
+---
+
+## Appendix E — v0.3 Action ↔ A_reflex mapping
+
+Wire catalog for [v0.3 §10](./v0.3-morphogenetic-architecture.md#10-openclaw--效应器内核改造权威反射监视器) and [self-built effector §2](./self-built-effector-control-plane.md). **Collaborative** = today’s bridge (daemon RPC); **Authority** = in-proc `ReflexMonitor` target.
+
+| OpenClaw hook | Joinpoint | v0.3 `Action.kind` | `A_reflex` id | Bridge `HookKind` | Collaborative today | Authority (v0.3) |
+| --- | --- | --- | --- | --- | --- | --- |
+| `before_tool_call` | `tool.before_call` | `tool_call` | `reflex.tool_guard` | `tool_guard` | yes | in-proc TCB |
+| `message_sending` | `response.before_final` | `message_send` | `reflex.response_verifier` | `message_out` | cancel only | in-proc + verify→repair |
+| `subagent_spawning` | `task.before_create` | `subagent_spawn` | `reflex.spawn_guard` | `subagent_spawn` | spawn veto | in-proc deny |
+| `queue_before_enqueue` | `queue.before_enqueue` | `queue_enqueue` | `reflex.queue_guard` | `queue_guard` | **yes (fork)** | in-proc |
+| `before_message_write` | `memory.before_write` | `memory_write` | `reflex.memory_guard` | *(skipped)* | no | in-proc when TCB lands |
+| `tool_result_persist` | — | — | — | *(skipped)* | no | in-proc when TCB lands |
+| `after_tool_call` / `llm_output` / `agent_end` | observe JPs | — | — | `observe` | DCN only | **`r_t` emit** (not done) |
+
+\* v0.3 verify→repair uses `before_agent_reply`; bridge today cancels at `message_sending`.
 
 ---
 
