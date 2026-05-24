@@ -85,10 +85,18 @@ class DCNEvolver:
         return 0
 
     def _active_catalog(self) -> list[Concern]:
+        """Return active concerns eligible for ⇩_slow structural rewrites.
+
+        Concerns with ``reflex=True`` belong to the conserved core (A_reflex /
+        brainstem) and are **excluded** from merge/archive regardless of their
+        lifecycle state.  This is the M-E0 invariant: A_reflex is not subject
+        to stochastic graph rewriting (MAN §1, ADR-0012 Decision 4).
+        """
         return [
             c
             for c in self._concern_store.iter_all()
             if (c.lifecycle_state or LifecycleState.CREATED.value).lower() in _ACTIVE_STATES
+            and not c.reflex  # conserved core: exclude A_reflex from ⇩_slow
         ][: self._max_catalog]
 
     def _merge_declared(self, catalog: list[Concern]) -> int:

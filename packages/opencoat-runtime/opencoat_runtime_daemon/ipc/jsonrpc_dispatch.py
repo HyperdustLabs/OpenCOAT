@@ -44,6 +44,10 @@ Methods are dotted names grouped by domain:
     Params: ``{"concern_id"?: str, "limit"?: int}`` — forwards to
     :meth:`~opencoat_runtime_core.ports.DCNStore.activation_log`.
 
+``reflex.policies.export``
+    Params: ``{"action_kind"?: "tool_call"}``. Returns portable deterministic
+    policy specs for the bridge in-proc ``ReflexMonitor`` (v0.3 §10.4).
+
 ``health.ping``
     Result: ``{"ok": true}`` — proves the handler is wired without
     touching stores.
@@ -58,6 +62,7 @@ from typing import Any
 
 from opencoat_runtime_core import OpenCOATRuntime
 from opencoat_runtime_core.concern import ConcernBuilder, ConcernExtractor
+from opencoat_runtime_core.concern.reflex_policy_export import export_reflex_policies
 from opencoat_runtime_core.concern.chat_extract import chat_text_for_extraction
 from opencoat_runtime_protocol import Concern, ConcernInjection, JoinpointEvent
 from pydantic import ValidationError
@@ -169,6 +174,7 @@ class JsonRpcHandler:
             "runtime.last_injection": self._runtime_last_injection,
             "runtime.llm_info": self._runtime_llm_info,
             "dcn.activation_log": self._dcn_activation_log,
+            "reflex.policies.export": self._reflex_policies_export,
         }
 
     def handle(self, message: str | dict[str, Any]) -> dict[str, Any] | None:
@@ -410,6 +416,15 @@ class JsonRpcHandler:
         lim = int(limit) if isinstance(limit, int) else None
         rows = self._rt.dcn_store.activation_log(concern_id, limit=lim)
         return [dict(r) for r in rows]
+
+    def _reflex_policies_export(self, params: dict[str, Any] | list[Any]) -> dict[str, Any]:
+        """Portable deterministic reflex specs for in-proc bridge ``ReflexMonitor``."""
+        p = _expect_params_dict(params)
+        action_kind = p.get("action_kind", "tool_call")
+        if action_kind not in ("tool_call",):
+            raise JsonRpcParamsError("action_kind must be 'tool_call'")
+        concerns = self._rt.concern_store.list()
+        return export_reflex_policies(concerns, action_kind=action_kind)
 
 
 __all__ = ["JsonRpcHandler", "JsonRpcParamsError"]
