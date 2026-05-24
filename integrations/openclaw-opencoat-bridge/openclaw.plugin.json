@@ -21,7 +21,11 @@
       },
       "inProcReflexToolGuard": {
         "type": "boolean",
-        "description": "Run before_tool_call through in-proc ReflexMonitor (v0.3 TCB prototype; fail-closed)"
+        "description": "Run hot-path hooks through in-proc ReflexMonitor (tool/spawn/message/queue; fail-closed)"
+      },
+      "inProcReflexGuards": {
+        "type": "boolean",
+        "description": "Alias for inProcReflexToolGuard — enables all in-proc reflex guards (default true when tool guard on)"
       },
       "reflexSyncFromDaemon": {
         "type": "boolean",

@@ -53,7 +53,13 @@ from opencoat_runtime_storage.memory import MemoryConcernStore, MemoryDCNStore
 from opencoat_runtime_storage.sqlite import SqliteConcernStore, SqliteDCNStore
 
 from .config.loader import DaemonConfig, LLMSettings, StorageBackend
-from .workers import ConflictScannerWorker, DecayWorker, MergeArchiverWorker, RtPlasticityWorker
+from .workers import (
+    ColdPlasticityWorker,
+    ConflictScannerWorker,
+    DecayWorker,
+    MergeArchiverWorker,
+    RtPlasticityWorker,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,20 +83,24 @@ def build_heartbeat_maintenance(
     )
     conflict = ConflictScannerWorker(concern_store=concern_store, dcn_store=dcn_store)
     rt_worker = RtPlasticityWorker(rt_service=rt_plasticity) if rt_plasticity is not None else None
+    cold_worker = ColdPlasticityWorker(concern_store=concern_store, dcn_store=dcn_store)
 
     def maintenance(now: datetime) -> dict[str, int]:
         decay_stats = decay.run(now)
         merge_stats = merge_archiver.run(now)
         conflict_stats = conflict.run(now)
         rt_stats = rt_worker.run(now) if rt_worker is not None else {}
+        cold_stats = cold_worker.run(now)
         return {
             "decay_count": int(decay_stats.get("touched", 0)),
             "archive_count": int(decay_stats.get("archived", 0))
-            + int(merge_stats.get("archived", 0)),
+            + int(merge_stats.get("archived", 0))
+            + int(cold_stats.get("archived", 0)),
             "merge_count": int(merge_stats.get("merged", 0)),
             "conflict_count": int(conflict_stats.get("edges_added", 0)),
             "rt_reinforced": int(rt_stats.get("reinforced", 0)),
             "rt_weakened": int(rt_stats.get("weakened", 0)),
+            "cold_lifted": int(cold_stats.get("lifted", 0)),
         }
 
     return maintenance

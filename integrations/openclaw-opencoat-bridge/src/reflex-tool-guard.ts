@@ -1,5 +1,5 @@
 import type { AgentHookCtx } from "./types.js";
-import type { Action, ReflexMonitor, State } from "./reflex-monitor.js";
+import type { Action, ActionKind, ReflexMonitor, State } from "./reflex-monitor.js";
 import type { ToolGuardDecision } from "./injector.js";
 
 export function buildToolCallAction(event: {
@@ -26,6 +26,29 @@ export function buildReflexState(ctx: AgentHookCtx): State {
       session_key: ctx.sessionKey,
     },
   };
+}
+
+export type ReflexDenyResult = {
+  block: boolean;
+  blockReason?: string;
+  record?: ReturnType<ReflexMonitor["mediate"]>["record"];
+};
+
+/** Generic deny-only ReflexMonitor path for spawn/message/queue hooks. */
+export function reflexDenyDecision(
+  monitor: ReflexMonitor,
+  action: Action,
+  state: State,
+): ReflexDenyResult {
+  const { decision, record } = monitor.mediate(action, state);
+  if (decision.kind === "deny") {
+    return {
+      block: true,
+      blockReason: decision.reason,
+      record,
+    };
+  }
+  return { block: false, record };
 }
 
 /** Map ReflexMonitor output to OpenClaw ``before_tool_call`` hook return shape. */
@@ -57,15 +80,40 @@ export function reflexToolGuardDecision(
   return { block: false, params, record };
 }
 
+function failClosedReason(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  return `OpenCOAT ReflexMonitor fail-closed: ${msg}`;
+}
+
 /** Fail-closed when the monitor itself throws (TCB unavailable). */
 export function failClosedToolGuard(
   params: Record<string, unknown>,
   err: unknown,
 ): ToolGuardDecision {
-  const msg = err instanceof Error ? err.message : String(err);
   return {
     block: true,
-    blockReason: `OpenCOAT ReflexMonitor fail-closed: ${msg}`,
+    blockReason: failClosedReason(err),
     params,
   };
+}
+
+export function failClosedMessageGuard(err: unknown): {
+  cancel: true;
+  content: string;
+} {
+  return { cancel: true, content: failClosedReason(err) };
+}
+
+export function failClosedSpawnGuard(err: unknown): {
+  status: "error";
+  error: string;
+} {
+  return { status: "error", error: failClosedReason(err) };
+}
+
+export function failClosedQueueGuard(err: unknown): {
+  block: true;
+  blockReason: string;
+} {
+  return { block: true, blockReason: failClosedReason(err) };
 }

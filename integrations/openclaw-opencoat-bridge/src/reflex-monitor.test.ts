@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { ReflexMonitor } from "./reflex-monitor.js";
-import { compileReflexPolicies, DEMO_TOOL_BLOCK_SPEC } from "./reflex-policies.js";
+import { compileReflexPolicies, DEMO_TOOL_BLOCK_SPEC, DEMO_QUEUE_BLOCK_SPEC } from "./reflex-policies.js";
 import type { Action, ReflexPolicy, State } from "./reflex-monitor.js";
 
 const state: State = {
@@ -95,5 +95,18 @@ describe("ReflexMonitor", () => {
     );
     assert.equal(decision.kind, "allow");
     assert.equal(record.policy_id, undefined);
+  });
+
+  it("denies queue enqueue with QUEUE_DOGFOOD_BLOCK keyword", () => {
+    const monitor = new ReflexMonitor(
+      compileReflexPolicies([DEMO_QUEUE_BLOCK_SPEC]),
+    );
+    const action: Action = {
+      kind: "queue_enqueue",
+      name: "queue_enqueue",
+      args: { prompt: "Please QUEUE_DOGFOOD_BLOCK this follow-up" },
+    };
+    const { decision } = monitor.mediate(action, state);
+    assert.equal(decision.kind, "deny");
   });
 });

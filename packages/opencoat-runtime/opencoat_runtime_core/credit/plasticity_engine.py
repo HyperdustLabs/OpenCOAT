@@ -26,10 +26,26 @@ class ReweightStats:
         }
 
 
+@dataclass(frozen=True)
+class ColdStepStats:
+    lifted: int = 0
+    archived: int = 0
+    skipped: int = 0
+
+    def as_dict(self) -> dict[str, int]:
+        return {
+            "lifted": self.lifted,
+            "archived": self.archived,
+            "skipped": self.skipped,
+        }
+
+
 class PlasticityEngine:
-    """Prototype ``⇩_slow`` reweight only — no split/lift/connect/prune yet."""
+    """Prototype ``⇩_slow`` reweight + cold lift/archive (v0.3 §11 subset)."""
 
     DEFAULT_DELTA = 0.05
+    LIFT_SCORE = 0.75
+    ARCHIVE_SCORE = 0.08
 
     def __init__(self, *, step_delta: float = DEFAULT_DELTA) -> None:
         if not 0.0 < step_delta <= 1.0:
@@ -123,6 +139,41 @@ class PlasticityEngine:
             return concern_id, advantage
         return None, 0.0
 
+    def cold_step(
+        self,
+        *,
+        concern_store: ConcernStore,
+        lifecycle: ConcernLifecycleManager,
+    ) -> ColdStepStats:
+        """Cold-path lift (reflex flag) and archive weak concerns."""
+        lifted = 0
+        archived = 0
+        skipped = 0
+        for concern in concern_store.list():
+            if concern.lifecycle_state in {"archived", "merged", "deleted"}:
+                skipped += 1
+                continue
+            score = concern.activation_state.score if concern.activation_state is not None else None
+            if score is None:
+                skipped += 1
+                continue
+            if concern.reflex:
+                skipped += 1
+                continue
+            try:
+                if score >= self.LIFT_SCORE and concern.lifecycle_state == "reinforced":
+                    updated = concern.model_copy(update={"reflex": True})
+                    concern_store.upsert(updated)
+                    lifted += 1
+                elif score <= self.ARCHIVE_SCORE and concern.lifecycle_state == "weakened":
+                    lifecycle.archive(concern, reason="cold plasticity: score below threshold")
+                    archived += 1
+                else:
+                    skipped += 1
+            except Exception:
+                skipped += 1
+        return ColdStepStats(lifted=lifted, archived=archived, skipped=skipped)
+
 
 def concern_ids_from_records(records: list[RtRecord]) -> list[str]:
     engine = PlasticityEngine()
@@ -134,4 +185,9 @@ def concern_ids_from_records(records: list[RtRecord]) -> list[str]:
     return ids
 
 
-__all__ = ["PlasticityEngine", "ReweightStats", "concern_ids_from_records"]
+__all__ = [
+    "ColdStepStats",
+    "PlasticityEngine",
+    "ReweightStats",
+    "concern_ids_from_records",
+]

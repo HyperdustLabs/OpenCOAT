@@ -10,8 +10,10 @@ export type BridgeConfig = {
   runtimeObservers: boolean;
   /** Interval for queue/task poll service (ms). */
   observerPollMs: number;
-  /** Run ``before_tool_call`` through in-proc ``ReflexMonitor`` (v0.3 TCB prototype). */
+  /** Run hot-path hooks through in-proc ``ReflexMonitor`` (v0.3 TCB prototype). */
   inProcReflexToolGuard: boolean;
+  /** Enable in-proc guards for spawn/message/queue (defaults to tool guard flag). */
+  inProcReflexGuards: boolean;
   /** Pull ``reflex.policies.export`` from daemon on plugin load. */
   reflexSyncFromDaemon: boolean;
   /** Emit joinpoint.submit after in-proc guard for DCN audit (async). */

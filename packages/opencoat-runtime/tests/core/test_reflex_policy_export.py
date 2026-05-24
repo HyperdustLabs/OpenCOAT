@@ -13,7 +13,7 @@ from opencoat_runtime_protocol import (
     WeavingOperation,
     WeavingPolicy,
 )
-from opencoat_runtime_protocol.envelopes import Pointcut, PointcutMatch
+from opencoat_runtime_protocol.envelopes import PointcutMatch
 
 
 def _demo_tool_block() -> Concern:
@@ -86,34 +86,6 @@ def test_skips_untemplated_aop_advice() -> None:
     assert out["policies"] == []
 
 
-def test_legacy_pointcut_requires_tool_joinpoint() -> None:
-    concern = Concern(
-        id="response-guard",
-        name="response only",
-        pointcut=Pointcut(
-            joinpoints=["before_response"],
-            match=PointcutMatch(any_keywords=["secret"]),
-        ),
-        advices=[
-            AopAdvice(
-                id="a1",
-                kind=AdviceKind.BEFORE,
-                pointcut_ref="pc",
-                content="block",
-                template=AdviceType.TOOL_GUARD,
-                effect=WeavingPolicy(
-                    mode=WeavingOperation.BLOCK,
-                    level=WeavingLevel.TOOL_LEVEL,
-                    target="tool_call.arguments",
-                ),
-            ),
-        ],
-        pointcuts=[PointcutDef(id="pc", expression="before_response()")],
-    )
-    out = export_reflex_policies([concern])
-    assert out["policies"] == []
-
-
 def test_skips_soft_advice() -> None:
     soft = Concern(
         id="soft-hint",
@@ -136,3 +108,67 @@ def test_skips_soft_advice() -> None:
     )
     out = export_reflex_policies([soft])
     assert out["policies"] == []
+
+
+def test_export_queue_block_concern() -> None:
+    concern = Concern(
+        id="oc.dogfood.queue-block",
+        name="queue block",
+        pointcuts=[
+            PointcutDef(
+                id="pc-queue-block",
+                joinpoints=["queue.before_enqueue"],
+                match=PointcutMatch(any_keywords=["QUEUE_DOGFOOD_BLOCK"]),
+            ),
+        ],
+        advices=[
+            AopAdvice(
+                id="adv-block",
+                kind=AdviceKind.BEFORE,
+                pointcut_ref="pc-queue-block",
+                content="Follow-up queue blocked.",
+                template=AdviceType.MEMORY_WRITE_GUARD,
+                effect=WeavingPolicy(
+                    mode=WeavingOperation.BLOCK,
+                    level=WeavingLevel.MEMORY_LEVEL,
+                    target="queue.prompt",
+                ),
+            ),
+        ],
+    )
+    out = export_reflex_policies([concern], action_kind="queue_enqueue")
+    assert len(out["policies"]) == 1
+    row = out["policies"][0]
+    assert row["action_kind"] == "queue_enqueue"
+    assert row["predicate"]["kind"] == "text_contains"
+    assert "QUEUE_DOGFOOD_BLOCK" in row["predicate"]["needles"]
+
+
+def test_export_all_merges_kinds() -> None:
+    queue = Concern(
+        id="oc.dogfood.queue-block",
+        name="queue block",
+        pointcuts=[
+            PointcutDef(
+                id="pc-queue-block",
+                joinpoints=["queue.before_enqueue"],
+                match=PointcutMatch(any_keywords=["QUEUE_DOGFOOD_BLOCK"]),
+            ),
+        ],
+        advices=[
+            AopAdvice(
+                id="adv-block",
+                kind=AdviceKind.BEFORE,
+                pointcut_ref="pc-queue-block",
+                content="blocked",
+                effect=WeavingPolicy(
+                    mode=WeavingOperation.BLOCK,
+                    level=WeavingLevel.MEMORY_LEVEL,
+                    target="queue.prompt",
+                ),
+            ),
+        ],
+    )
+    out = export_reflex_policies([_demo_tool_block(), queue], action_kind="all")
+    kinds = {p["action_kind"] for p in out["policies"]}
+    assert kinds == {"tool_call", "queue_enqueue"}

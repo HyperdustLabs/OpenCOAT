@@ -35,7 +35,7 @@ import {
   toolResultPayload,
 } from "./payloads.js";
 import { createObserveEmitter } from "./emit-joinpoint.js";
-import { loadReflexRuntime, buildReflexRuntime } from "./reflex-policy-sync.js";
+import { loadReflexRuntime, buildReflexRuntime, inProcReflexEnabled } from "./reflex-policy-sync.js";
 import type { ReflexRuntime } from "./reflex-policy-sync.js";
 import type { DecisionRecord } from "./reflex-monitor.js";
 import {
@@ -45,10 +45,15 @@ import {
   buildToolOutcomeRt,
   buildTurnCompleteRt,
 } from "./r-t-emit.js";
+import { buildPayloadAction } from "./reflex-policies.js";
 import {
   buildReflexState,
   buildToolCallAction,
+  failClosedMessageGuard,
+  failClosedQueueGuard,
+  failClosedSpawnGuard,
   failClosedToolGuard,
+  reflexDenyDecision,
   reflexToolGuardDecision,
 } from "./reflex-tool-guard.js";
 import {
@@ -258,7 +263,7 @@ async function handleHook(
             : {};
         const toolName = typeof e.toolName === "string" ? e.toolName : "tool";
 
-        if (cfg.inProcReflexToolGuard) {
+        if (inProcReflexEnabled(cfg)) {
           const runtime = reflexState.runtime;
           if (!runtime) {
             return failClosedToolGuard(
@@ -330,11 +335,61 @@ async function handleHook(
       }
 
       case "message_out": {
+        if (inProcReflexEnabled(cfg)) {
+          const runtime = reflexState.runtime;
+          if (!runtime) {
+            return {
+              cancel: true,
+              content: "OpenCOAT ReflexMonitor fail-closed: not initialized",
+            };
+          }
+          const e = asRecord(event);
+          const content = typeof e.content === "string" ? e.content : "";
+          const action = buildPayloadAction("message_out", { content, ...payload });
+          const decision = reflexDenyDecision(
+            runtime.monitor,
+            action,
+            buildReflexState(c),
+          );
+          if (decision.block) {
+            return {
+              cancel: true,
+              content:
+                decision.blockReason ??
+                "Blocked by OpenCOAT ReflexMonitor (message_out).",
+            };
+          }
+          return {};
+        }
         const inj = await emit(cfg, api, binding.hook, binding.joinpoint, payload, c);
         return messageSendingDecision(inj);
       }
 
       case "subagent_spawn": {
+        if (inProcReflexEnabled(cfg)) {
+          const runtime = reflexState.runtime;
+          if (!runtime) {
+            return {
+              status: "error",
+              error: "OpenCOAT ReflexMonitor fail-closed: not initialized",
+            };
+          }
+          const action = buildPayloadAction("spawn", payload);
+          const decision = reflexDenyDecision(
+            runtime.monitor,
+            action,
+            buildReflexState(c),
+          );
+          if (decision.block) {
+            return {
+              status: "error",
+              error:
+                decision.blockReason ??
+                "Blocked by OpenCOAT ReflexMonitor (subagent_spawn).",
+            };
+          }
+          return { status: "ok" };
+        }
         const inj = await emit(cfg, api, binding.hook, binding.joinpoint, payload, c);
         const decision = subagentSpawnDecision(inj);
         if (decision.status === "error") return decision;
@@ -342,6 +397,37 @@ async function handleHook(
       }
 
       case "queue_guard": {
+        if (inProcReflexEnabled(cfg)) {
+          const runtime = reflexState.runtime;
+          if (!runtime) {
+            return {
+              block: true,
+              blockReason: "OpenCOAT ReflexMonitor fail-closed: not initialized",
+            };
+          }
+          const action = buildPayloadAction("queue_enqueue", payload);
+          const decision = reflexDenyDecision(
+            runtime.monitor,
+            action,
+            buildReflexState(c),
+          );
+          if (decision.block) {
+            const policyId =
+              decision.record?.policy_id?.trim() || "ReflexMonitor";
+            if (cfg.logActivations) {
+              api.logger?.info?.(
+                `[opencoat-bridge] ${binding.hook}→${binding.joinpoint}: ${policyId} (in-proc deny)`,
+              );
+            }
+            return {
+              block: true,
+              blockReason:
+                decision.blockReason ??
+                "Blocked by OpenCOAT ReflexMonitor (queue_guard).",
+            };
+          }
+          return {};
+        }
         const inj = await emit(cfg, api, binding.hook, binding.joinpoint, payload, c);
         return queueBeforeEnqueueDecision(inj);
       }
@@ -400,27 +486,40 @@ async function handleHook(
         err instanceof Error ? err.message : String(err)
       }`,
     );
-    return binding.kind === "tool_guard"
-      ? cfg.inProcReflexToolGuard
-        ? failClosedToolGuard(
-            {},
-            err instanceof Error ? err : new Error(String(err)),
-          )
-        : {}
-      : undefined;
+    if (inProcReflexEnabled(cfg)) {
+      switch (binding.kind) {
+        case "tool_guard": {
+          const e = asRecord(event);
+          const params =
+            e.params && typeof e.params === "object"
+              ? { ...(e.params as Record<string, unknown>) }
+              : {};
+          return failClosedToolGuard(params, err);
+        }
+        case "message_out":
+          return failClosedMessageGuard(err);
+        case "subagent_spawn":
+          return failClosedSpawnGuard(err);
+        case "queue_guard":
+          return failClosedQueueGuard(err);
+        default:
+          break;
+      }
+    }
+    return binding.kind === "tool_guard" ? {} : undefined;
   }
 }
 
 export default function register(api: BridgePluginApi): void {
   const cfg = resolveConfig(api.pluginConfig);
 
-  if (cfg.inProcReflexToolGuard) {
+  if (inProcReflexEnabled(cfg)) {
     reflexState.runtime = buildReflexRuntime(cfg, null);
     void loadReflexRuntime(cfg)
       .then((runtime) => {
         reflexState.runtime = runtime;
         api.logger?.info?.(
-          `[opencoat-bridge] in-proc ReflexMonitor tool_guard policies: ${
+          `[opencoat-bridge] in-proc ReflexMonitor policies: ${
             runtime.policyIds.join(", ") || "(none)"
           }`,
         );
@@ -452,7 +551,9 @@ export default function register(api: BridgePluginApi): void {
       `(skipped: ${SKIPPED_HOOKS.join(", ")}; daemon=${
         cfg.enabled ? cfg.daemonUrl : "disabled"
       }${observerNote}${
-        cfg.inProcReflexToolGuard ? "; in-proc ReflexMonitor tool_guard" : ""
+        inProcReflexEnabled(cfg)
+          ? "; in-proc ReflexMonitor (tool/spawn/message/queue)"
+          : ""
       }${cfg.emitRtJsonl ? "; r_t JSONL emit" : ""})`,
   );
 }

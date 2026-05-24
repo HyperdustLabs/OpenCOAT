@@ -6,7 +6,7 @@
 
 import type { ReflexCriticality } from "./reflex-policy-spec.js";
 
-export type ActionKind = "tool_call";
+export type ActionKind = "tool_call" | "spawn" | "message_out" | "queue_enqueue";
 
 export type Action = {
   kind: ActionKind;
