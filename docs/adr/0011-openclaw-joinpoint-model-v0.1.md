@@ -2,14 +2,15 @@
 
 ## Status
 
-Accepted (design + catalog aliases on `main`; bridge runtime observers for MVP
-queue/reply_run/task observe paths; synchronous native hooks remain follow-up).
+Accepted (design + catalog aliases on `main`; bridge **29** plugin hooks + runtime
+observers; **`queue.before_enqueue` / `queue.after_enqueue` sync collaborative
+guard on HyperdustLabs fork** — see [joinpoint model §4.1](../design/opencoat-openclaw-joinpoint-model-v0.1.md#41-mvp-emit-status-bridge-integrationsopenclaw-opencoat-bridge)). **In-proc authoritative `ReflexMonitor`** (fail-closed) is v0.3 / [ADR-0012](./0012-self-built-effector-control-plane.md), not this ADR.
 
 ## Context
 
 OpenCOAT shipped a flat joinpoint catalog (38 names, 8 levels in
 `opencoat_runtime_core/joinpoint/catalog.py`) and an OpenClaw gateway bridge
-(26 plugin hooks + runtime observers). OpenClaw’s real behavior control spans
+(**29** plugin hooks + runtime observers). OpenClaw’s real behavior control spans
 `auto-reply/reply` (queue, `ReplyRunRegistry`, `agent-runner`),
 `agents/pi-embedded-runner` (`onAgentEvent`), and `tasks/task-registry` —
 not only prompt/tool hooks.
@@ -38,19 +39,27 @@ task indexes).
 6. **Full model:** Documented in
    [`docs/design/opencoat-openclaw-joinpoint-model-v0.1.md`](../design/opencoat-openclaw-joinpoint-model-v0.1.md)
    (14 domains; **§5 A/B/C availability tiers** for OpenClaw vs catalog). Implementation is phased (P0 catalog aliases → P2 plugin hooks →
-   P3 bridge runtime observers for observe-only MVP emits).
+   P3 bridge runtime observers → **P5a fork queue hooks**). **Collaborative → authoritative** staging: [v0.3 §10](../design/v0.3-morphogenetic-architecture.md#10-openclaw--效应器内核改造权威反射监视器), ADR-0012.
 
 ## Consequences
 
 - `opencoat inspect joinpoints` lists legacy + v0.1 MVP names.
 - Concerns may author `joinpoints: ["tool.before_call"]` or `["before_tool_call"]`.
-- Queue / reply-run / task joinpoints are **emitted observe-only** by the bridge
-  (`onAgentEvent`, queue-depth poll, `runtime.tasks` poll) — not synchronous veto
-  at `enqueueFollowupRun` / `createTaskRecord` without upstream plugin hooks.
+- **Decision path (fork + collaborative bridge):** `queue.before_enqueue` sync
+  **block** / prompt & summaryLine **rewrite** via `queue_before_enqueue` +
+  bridge `queue_guard` (daemon RPC). Requires fork gateway — see joinpoint model §5.7.
+- **Observe fallback:** queue depth poll still emits `queue.before_enqueue` /
+  `queue.before_collect` when native hooks are absent (no veto).
+- **Still observe-only or partial:** fine-grained `reply_run.phase.*`, generic
+  non-subagent `task.before_create`, `tool.result.before_emit`, unified
+  `memory.before_write` on every path.
+- **ADR-0012** does not supersede this ADR for **unforked** hosts; cooperative
+  bridge remains the integration path there.
 - Future ADRs may supersede alias table when v0.1 names become canonical on the wire.
 
 ## References
 
-- ADR-0003 (host adapter as plugin), ADR-0002 (AOP mechanism)
-- [OpenClaw repo](https://github.com/openclaw/openclaw) — `src/auto-reply/reply/`, `src/tasks/`
+- ADR-0003 (host adapter as plugin), ADR-0002 (AOP mechanism), ADR-0012 (effector / in-proc TCB)
+- [v0.3 morphogenetic architecture §10](../design/v0.3-morphogenetic-architecture.md)
+- [OpenClaw fork](https://github.com/HyperdustLabs/openclaw) — branch `opencoat/hooks-v0.1`
 - [integrations/openclaw-opencoat-bridge/README.md](../../integrations/openclaw-opencoat-bridge/README.md)

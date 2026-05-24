@@ -44,7 +44,7 @@ bash scripts/verify.sh
 
 # 1. bump every pyproject in lockstep (3 files)
 #    pick X.Y.Z per SemVer:
-#      0.1.4 → 0.1.5    patch (M6 heartbeat workers, joinpoint ADR-0011 + aliases, bridge 26 hooks + runtime observers)
+#      0.1.4 → 0.1.5    patch (M6 heartbeat workers, joinpoint ADR-0011 + aliases, bridge 26 hooks + runtime observers)  # superseded: 29 hooks as of queue wave
 #      0.1.3 → 0.1.4    patch (B.AI LLM, JoinpointDiscovery, AspectJ concerns, OpenClaw bridge verify)
 #      0.1.2 → 0.1.3    patch (ConcernBuilder MVP, gpt-5 tokens, OpenClaw bridge)
 #      0.1.1 → 0.1.2    patch (ship CLI `service` + PyPI/doc alignment)

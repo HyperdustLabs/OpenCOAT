@@ -1,9 +1,11 @@
-# 09 — Queue hook dogfood (OpenClaw fork + bridge)
+# 09 — Queue hook dogfood (v0.3 (i) queue boundary pilot)
 
-End-to-end dogfood for **native** `queue_before_enqueue` / `queue_after_enqueue`
-on the OpenClaw fork (`opencoat/hooks-v0.1`). OpenCOAT matches
-`queue.before_enqueue` and returns advice the bridge maps to OpenClaw
-`{ block, prompt, summaryLine }`.
+End-to-end dogfood for **v0.3 migration phase (i)**: the first **hard effect boundary**
+pilot on the collaborative bridge — native `queue_before_enqueue` / `queue_after_enqueue`
+on the OpenClaw fork (`opencoat/hooks-v0.1`). This is **not** in-proc authoritative
+`ReflexMonitor` ([v0.3 §10.5](../../docs/design/v0.3-morphogenetic-architecture.md#105-实现分期-2026-05));
+OpenCOAT matches `queue.before_enqueue` and returns advice the bridge maps to OpenClaw
+`{ block, prompt, summaryLine }` via daemon RPC.
 
 Import **one concern at a time** — all three target the same joinpoint.
 

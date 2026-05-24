@@ -87,6 +87,24 @@ After [PR #77](https://github.com/HyperdustLabs/OpenCOAT/pull/77) (queue `queue_
 
 Bridge skipped (fork has hook, hot path): `before_message_write`, `tool_result_persist` until sync/async contract is extended.
 
+## Troubleshooting queue guard
+
+If gateway logs show `unknown typed hook "queue_before_enqueue" ignored`, the running
+gateway is **not** on fork `dist/` (stale LaunchAgent or registry OpenClaw). Queue sync
+veto/rewrite will **not** run; poll fallback may still emit observe-only
+`queue.before_enqueue` to DCN.
+
+```bash
+./scripts/check-openclaw-fork.sh
+openclaw gateway status    # CLI version == Gateway version; cmdline uses ~/openclaw-fork/dist/index.js
+grep opencoat-bridge ~/.openclaw/logs/gateway.log   # expect "registered 29 hooks", no queue hook ignored
+```
+
+**v0.3 (i) note:** queue guard on fork is the first **collaborative** effect-boundary
+pilot ([v0.3 §10.5](../design/v0.3-morphogenetic-architecture.md#105-实现分期-2026-05),
+[examples/09_queue_hook_dogfood](../../examples/09_queue_hook_dogfood/README.md)). In-proc
+authoritative `ReflexMonitor` is the next step, not done today.
+
 ## Related
 
 - [OpenClaw bridge README](../../integrations/openclaw-opencoat-bridge/README.md)

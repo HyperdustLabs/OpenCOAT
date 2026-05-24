@@ -52,6 +52,8 @@ Use the **HyperdustLabs fork** (`opencoat/hooks-v0.1`, see [openclaw-fork-dev.md
 | **Decision** | `queue.before_enqueue`, `tool.before_call`, `subagent_spawning` → `task.before_create` | block, rewrite, spawn veto, prompt prepend, outbound cancel |
 | **Observe** | `reply_run.*`, `planning.*`, `approval.requested`, `command.output_stream`, `patch.summary_created`, `error.detected`, queue poll fallback | DCN / activation only; no sync veto |
 
+**Decision** = **collaborative guard** (bridge + daemon RPC; host applies advice). Not ADR-0012 **authoritative** in-proc `ReflexMonitor` fail-closed — see [v0.3 §10.5](../design/v0.3-morphogenetic-architecture.md#105-实现分期-2026-05).
+
 **Next decision hooks** ship on the **same fork branch** (`tool_result_persist`, `reply_run.phase.*`, `response.before_final`, …) — not upstream `openclaw/openclaw`. See [fork hook backlog](openclaw-fork-dev.md#fork-hook-backlog-post-queue).
 
 Prefer `user_message()` over flat `before_response` when the bridge sends `messages[]`:
