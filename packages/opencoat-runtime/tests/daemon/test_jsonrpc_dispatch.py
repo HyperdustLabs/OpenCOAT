@@ -590,3 +590,24 @@ class TestJoinpointExtractFromChat:
         assert "error" not in out
         listed = h.handle(_req("concern.list"))["result"]
         assert len(listed) >= 1
+
+
+class TestReflexPoliciesExport:
+    def test_exports_hard_tool_guard_block_policies(self) -> None:
+        from opencoat_runtime_cli.demo_concerns import demo_concerns
+
+        store = MemoryConcernStore()
+        for c in demo_concerns():
+            store.upsert(c)
+        rt = OpenCOATRuntime(
+            concern_store=store,
+            dcn_store=MemoryDCNStore(),
+            llm=StubLLMClient(),
+        )
+        h = JsonRpcHandler(rt)
+        out = h.handle(_req("reflex.policies.export", {"action_kind": "tool_call"}))
+        assert "error" not in out
+        result = out["result"]
+        assert result["version"] == "0.1"
+        ids = [p["id"] for p in result["policies"]]
+        assert "demo-tool-block" in ids

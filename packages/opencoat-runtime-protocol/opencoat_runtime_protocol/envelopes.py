@@ -392,6 +392,16 @@ class ConcernMetrics(_Base):
 class Concern(_Base):
     id: str = Field(min_length=1)
     kind: ConcernKind = ConcernKind.CONCERN
+    # ── M-E0: MAN cell-type markers (ADR-0012 Decision 4, v0.3 §3) ──────
+    #: Aspect cell kind. ``"inhibitory"`` = A_reflex / InhibitoryReflex
+    #: (deterministic gate, hard enforcement). ``"excitatory"`` = A_cortex /
+    #: ExcitatoryNeuron (prompt-level, soft enforcement).
+    neuron_type: Literal["excitatory", "inhibitory"] = "excitatory"
+    #: Marks membership in the conserved core A_reflex. When ``True`` this
+    #: concern is excluded from ``⇩_slow`` structural rewrites (PlasticityEngine
+    #: / DCNEvolver). Implies ``neuron_type == "inhibitory"`` by convention.
+    reflex: bool = False
+    # ─────────────────────────────────────────────────────────────────────
     generated_type: str | None = None
     generated_tags: list[str] = Field(default_factory=list)
     name: str = Field(min_length=1)
