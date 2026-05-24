@@ -46,13 +46,14 @@ from typing import Any
 from opencoat_runtime_core import OpenCOATRuntime
 from opencoat_runtime_core.config import HeartbeatMaintenance
 from opencoat_runtime_core.llm import StubLLMClient
+from opencoat_runtime_core.credit.rt_plasticity_service import RtPlasticityService
 from opencoat_runtime_core.loops.heartbeat_loop import MaintenanceFn
 from opencoat_runtime_core.ports import ConcernStore, DCNStore, LLMClient
 from opencoat_runtime_storage.memory import MemoryConcernStore, MemoryDCNStore
 from opencoat_runtime_storage.sqlite import SqliteConcernStore, SqliteDCNStore
 
 from .config.loader import DaemonConfig, LLMSettings, StorageBackend
-from .workers import ConflictScannerWorker, DecayWorker, MergeArchiverWorker
+from .workers import ConflictScannerWorker, DecayWorker, MergeArchiverWorker, RtPlasticityWorker
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +63,9 @@ def build_heartbeat_maintenance(
     dcn_store: DCNStore,
     *,
     maintenance: HeartbeatMaintenance | None = None,
+    rt_plasticity: RtPlasticityService | None = None,
 ) -> MaintenanceFn:
-    """Daemon-side M6 maintenance: decay + merge/archive + conflict scan."""
+    """Daemon-side M6 maintenance: decay + merge/archive + conflict scan + r_t reweight."""
     maint = maintenance or HeartbeatMaintenance()
     decay = DecayWorker(concern_store=concern_store, dcn_store=dcn_store)
     merge_archiver = MergeArchiverWorker(
@@ -74,17 +76,23 @@ def build_heartbeat_maintenance(
         archive_cold_max_score=maint.archive_cold_max_score,
     )
     conflict = ConflictScannerWorker(concern_store=concern_store, dcn_store=dcn_store)
+    rt_worker = (
+        RtPlasticityWorker(rt_service=rt_plasticity) if rt_plasticity is not None else None
+    )
 
     def maintenance(now: datetime) -> dict[str, int]:
         decay_stats = decay.run(now)
         merge_stats = merge_archiver.run(now)
         conflict_stats = conflict.run(now)
+        rt_stats = rt_worker.run(now) if rt_worker is not None else {}
         return {
             "decay_count": int(decay_stats.get("touched", 0)),
             "archive_count": int(decay_stats.get("archived", 0))
             + int(merge_stats.get("archived", 0)),
             "merge_count": int(merge_stats.get("merged", 0)),
             "conflict_count": int(conflict_stats.get("edges_added", 0)),
+            "rt_reinforced": int(rt_stats.get("reinforced", 0)),
+            "rt_weakened": int(rt_stats.get("weakened", 0)),
         }
 
     return maintenance
@@ -171,12 +179,15 @@ class BuiltRuntime:
     llm_label: str
     llm_info: LLMInfo
     closers: list[Callable[[], None]] = field(default_factory=list)
+    rt_plasticity: RtPlasticityService | None = None
     _closed: bool = False
 
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
+        if self.rt_plasticity is not None:
+            self.rt_plasticity.close()
         for fn in self.closers:
             fn()
 
@@ -222,11 +233,13 @@ def build_runtime(
         logger.warning("OpenCOAT LLM provider degraded to %s — %s", info.label, info.hint)
 
     maintenance: MaintenanceFn | None = None
+    rt_plasticity = RtPlasticityService(concern_store=concern_store, dcn_store=dcn_store)
     if config.runtime.loops.heartbeat_enabled:
         maintenance = build_heartbeat_maintenance(
             concern_store,
             dcn_store,
             maintenance=config.runtime.loops.maintenance,
+            rt_plasticity=rt_plasticity,
         )
     runtime = OpenCOATRuntime(
         config.runtime,
@@ -240,6 +253,7 @@ def build_runtime(
         llm_label=info.label,
         llm_info=info,
         closers=closers,
+        rt_plasticity=rt_plasticity,
     )
 
 

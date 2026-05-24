@@ -9,6 +9,7 @@ from .decay_worker import DecayWorker
 from .extraction_worker import ExtractionWorker
 from .merge_archiver import MergeArchiverWorker
 from .meta_review_worker import MetaReviewWorker
+from .rt_plasticity_worker import RtPlasticityWorker
 from .verification_worker import VerificationWorker
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "ExtractionWorker",
     "MergeArchiverWorker",
     "MetaReviewWorker",
+    "RtPlasticityWorker",
     "VerificationWorker",
 ]

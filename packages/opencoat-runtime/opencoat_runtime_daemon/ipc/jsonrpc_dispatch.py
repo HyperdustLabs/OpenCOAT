@@ -48,6 +48,17 @@ Methods are dotted names grouped by domain:
     Params: ``{"action_kind"?: "tool_call"}``. Returns portable deterministic
     policy specs for the bridge in-proc ``ReflexMonitor`` (v0.3 §10.4).
 
+``credit.r_t.append``
+    Params: ``{"record": <RtRecord wire>}``. Appends one structured ``r_t``
+    outcome line to ``~/.opencoat/r_t.jsonl`` (v0.3 §10.1 step 3 prototype).
+
+``credit.r_t.stats``
+    Result: ``{"path": str, "count": int, "cursor_offset": int, "last_consume"?: {...}}``.
+
+``credit.r_t.consume``
+    Params: ``{"max_records"?: int}``. Reads unread ``r_t`` lines and runs warm-path
+    :class:`PlasticityEngine` reweight (v0.3 §3.6 subset).
+
 ``health.ping``
     Result: ``{"ok": true}`` — proves the handler is wired without
     touching stores.
@@ -64,6 +75,8 @@ from opencoat_runtime_core import OpenCOATRuntime
 from opencoat_runtime_core.concern import ConcernBuilder, ConcernExtractor
 from opencoat_runtime_core.concern.chat_extract import chat_text_for_extraction
 from opencoat_runtime_core.concern.reflex_policy_export import export_reflex_policies
+from opencoat_runtime_core.credit.r_t_record import RtRecord
+from opencoat_runtime_core.credit.rt_plasticity_service import RtPlasticityService
 from opencoat_runtime_protocol import Concern, ConcernInjection, JoinpointEvent
 from pydantic import ValidationError
 
@@ -153,9 +166,14 @@ class JsonRpcHandler:
         runtime: OpenCOATRuntime,
         *,
         llm_info: LLMInfo | None = None,
+        rt_service: RtPlasticityService | None = None,
     ) -> None:
         self._rt = runtime
         self._llm_info = llm_info if llm_info is not None else _UNKNOWN_LLM_INFO
+        self._rt_service = rt_service or RtPlasticityService(
+            concern_store=runtime.concern_store,
+            dcn_store=runtime.dcn_store,
+        )
         # ConcernExtractor is built lazily so the dispatcher pays the
         # construction cost only when a host actually calls
         # ``concern.extract`` (most daemons do nothing but
@@ -175,6 +193,9 @@ class JsonRpcHandler:
             "runtime.llm_info": self._runtime_llm_info,
             "dcn.activation_log": self._dcn_activation_log,
             "reflex.policies.export": self._reflex_policies_export,
+            "credit.r_t.append": self._credit_rt_append,
+            "credit.r_t.stats": self._credit_rt_stats,
+            "credit.r_t.consume": self._credit_rt_consume,
         }
 
     def handle(self, message: str | dict[str, Any]) -> dict[str, Any] | None:
@@ -425,6 +446,31 @@ class JsonRpcHandler:
             raise JsonRpcParamsError("action_kind must be 'tool_call'")
         concerns = self._rt.concern_store.list()
         return export_reflex_policies(concerns, action_kind=action_kind)
+
+    def _credit_rt_append(self, params: dict[str, Any] | list[Any]) -> dict[str, Any]:
+        p = _expect_params_dict(params)
+        raw = p.get("record")
+        if not isinstance(raw, dict):
+            raise JsonRpcParamsError("record must be an object")
+        record = RtRecord.model_validate(raw)
+        written = self._rt_service.append(record)
+        plasticity = self._rt_service.consume(max_records=64).as_dict()
+        return {
+            "ok": True,
+            "path": str(self._rt_service.stats()["path"]),
+            "record": written,
+            "plasticity": plasticity,
+        }
+
+    def _credit_rt_stats(self, _params: dict[str, Any] | list[Any]) -> dict[str, Any]:
+        return self._rt_service.stats()
+
+    def _credit_rt_consume(self, params: dict[str, Any] | list[Any]) -> dict[str, Any]:
+        p = _expect_params_dict(params)
+        max_raw = p.get("max_records")
+        max_records = int(max_raw) if isinstance(max_raw, int) and max_raw > 0 else None
+        stats = self._rt_service.consume(max_records=max_records)
+        return {"ok": True, **stats.as_dict()}
 
 
 __all__ = ["JsonRpcHandler", "JsonRpcParamsError"]

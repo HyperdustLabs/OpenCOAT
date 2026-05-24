@@ -111,6 +111,7 @@ class Daemon:
                 self._handler = JsonRpcHandler(
                     self._built.runtime,
                     llm_info=self._built.llm_info,
+                    rt_service=self._built.rt_plasticity,
                 )
                 self._maybe_start_http()
                 self._maybe_start_scheduler()
@@ -140,7 +141,11 @@ class Daemon:
             old_built = self._built
             new_built = build_runtime(self._config, env=self._env)
             warm_persistent_stores(new_built.runtime)
-            new_handler = JsonRpcHandler(new_built.runtime, llm_info=new_built.llm_info)
+            new_handler = JsonRpcHandler(
+                new_built.runtime,
+                llm_info=new_built.llm_info,
+                rt_service=new_built.rt_plasticity,
+            )
             # Swap before closing the old runtime so in-flight RPCs that
             # already grabbed the handler reference keep working; new
             # arrivals immediately see the new runtime.
