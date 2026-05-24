@@ -37,6 +37,14 @@ import {
 import { createObserveEmitter } from "./emit-joinpoint.js";
 import { loadReflexRuntime, buildReflexRuntime } from "./reflex-policy-sync.js";
 import type { ReflexRuntime } from "./reflex-policy-sync.js";
+import type { DecisionRecord } from "./reflex-monitor.js";
+import {
+  appendRtRecordFireAndForget,
+  buildLlmOutputRt,
+  buildToolBlockedRt,
+  buildToolOutcomeRt,
+  buildTurnCompleteRt,
+} from "./r-t-emit.js";
 import {
   buildReflexState,
   buildToolCallAction,
@@ -57,6 +65,11 @@ import type {
 
 const pendingByRun = new Map<string, ConcernInjection | null>();
 const reflexState: { runtime: ReflexRuntime | null } = { runtime: null };
+const lastReflexByRunTool = new Map<string, DecisionRecord>();
+
+function reflexToolKey(run: string, toolName: string): string {
+  return `${run}:${toolName}`;
+}
 
 function auditToolGuardJoinpoint(
   cfg: BridgeConfig,
@@ -271,6 +284,17 @@ async function handleHook(
               decision.blockReason,
             );
             if (decision.block) {
+              appendRtRecordFireAndForget(
+                cfg,
+                buildToolBlockedRt(
+                  binding.hook,
+                  binding.joinpoint,
+                  c,
+                  toolName,
+                  decision.record,
+                  decision.blockReason,
+                ),
+              );
               return {
                 block: true,
                 blockReason:
@@ -278,6 +302,12 @@ async function handleHook(
                   "Blocked by OpenCOAT ReflexMonitor (tool_guard).",
                 params: decision.params,
               };
+            }
+            if (decision.record) {
+              lastReflexByRunTool.set(
+                reflexToolKey(run, toolName),
+                decision.record,
+              );
             }
             return decision.params !== params ? { params: decision.params } : {};
           } catch (err) {
@@ -331,6 +361,36 @@ async function handleHook(
         await emit(cfg, api, binding.hook, binding.joinpoint, payload, c, {
           level,
         });
+        if (cfg.emitRtJsonl) {
+          const ev = asRecord(event);
+          if (binding.hook === "after_tool_call") {
+            const toolName =
+              typeof ev.toolName === "string" ? ev.toolName : "tool";
+            const key = reflexToolKey(run, toolName);
+            const reflex = lastReflexByRunTool.get(key);
+            lastReflexByRunTool.delete(key);
+            appendRtRecordFireAndForget(
+              cfg,
+              buildToolOutcomeRt(
+                binding.hook,
+                binding.joinpoint,
+                c,
+                ev,
+                reflex,
+              ),
+            );
+          } else if (binding.hook === "llm_output") {
+            appendRtRecordFireAndForget(
+              cfg,
+              buildLlmOutputRt(binding.hook, binding.joinpoint, c, ev),
+            );
+          } else if (binding.hook === "agent_end") {
+            appendRtRecordFireAndForget(
+              cfg,
+              buildTurnCompleteRt(binding.hook, binding.joinpoint, c, ev),
+            );
+          }
+        }
         return;
       }
     }
@@ -393,6 +453,6 @@ export default function register(api: BridgePluginApi): void {
         cfg.enabled ? cfg.daemonUrl : "disabled"
       }${observerNote}${
         cfg.inProcReflexToolGuard ? "; in-proc ReflexMonitor tool_guard" : ""
-      })`,
+      }${cfg.emitRtJsonl ? "; r_t JSONL emit" : ""})`,
   );
 }

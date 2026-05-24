@@ -350,9 +350,34 @@ Gateway log when enabled:
 
 See [v0.3 §10.5](../../docs/design/v0.3-morphogenetic-architecture.md#105-实现分期-2026-05).
 
+## `r_t` JSONL emission (v0.3 step 3 prototype)
+
+When `emitRtJsonl` is enabled (default **on** if `inProcReflexToolGuard` is true), the bridge
+fire-and-forgets structured outcome records to daemon `credit.r_t.append`:
+
+| Hook | `r_t` signal |
+| --- | --- |
+| `before_tool_call` (in-proc deny) | `tool_blocked` + reflex metadata |
+| `after_tool_call` | `tool_outcome` (links prior reflex decision when present) |
+| `llm_output` | `llm_output` |
+| `agent_end` | `turn_complete` |
+
+Log file: `~/.opencoat/r_t.jsonl`. Each append runs warm-path **reweight** (v0.3 §3.6 subset): reflex `tool_blocked` / `deny` reinforces the matching concern (`policy_id`). Heartbeat also drains unread lines via `RtPlasticityWorker`. Inspect:
+
+```bash
+curl -sS http://127.0.0.1:7878/rpc -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"credit.r_t.stats","params":{},"id":1}' | python3 -m json.tool
+curl -sS http://127.0.0.1:7878/rpc -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"credit.r_t.consume","params":{},"id":2}' | python3 -m json.tool
+tail -3 ~/.opencoat/r_t.jsonl | python3 -m json.tool
+opencoat concern show demo-tool-block
+```
+
+Requires daemon built from repo (includes `credit.r_t.append` / `credit.r_t.consume` RPCs).
+
 ## Limitations (v0.1 bridge)
 
-- **v0.3 gap:** when `inProcReflexToolGuard` is off, guards are **collaborative** (daemon RPC, fail-open on bridge error). Enable in-proc mode for authoritative fail-closed `tool_guard` ([v0.3 §10.5](../../docs/design/v0.3-morphogenetic-architecture.md#105-实现分期-2026-05)).
+- **v0.3 gap:** guards are **collaborative** (daemon RPC, fail-open on bridge error), not in-proc authoritative `ReflexMonitor` fail-closed ([v0.3 §10.5](../../docs/design/v0.3-morphogenetic-architecture.md#105-实现分期-2026-05)). **`r_t` JSONL** is available when `emitRtJsonl` is on (default with `inProcReflexToolGuard`) — see below.
 - Prompt folding uses `prependSystemContext` only (not full dotted-path injector parity with Python `OpenClawInjector`).
 - **`queue.before_enqueue`** sync veto/rewrite requires OpenClaw **fork** (`queue_before_enqueue` hook). Poll fallback in `runtime-observers.ts` is observe-only.
 - Non-subagent **`task.before_create`** is observe-only (task poll); spawn veto works on `subagent_spawning` only.
