@@ -27,15 +27,28 @@ export function applyAgentMessageContent(message: unknown, newText: string): unk
     return { ...m, content: newText };
   }
   if (Array.isArray(content)) {
-  const next = content.map((part, index) => {
-      if (index !== 0) return part;
-      if (typeof part === "string") return newText;
-      if (part && typeof part === "object") {
-        return { ...(part as Record<string, unknown>), text: newText };
+    let replaced = false;
+    const next = content.map((part) => {
+      if (typeof part === "string") {
+        if (!replaced) {
+          replaced = true;
+          return newText;
+        }
+        return "";
       }
-      return { type: "text", text: newText };
+      if (part && typeof part === "object") {
+        const record = part as Record<string, unknown>;
+        if (typeof record.text !== "string") return part;
+        if (!replaced) {
+          replaced = true;
+          return { ...record, text: newText };
+        }
+        return { ...record, text: "" };
+      }
+      return part;
     });
     if (!next.length) return { ...m, content: [{ type: "text", text: newText }] };
+    if (!replaced) return { ...m, content: [{ type: "text", text: newText }, ...next] };
     return { ...m, content: next };
   }
   return { ...m, content: newText };
