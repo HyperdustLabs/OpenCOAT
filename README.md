@@ -42,6 +42,7 @@ Pre-alpha. We are working through the milestones defined in
 | **M4** | Daemon + CLI + HTTP/JSON-RPC | ✅ complete — `build_runtime` ([PR-17 / #21](https://github.com/HyperdustLabs/OpenCOAT/pull/21)), in-proc JSON-RPC ([PR-18 / #22](https://github.com/HyperdustLabs/OpenCOAT/pull/22)), stdlib HTTP JSON-RPC ([PR-19 / #23](https://github.com/HyperdustLabs/OpenCOAT/pull/23)), daemon lifecycle ([PR-20 / #24](https://github.com/HyperdustLabs/OpenCOAT/pull/24)), `opencoat runtime up\|down\|status` ([PR-21 / #25](https://github.com/HyperdustLabs/OpenCOAT/pull/25)), `opencoat concern \| dcn \| inspect` ([PR-22 / #26](https://github.com/HyperdustLabs/OpenCOAT/pull/26)), `examples/06_long_running_daemon` ([PR-23 / #27](https://github.com/HyperdustLabs/OpenCOAT/pull/27)) |
 | **M5** | OpenClaw host plugin | ✅ complete — event map ([#28](https://github.com/HyperdustLabs/OpenCOAT/pull/28)), injection + spans ([#29](https://github.com/HyperdustLabs/OpenCOAT/pull/29)), tool guard ([#30](https://github.com/HyperdustLabs/OpenCOAT/pull/30)), memory bridge + hooks ([#31](https://github.com/HyperdustLabs/OpenCOAT/pull/31)), `examples/04_openclaw_with_runtime` ([#32](https://github.com/HyperdustLabs/OpenCOAT/pull/32)) |
 | **M6** | Heartbeat + meta governance (decay, conflict scan, merge/archive, meta-review) | ✅ complete — heartbeat workers + chat extract ([#72](https://github.com/HyperdustLabs/OpenCOAT/pull/72)), `DCNEvolver` + merge/archive + meta-review ([#73](https://github.com/HyperdustLabs/OpenCOAT/pull/73)), `examples/07_meta_governance_soak` |
+| **v0.3** | In-proc ReflexMonitor, `r_t` credit, connectome plasticity, MAN paper harness | ✅ in review — full graph-rewrite training harness and B.AI Phase II diagnostics live on `feat/v0.3-full-delivery` / [#84](https://github.com/HyperdustLabs/OpenCOAT/pull/84) |
 | M7 | Second host (langgraph/hermes) | pending |
 | M8 | Postgres + Helm/K8s | pending |
 
@@ -57,9 +58,9 @@ opencoat/
 ├── packages/                     # 3 PyPI packages, organised by consumer (see ADR 0009)
 │   ├── opencoat-runtime-protocol/   # JSON Schemas + pydantic envelopes — the data contract
 │   ├── opencoat-runtime/            # Runtime stack: core + storage + LLM + daemon + CLI
-│   │   ├── opencoat_runtime_core/       # L2 pure logic: concern, joinpoint, pointcut, advice, weaving, copr, coordinator, resolver, dcn, meta, loops, ports
+│   │   ├── opencoat_runtime_core/       # L2 pure logic: concern, joinpoint, pointcut, advice, weaving, copr, coordinator, resolver, dcn, meta, loops, credit, connectome, effector, ports
 │   │   ├── opencoat_runtime_storage/    # ConcernStore / DCNStore backends (memory, sqlite, postgres, jsonl, vector)
-│   │   ├── opencoat_runtime_llm/        # LLM / Embedder clients (openai, anthropic, azure, ollama, stub)
+│   │   ├── opencoat_runtime_llm/        # LLM / Embedder clients (bai, openai, anthropic, azure, ollama, stub)
 │   │   ├── opencoat_runtime_daemon/     # Long-running runtime: scheduler, workers, IPC, HTTP/JSON-RPC API
 │   │   └── opencoat_runtime_cli/        # `opencoat` CLI: runtime up/down, concern list, replay, dcn visualize
 │   └── opencoat-runtime-host/       # Host-side integration (different consumer audience)
@@ -162,6 +163,7 @@ environment:
 
 | Env var(s)                                                | Picked      |
 | --------------------------------------------------------- | ----------- |
+| `BAI_API_KEY`                                             | `bai`       |
 | `OPENAI_API_KEY`                                          | `openai`    |
 | `ANTHROPIC_API_KEY`                                       | `anthropic` |
 | `AZURE_OPENAI_API_KEY` + `AZURE_OPENAI_DEPLOYMENT`        | `azure`     |
@@ -216,7 +218,7 @@ fully annotated production sample. The complete provider knob list lives in
 that file and in [`packages/opencoat-runtime/README.md`](packages/opencoat-runtime/README.md).
 
 To force a specific provider (so the daemon refuses to start without a
-key), set `llm.provider: openai` (or `anthropic` / `azure`) instead of
+key), set `llm.provider: bai` / `openai` / `anthropic` / `azure` instead of
 `auto` in the config. To deliberately run on the stub (hermetic CI,
 examples) set `llm.provider: stub` — the WARNING and the banner badge
 both go quiet for that explicit choice.

@@ -5,11 +5,12 @@ Two layers (paper §8):
 | Layer | Hypothesis | Status | Entry |
 | --- | --- | --- | --- |
 | **Phase I** | H1–H5 (+ F1–F3 foundations) | **Done** on fixtures | `bash scripts/run-man-paper-experiments.sh` |
-| **Phase II** | **H0** self-evolution capability | **Runnable** (coding + OpenClaw stub) | `bash scripts/run-man-paper-phase-ii.sh` |
+| **Phase II** | **H0** self-evolution capability | **Runnable** (adaptive coding + OpenClaw-style scenarios; stub or real LLM) | `bash scripts/run-man-paper-phase-ii.sh` |
 
 Phase I proves mechanisms per spec; passing Phase I is **necessary but not sufficient** for H0.
-Phase II will show learning curves (no mid-run dev edits), A→B/cross-domain transfer, and
-MAN vs static vs developer-effort-matched hand-iterated baselines on coding/OpenClaw scenarios.
+Phase II emits learning curves (no mid-run dev edits), A→B/cross-domain transfer, and
+MAN vs static vs developer-effort-matched hand-iterated baselines on coding/OpenClaw-style
+scenarios.
 
 ---
 
@@ -43,6 +44,10 @@ see [`docs/design/h0-genesis.md`](../design/h0-genesis.md)): startup prompt → 
 **No** plugin `seed_stores()`, **no** `SKILL.md` concern init, **no** demo coding/OpenClaw
 presets. Cross-domain scenarios use the same H0 graph on `before_response` (tool-style cases
 judged from LLM refusal text when effector path is not exercised).
+
+The primary training scenes are canonical task families, not frozen prompt repeats. The fixture
+file defines the task identities and reward rubrics; `phase_ii_scenarios.py` mutates surface
+forms across epochs so reward must come from task mapping, not memorizing one string.
 **LLM:** auto-detect from env (**B.AI first**, same order as daemon `provider: auto`):
 
 ```bash
@@ -85,7 +90,7 @@ Stub mode keeps strict gates for CI.
 **Before B.AI (budget):**
 
 1. Stub precheck (free): `OPENCOAT_PHASE_II_FORCE_STUB=1 uv run python experiments/man_paper/phase_ii_run.py --epochs 8` — confirm `first_split_epoch` and `split_guard_reason` evolve (expect split by ~epoch 4 with `split_n_min=24`).
-2. B.AI pilot: `--epochs 3` — watch `split_guard_reason` (plumbing vs signal vs denoise).
+2. B.AI pilot: `--epochs 4` — watch `split_guard_reason` (plumbing vs signal vs denoise; current B.AI pilot first split at epoch 3).
 3. Full run: `--epochs 20`. Contrast arm only: `--feature-mode text` (format drift).
 
 Baselines: **MAN** (single extracted concern + RT + lifecycle; structure grows via plasticity only),

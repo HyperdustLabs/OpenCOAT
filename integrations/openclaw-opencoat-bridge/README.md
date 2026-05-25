@@ -388,15 +388,20 @@ opencoat concern show demo-tool-block
 
 Requires daemon built from repo (includes `credit.r_t.append` / `credit.r_t.consume` RPCs).
 
-## Limitations (v0.1 bridge)
+## Limitations
 
-- **v0.3 gap:** guards are **collaborative** (daemon RPC, fail-open on bridge error), not in-proc authoritative `ReflexMonitor` fail-closed ([v0.3 §10.5](../../docs/design/v0.3-morphogenetic-architecture.md#105-实现分期-2026-05)). **`r_t` JSONL** is available when `emitRtJsonl` is on (default with `inProcReflexToolGuard`) — see below.
+- The bridge still supports the older daemon-RPC collaborative guard path when
+  `inProcReflexToolGuard` is off; that path is not a TCB and can fail open on bridge
+  errors. Enable `inProcReflexToolGuard` for the v0.3 fail-closed ReflexMonitor path.
 - Prompt folding uses `prependSystemContext` only (not full dotted-path injector parity with Python `OpenClawInjector`).
 - **`queue.before_enqueue`** sync veto/rewrite requires OpenClaw **fork** (`queue_before_enqueue` hook). Poll fallback in `runtime-observers.ts` is observe-only.
 - Non-subagent **`task.before_create`** is observe-only (task poll); spawn veto works on `subagent_spawning` only.
 - `reply_run.*` from agent events approximates `ReplyRunRegistry` phases; sub-second phase edges may be missed without native hooks.
 - Double joinpoint fire (`on_user_input` + `before_response`) is intentional when concerns list both.
 - Section discovery depends on hosts passing `sections` on message objects (uncommon today); message-level JPs always apply when `messages` is present.
+- Array-shaped OpenClaw message content is rewritten across all textual blocks:
+  the first text block receives the repaired/redacted text, later text blocks are
+  cleared, and non-text blocks are preserved.
 
 Queue dogfood: [`examples/09_queue_hook_dogfood/README.md`](../../examples/09_queue_hook_dogfood/README.md).
 
