@@ -1,0 +1,10 @@
+{
+  "profile": "stress",
+  "bimodal_rows": 32,
+  "bandit_rows": 384,
+  "bandit_noisy_rows": 384,
+  "soak_rows": 1024,
+  "soak_repeats": 32,
+  "h1_epochs_default": 20,
+  "h1_trials_per_epoch": 60
+}

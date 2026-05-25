@@ -1,0 +1,775 @@
+\documentclass[11pt]{article}
+
+%==============================================================
+% Morphogenetic Aspect Networks (arXiv-style preprint, draft)
+% Single-column article. Self-contained: no external .sty/.bst.
+%==============================================================
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[numbers]{natbib}
+\usepackage[hidelinks]{hyperref}
+\usepackage{float}
+\newfloat{algorithm}{t}{loa}
+\floatname{algorithm}{Algorithm}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{proposition}{Proposition}
+\newtheorem{remark}{Remark}
+
+\newcommand{\todo}[1]{\textcolor{red}{[\textbf{TODO:} #1]}}
+\newcommand{\R}{\mathbb{R}}
+
+\title{\textbf{Morphogenetic Aspect Networks:}\\[2pt]
+Self-Evolving Agents via Reward-Modulated Structural Plasticity\\
+over an Externally Reasoning LLM}
+
+\author{Linchuan Wang\\
+\small HyperdustLabs\\
+\small \texttt{linchuan.wang@hyperdustlabs.com}}
+
+\date{Draft --- \today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Aspect-Oriented Programming (AOP) was proposed as a biologically inspired
+paradigm in which an \emph{aspect} models a neuron, a \emph{pointcut} a
+content-conditioned routing primitive, and an \emph{advice} a signal
+transduction; a network of aspects (``aspect-of-aspect'') then models a
+neural network. When the woven substrate is deterministic code, weaving
+reliably changes behavior. The contemporary realization of this idea
+weaves into a \emph{stochastic} large language model (LLM) instead, and the
+guarantee degrades: most weaving becomes prompt-text injection whose effect
+the model may or may not honor. We argue that the missing piece is exactly
+the one the original program left open---\emph{synaptic plasticity}---and
+that it must be reconceived at the level of \emph{structure}, not weights.
+We present \textbf{Morphogenetic Aspect Networks (MAN)}, a formal nucleus in
+which an agent is a \emph{stochastic graph-rewriting system}: a typed,
+dynamic aspect graph whose fast dynamics perform one inference step
+(routing $\to$ weaving $\to$ external-LLM effecting under fixed topology),
+and whose slow dynamics \emph{grow and reshape the graph itself}. Crucially,
+both are governed by a single variational functional $F=\text{surprise}+\beta\cdot\text{complexity}$:
+each structural rewrite fires with rate $\propto\exp(-\Delta F/T)$, so
+``learning'' is gradient-free structure search rather than weight descent on
+a fixed architecture---a concrete instance of the hypothesis that
+\emph{topology and learning are unified}. We specify the state, the credit
+assignment that supplies $F$'s error term, and both generative rewrite
+primitives (\emph{differentiation/split} and \emph{abstraction/lift}) in full,
+and we prove conservation
+and behavior-preservation properties that keep self-evolution bounded.
+Section~\ref{sec:eval} reports \textbf{Phase~I internal validity} on graded
+in-repo fixtures (H1--H5): mechanisms per spec, not application-scale
+Self-Evolving proof (Phase~II deferred).
+\end{abstract}
+
+%==============================================================
+\section{Introduction}
+%==============================================================
+
+\paragraph{From separation of concerns to a nervous system.}
+The separation-of-concerns principle~\citep{dijkstra1976} and its
+realization in Aspect-Oriented Programming~\citep{kiczales1997} modularize
+\emph{cross-cutting} behavior that object-oriented decomposition cannot
+localize. An earlier line of work observed that biological nervous systems
+handle cross-cutting (``non-orthogonal'') concerns more gracefully than
+mechanistic paradigms do, and proposed AOP as a candidate
+\emph{biologically inspired} programming paradigm, with the mapping
+aspect\,$\leftrightarrow$\,neuron, pointcut\,$\leftrightarrow$\,axon,
+advice\,$\leftrightarrow$\,signal transduction,
+joinpoint\,$\leftrightarrow$\,synapse, object\,$\leftrightarrow$\,effector,
+and a three-layer ``evolvable software'' architecture
+(organs/spinal-cord/cortex)~\citep{wang2004waosd}. That work flagged one
+consideration as unsolved: \emph{synaptic plasticity}, which it argued would
+require dynamic AOP.
+
+\paragraph{A note on timing.}
+This mapping was articulated in 2004~\citep{wang2004waosd}---over a decade
+before content-conditioned routing became central to mainstream architectures
+through attention~\citep{vaswani2017} and sparsely-gated
+mixture-of-experts~\citep{shazeer2017}, and well before the present wave of
+LLM agents. The proposal thus anticipated routing-based, conditionally
+computed architectures; what it lacked was a \emph{substrate powerful enough
+to serve as the effector}. That effector now exists: a pretrained LLM
+(together with its action/control surface---tools, memory writes, message
+sends) is the first general, open-domain competence engine an aspect network
+can \emph{invoke} rather than hand-program. Crucially, this strength buys
+\emph{generality, not determinism}: unlike the deterministic effectors of
+2004 (a muscle reliably contracts), the LLM is a \emph{strong but stochastic}
+effector. Reconstructing reliable behavior around such an effector is exactly
+what MAN exists to do (Section~\ref{sec:discussion})---which is what makes the
+revival both possible and necessary.
+
+\paragraph{The reliability gap.}
+In the original setting the substrate being woven was deterministic code
+(static weaving into bytecode), so ``weaving reliably changes behavior''
+held: the joinpoint is a real execution point and the advice is real code.
+Contemporary agent systems instead weave into an LLM. The effector is no
+longer a deterministic object whose response to a transmitter is fixed
+(cf.\ a neuromuscular junction); it is a stochastic generator. Consequently
+most advice degrades to text appended to a prompt, whose causal effect is
+not guaranteed. Empirically, the only \emph{hard} levers are those that
+intercept the host's control flow (refuse a tool call, cancel a message,
+veto a sub-agent); the rest is \emph{soft} influence bounded by the model's
+instruction-following.
+
+\paragraph{Thesis.}
+We take the position that the aspect network should be neither another
+trainable artificial neural network (ANN) nor a second LLM, but a
+\emph{morphological model of the neuron} in software, committed to two
+hypotheses: (H-form) \emph{form and function are unified}---the morphology
+of an aspect is its computational role; and (H-topo) \emph{topology and
+learning are unified}---unlike an ANN, which separates a fixed differentiable
+architecture from gradient-based weight search, a morphogenetic substrate
+learns by \emph{reshaping its own structure}. Under these hypotheses,
+plasticity is \emph{morphogenesis}: growing, splitting, abstracting, and
+pruning structure, scored by a single objective. The aspect is well suited
+to be the atomic unit of a neuro-symbolic system because it is, in one
+object, both \emph{symbolic} (named, inspectable, composable) and
+\emph{sub-symbolic} (graded activation, plastic routing).
+
+\paragraph{Contributions.}
+\begin{enumerate}[leftmargin=1.4em,itemsep=2pt]
+\item A formal nucleus, \textbf{MAN}
+  $M=(N,\Downarrow_\text{fast},\Downarrow_\text{slow},F,\kappa,T(\cdot))$,
+  casting an agent as a stochastic graph-rewriting system in which
+  \emph{a structural rewrite is an inference step in model space}
+  (Section~\ref{sec:model}).
+\item A deterministic, replay-reproducible \emph{credit field} $\kappa$
+  combining eligibility traces (temporal), responsibility weights
+  (structural, with a null-player property), and an advantage baseline,
+  obeying credit conservation (Section~\ref{sec:credit}).
+\item A single variational selection rule: every rewrite fires with rate
+  $\propto\exp(-\Delta F/T)$ where $F=\text{surprise}+\beta\,\text{complexity}$,
+  unifying weight and structure updates (Section~\ref{sec:slow}).
+\item A full specification of both generative primitives---\emph{differentiation
+  (split)} and \emph{abstraction (lift)}---each with guard, rewrite, and
+  $\Delta F$ score, plus conservation and behavior-preservation properties
+  (Sections~\ref{sec:split}--\ref{sec:props}).
+\item A falsifiable evaluation protocol with preregistered hypotheses,
+  metrics, baselines, and ablations (Section~\ref{sec:eval}).
+\end{enumerate}
+
+\paragraph{Honest scope.}
+MAN \emph{orchestrates} an external LLM; reasoning is outsourced to the LLM,
+while MAN owns structure, governance, and self-evolution. It does not, by
+itself, form new continuous representations. Its single irreducible weakness
+(Section~\ref{sec:discussion}) is the causal opacity of soft advice over a
+stochastic effector---the same gap that motivates the framework.
+
+%==============================================================
+\section{Background and Related Work}
+%==============================================================
+
+\paragraph{AOP and process-algebraic semantics.}
+AOP~\citep{kiczales1997} adds aspect, pointcut, joinpoint, and advice to a
+base paradigm. Its dynamic, mobile communication topology has a natural
+home in process calculi: CSP~\citep{hoare1985} and the
+$\pi$-calculus~\citep{milner1999}, the latter modeling channel names passed
+as messages (\emph{mobility})---the formal substrate for a connection graph
+that changes at runtime. Process-algebraic foundations of AOP were studied
+by Andrews~\citep{andrews2001}.
+
+\paragraph{Conditional computation and attention.}
+A pointcut performs content-conditioned routing, the same primitive as
+attention~\citep{vaswani2017} and as the router in sparsely-gated
+mixture-of-experts~\citep{shazeer2017}. We use this isomorphism at the level
+of \emph{routing topology}; we do not claim the running system is a trained
+transformer (Section~\ref{sec:discussion}).
+
+\paragraph{Structural learning and morphogenesis.}
+Learning that changes \emph{topology} rather than only weights has a real if
+minority lineage: neuroevolution of augmenting topologies
+(NEAT)~\citep{stanley2002}, developmental encodings, and biological accounts
+of neural morphogenesis and synaptic plasticity~\citep{floreano2001}, with
+deep roots in morphogenesis itself~\citep{turing1952}. These approaches
+sacrifice the differentiable search space that makes gradient descent
+powerful---the central tension we inherit (Section~\ref{sec:discussion}).
+
+\paragraph{Objectives without gradients.}
+Our selection rule is a free-energy / minimum-description-length
+tradeoff~\citep{rissanen1978,friston2010}; structural moves are accepted by a
+Metropolis criterion. Credit assignment uses eligibility traces and the
+advantage formulation from reinforcement learning~\citep{suttonbarto2018,
+williams1992}, and the Shapley value~\citep{shapley1953} as the principled
+(if expensive) responsibility distribution. The fast/slow split mirrors the
+System-1/System-2 distinction~\citep{kahneman2011} and society-of-mind
+decompositions~\citep{minsky1986}.
+
+%==============================================================
+\section{The Morphogenetic Aspect Agent}
+\label{sec:model}
+%==============================================================
+
+\begin{definition}[Agent as a stochastic graph-rewriting system]
+An agent is a tuple
+\[
+M=\bigl(N,\ \Downarrow_\text{fast},\ \Downarrow_\text{slow},\ F,\ \kappa,\ T(\cdot)\bigr),
+\]
+where $N$ is a typed dynamic aspect graph (state), $\Downarrow_\text{fast}$
+is one inference step under fixed topology, $\Downarrow_\text{slow}$ is the
+morphogenetic rewrite relation whose moves fire with rate
+$\min\!\bigl(1,\exp(-\Delta F/T)\bigr)$, $F$ is a variational functional,
+$\kappa$ is the credit field, and $T(\cdot)$ a temperature schedule.
+\end{definition}
+
+The governing claim is that \emph{structure and inference are one process}:
+a single application of $\Downarrow_\text{slow}$ is a step of inference in
+model space.
+
+\subsection{State $N=(A,S,x)$}
+\label{sec:state}
+\begin{itemize}[leftmargin=1.4em,itemsep=1pt]
+\item $A$: aspect nodes. Each $a$ carries a symbolic identity $\tau(a)$, a
+  gain $g(a)$, dendrite/axon ports, and a sliding buffer
+  $D_a=\{(\varphi_t,\;a_t,\;r_t)\}$ of context features $\varphi_t\in\R^d$,
+  activation score $a_t$, and attributed reward $r_t$.
+\item $S$: synapses, directed edges $s=(a_i.\text{axon}\to a_j.\text{dendrite})$
+  with weight $w(s)\ge 0$ and eligibility $e(s)$.
+\item $x$: the current activation state (``membrane potentials'').
+\end{itemize}
+\textbf{$\pi$-calculus reading.} An aspect is a process, a synapse a shared
+channel name, a pointcut a name-matching predicate; mobility (passing
+channel names) is the formal home of structural plasticity.
+\textbf{Conserved core.} A subset $A_\text{reflex}\subseteq A$ of
+deterministic reflex aspects (inhibitory interneurons) is excluded from
+random rewriting; it is the invariant boundary (``brainstem'') that keeps
+self-evolution safe.
+
+\subsection{Fast dynamics $\Downarrow_\text{fast}$: one inference step}
+\label{sec:fast}
+A turn is one $\pi$-reduction at fixed topology:
+(1) joinpoint context $\varphi$ (the \emph{query}) matches candidate aspects
+via pointcuts, each receiving an activation score $a_i$ (the attention
+weight); (2) the weaver composes their advice into an injection under a
+budget / top-$k$ (the weighted sum of \emph{values}); (3) the external LLM
+(effector) consumes injection plus context and emits output/actions, while
+$A_\text{reflex}$ deterministically gates at the effecting boundary
+(allow/deny/rewrite). System~1 is the LLM at this step; System~2 is the
+aspect graph that schedules it.
+
+%==============================================================
+\section{Credit Assignment}
+\label{sec:credit}
+%==============================================================
+
+A deterministic reward $r_t$ (verifier verdict, effector outcome, task
+success) is distributed over aspects and synapses by the product of a
+\emph{temporal}, a \emph{structural}, and an \emph{advantage} factor:
+\begin{equation}
+\kappa(a)\mathrel{+}=(r_t-b)\,e_a(t)\,\rho_a(t),
+\qquad
+\kappa(s)\mathrel{+}=(r_t-b)\,e_s(t).
+\label{eq:credit}
+\end{equation}
+\begin{itemize}[leftmargin=1.4em,itemsep=1pt]
+\item \textbf{Eligibility} $e$ (temporal): $e_a\leftarrow\lambda e_a+\alpha\cdot\text{part}_a$
+  (and analogously for edges), handling delayed reward; $\lambda$ is the
+  credit horizon (synaptic tagging).
+\item \textbf{Responsibility} $\rho$ (structural): tier-1
+  influence weighting $\rho_i=a_i\,c_i/\sum_j a_j c_j$ with contribution
+  $c_i$ large for \emph{hard}-acting advice and discounted for \emph{soft}
+  advice; tier-2 sampled counterfactual / Shapley calibration whose
+  null-player property assigns $\approx 0$ credit to irrelevant aspects,
+  defeating the ``it fired, therefore it gets credit'' fallacy.
+\item \textbf{Baseline} $b$: a context-bucketed running mean, so
+  $r_t-b$ is an \emph{advantage} (a reward-prediction error); credit is
+  proportional to surprise, not raw reward.
+\end{itemize}
+
+\begin{proposition}[Credit conservation]
+With $\rho$ normalized ($\sum_i\rho_i=1$) and tier-2 satisfying Shapley
+efficiency, the per-turn node credit is conserved:
+$\sum_a\kappa_a(t)=r_t-b$. Hence credit is a distribution, not an inflation.
+\end{proposition}
+
+Node credit drives $\textsc{split}$/neurogenesis; edge credit drives
+$\textsc{connect}$/$\textsc{prune}$/$\textsc{reweight}$. Equation~\eqref{eq:credit}
+with $\rho\equiv$ co-activation reduces to reward-modulated Hebbian plasticity
+with eligibility traces.
+
+%==============================================================
+\section{The Objective $F$ and Slow Dynamics}
+\label{sec:slow}
+%==============================================================
+
+\begin{definition}[Variational objective]
+\[
+F \;=\; \underbrace{\textsc{Surprise}}_{\text{task error / verification failure}}
+\;+\;\beta\cdot\underbrace{\textsc{Complexity}}_{\text{structural description length}} .
+\]
+\end{definition}
+The same $F$ scores reweighting, edge creation, and node differentiation
+alike---there is no separate ``architecture search then weight search.''
+This is the formal content of (H-topo).
+
+\paragraph{Rewrite grammar.}
+Each rule has the form $\text{LHS pattern}+\text{guard}\Rightarrow\text{RHS}$
+and fires with rate $\min(1,\exp(-\Delta F/T))$.
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Primitive & Effect & Driver \\
+\midrule
+\textsc{connect} (synaptogenesis) & add edge & edge credit $\times$ co-activation \\
+\textsc{prune} & remove edge & low weight, cold \\
+\textsc{reweight} (LTP/LTD) & change $w$ (degenerate rewrite) & edge credit \\
+\textbf{\textsc{split}} (differentiation) & one node $\to$ two specialists & node-credit variance \\
+\textsc{merge} (abstraction/fusion) & two near-duplicates $\to$ one & redundancy \\
+\textbf{\textsc{lift}} (aspect-of-aspect) & coalition $\to$ higher-order aspect & co-firing coalition \\
+\bottomrule
+\end{tabular}
+\end{center}
+\textsc{split} and \textsc{lift} are the \emph{generative core}: the only two
+that create new symbolic units (differentiation top-down by specialization;
+abstraction bottom-up by coalition). The rest are housekeeping.
+
+\paragraph{Morphogens.}
+Local sufficient statistics decide \emph{where} to propose moves
+(high advice variance $\to$ propose \textsc{split}; strong coalition
+co-firing $\to$ propose \textsc{lift}; high co-activation$\times$credit $\to$
+propose \textsc{connect}), compressing the combinatorial space; $\Delta F$
+decides \emph{whether} to accept.
+
+\paragraph{LLM-proposed aspects are not self-validating.}
+The external LLM may be used as a semantic \emph{proposal mechanism}: from
+the current joinpoint, output, verifier trace, and local reward history it can
+suggest candidate features or aspects (e.g.\ ``requires citation'',
+``missing complexity analysis'', ``unsafe tool boundary''). Such proposals do
+\emph{not} enter the dynamic aspect graph merely because the LLM names them.
+They first live in a provisional pool with low influence and explicit
+provenance. Only reward-bearing evidence can promote them: $\kappa$ estimates
+whether the proposed feature explains reward variance or advantage, $F$ scores
+the structural cost of materializing it, and $\Downarrow_\text{slow}$ accepts
+the move only with the usual Metropolis probability
+$\min(1,\exp(-\Delta F/T))$. Thus the LLM proposes morphology, but reward
+validates morphology. This boundary prevents MAN from degenerating into
+``the LLM writes permanent rules for itself''; symbolic structure becomes part
+of $N$ only when it lowers expected surprise enough to pay for its complexity.
+
+\paragraph{The end-to-end loop.}
+Algorithm~\ref{alg:man} assembles the state (\S\ref{sec:state}), credit
+(\S\ref{sec:credit}), and rewrite grammar above into the self-evolution loop.
+The agent is \emph{born} as a zygote---the conserved reflex core
+$A_\text{reflex}$ plus a single undifferentiated cortex aspect $a_0$ whose
+pointcut matches every joinpoint (lines~1--4). Thereafter $\Downarrow_\text{fast}$
+runs each turn (route, weave, effect, attribute credit), and every $P$ turns
+$\Downarrow_\text{slow}$ proposes morphogen-localized rewrites and accepts each
+with the Metropolis rate $\min(1,\exp(-\Delta F/T))$. Competence is not edited
+in by a developer; it is the fixed point that the
+$\textsc{split}$/$\textsc{lift}$ dynamics grow---the two generative primitives
+are specified next (\S\ref{sec:split},~\S\ref{sec:lift}).
+
+\begin{algorithm}[t]
+\caption{Morphogenetic self-evolution: $\Downarrow_\text{fast}$ interleaved with $\Downarrow_\text{slow}$.}
+\label{alg:man}
+\small
+\hrule\vspace{3pt}
+\begin{enumerate}[leftmargin=2.9em,itemsep=1.5pt,topsep=2pt,parsep=0pt,label=\textup{\arabic*:}]
+\item \textbf{Input:} startup directive $x_0$; external LLM effector \textsc{Llm}; reward \textsc{Reward}; temperature $T(\cdot)$; period $P$.
+\item \textbf{Output:} evolved aspect graph $N=(A,S,x)$.
+\item \emph{// Genesis: zygote $=$ conserved reflex core $+$ one undifferentiated cortex aspect}
+\item $A_\text{reflex}\gets\textsc{SeedReflex}()$ \quad\emph{(deterministic, fail-closed; excluded from $\Downarrow_\text{slow}$)}
+\item $a_0\gets\textsc{Extract}(x_0)$,\ \ $\mathrm{pc}(a_0)\gets\top$ \quad\emph{(one intent-aligned cortex aspect; matches every joinpoint)}
+\item $N\gets(A_\text{reflex}\cup\{a_0\},\ \varnothing,\ x)$ \quad\emph{(no synapses at genesis)}
+\item \textbf{for} each turn $t$ with joinpoint context $\varphi_t$ \textbf{do}
+\item \hspace{1.2em}\emph{// $\Downarrow_\text{fast}$: one inference step at fixed topology}
+\item \hspace{1.2em}$A_t\gets\{a\in A:\mathrm{pc}(a)\text{ matches }\varphi_t\}$ with activation scores $a_i$
+\item \hspace{1.2em}$\mathit{inj}\gets\textsc{Weave}(\text{top-}k\text{ of }A_t\text{ by }a_i)$;\ \ $y_t\gets\textsc{Llm}(\varphi_t,\mathit{inj})$ under $A_\text{reflex}$ gate
+\item \hspace{1.2em}$r_t\gets\textsc{Reward}(y_t)$,\ \ $b\gets\textsc{Baseline}(\varphi_t)$ \quad\emph{(advantage $=r_t-b$)}
+\item \hspace{1.2em}\emph{// credit assignment, Eq.~\eqref{eq:credit}\, ($\textstyle\sum_a\kappa_a=r_t-b$)}
+\item \hspace{1.2em}\textbf{for} $a\in A_t$:\ \ $e_a\gets\lambda e_a+\alpha\,\mathrm{part}_a$;\ \ $\kappa(a)\mathrel{+}=(r_t-b)\,e_a\,\rho_a$;\ \ $D_a\gets D_a\cup\{(\varphi_t,a_t,r_t)\}$
+\item \hspace{1.2em}\textbf{for} co-active $s\in S$:\ \ $e_s\gets\lambda e_s+\alpha$;\ \ $\kappa(s)\mathrel{+}=(r_t-b)\,e_s$
+\item \hspace{1.2em}\textbf{if} $t\bmod P=0$ \textbf{then} \quad\emph{($\Downarrow_\text{slow}$: morphogenetic rewrite)}
+\item \hspace{2.4em}$\textsc{Reweight}(A,S;\kappa)$;\ \ $\textsc{Connect}(S;\kappa)$;\ \ $\textsc{Prune}(S)$ \quad\emph{(housekeeping; no new symbols)}
+\item \hspace{2.4em}\emph{// generative: morphogen/LLM proposes} where\emph{; $\Delta F$ decides} whether
+\item \hspace{2.4em}$Z_t\gets\textsc{ProposeFeatures}(\varphi_t,y_t,\textsc{Verifier},D)$ \quad\emph{(LLM/heuristic candidates; provisional only)}
+\item \hspace{2.4em}\textbf{for} $a\in A\setminus A_\text{reflex}$ with $H(a)\ge\theta_H$ and $n(a)\ge n_\text{min}$ \textbf{do}
+\item \hspace{3.6em}$\pi\gets\textsc{BestPartition}(D_a\cup Z_t)$ \quad\emph{(maximize $G(a)$ over observed/proposed features; \S\ref{sec:split})}
+\item \hspace{3.6em}\textbf{if} $\textsc{SplitGuard}(a,\pi)\wedge\textsc{Accept}(\Delta F_{\textsc{split}})$ \textbf{then} $\textsc{Split}(a,\pi)$:\ $a\!\to\!a_1,a_2$ with $\mathrm{pc}\wedge\pi,\,\mathrm{pc}\wedge\neg\pi$
+\item \hspace{2.4em}\textbf{for} coalition $K\in\textsc{Coalitions}(\text{co-activation graph})$ \textbf{do}
+\item \hspace{3.6em}\textbf{if} $\textsc{LiftGuard}(K)\wedge\textsc{Accept}(\Delta F_{\textsc{lift}})$ \textbf{then} $\textsc{Lift}(K)$:\ coalition $\to$ higher-order $a^\star$ (\S\ref{sec:lift})
+\item \hspace{2.4em}\textbf{for} near-duplicate $(a_i,a_j)$:\ \textbf{if} $\textsc{Accept}(\Delta F_{\textsc{merge}})$ \textbf{then} $\textsc{Merge}(a_i,a_j)$
+\item \hspace{2.4em}consolidate: lift high-credit aspects into $A_\text{reflex}$; archive cold aspects; clear consumed $D_a$
+\item \textbf{return} $N$
+\item \emph{// \textsc{Accept}$(\Delta F)$: \textbf{true} w.p.\ $\min(1,\exp(-\Delta F/T))$ \,(Metropolis; $T\!\to\!0\Rightarrow$ hard $\Delta F<0$)}
+\end{enumerate}
+\vspace{1pt}\hrule
+\end{algorithm}
+
+%==============================================================
+\section{The \textsc{split} Primitive (worked specification)}
+\label{sec:split}
+%==============================================================
+
+\textsc{split} fires when an aspect is forced to serve two distinguishable
+sub-contexts demanding conflicting advice. Over the buffer $D_a$ define the
+reward heterogeneity $H(a)=\mathrm{Var}_t[r_t]$ and, for the best
+deterministic partition $\pi$ (axis-aligned threshold stumps over each of the
+$d$ features plus the leading principal direction; $O(d\,W\log W)$), the
+variance-reduction gain
+\begin{equation}
+G(a)=\mathrm{Var}[r]-\bigl(p_1\mathrm{Var}[r\mid C_1]+p_2\mathrm{Var}[r\mid C_2]\bigr).
+\end{equation}
+
+\paragraph{Guard (all required).}
+$H(a)\ge\theta_H$; \quad $G(a)/H(a)\ge\theta_\text{sep}$; \quad
+$n(a)\ge n_\text{min}$; \quad $|\bar r_1-\bar r_2|\ge\delta$.
+The separability ratio rejects splitting on irreducible noise; the sample
+and effect-size floors reject splitting on chance.
+
+\paragraph{Rewrite (RHS).}
+Replace $a$ by $a_1,a_2$ with
+$\mathrm{pc}(a_1)=\mathrm{pc}(a)\wedge\pi$,
+$\mathrm{pc}(a_2)=\mathrm{pc}(a)\wedge\neg\pi$; route each incoming synapse to
+the child(ren) whose contexts it drove (split weight when ambiguous, then
+annealed by \textsc{reweight}/\textsc{prune}); both children inherit outgoing
+targets with differentiated gain/advice; children keep named identities
+$\tau(a)\!\mid\!C_1,\ \tau(a)\!\mid\!C_2$.
+
+\paragraph{Score.}
+$\Delta\textsc{Complexity}=L(\pi)+L(\text{node})+L(\text{synapses})$
+(exact). The benefit term has a cheap log-only estimator
+$\Delta\textsc{Error}\approx-\eta\,G(a)$ (variance reduction after credit
+cleaning, computed by replay), calibrated on the cold path by sampled
+counterfactual instantiation. Accept iff
+$\Delta F=\Delta\textsc{Error}+\beta\,\Delta\textsc{Complexity}<0$.
+
+%==============================================================
+\section{The \textsc{lift} Primitive (worked specification)}
+\label{sec:lift}
+%==============================================================
+
+\textsc{lift} is the dual of \textsc{split}: where \textsc{split} differentiates
+one aspect top-down, \textsc{lift} abstracts a recurring \emph{coalition} of
+aspects bottom-up into a higher-order aspect $a^\star$ that cross-cuts
+them---literally an ``aspect-of-aspect.'' It is the move that creates
+\emph{depth}.
+
+Candidate coalitions $K=\{a_1,\dots,a_k\}$ are not enumerated over all subsets;
+they are proposed by cheap community detection / frequent-itemset mining on the
+co-activation graph (the morphogen of Section~\ref{sec:slow}). For a candidate
+$K$ define, over the joint window, the \emph{cohesion}
+$C(K)=P(\text{all }K\text{ active}\mid\text{any }K\text{ active})$ and the
+\emph{synergy}
+\begin{equation}
+S(K)=I(\mathbf{1}_K;\,r)-\sum_{i} I(a_i;\,r)
+\quad\bigl(\text{equivalently } R^2_\text{joint}-R^2_\text{additive}\bigr),
+\end{equation}
+the joint reward-information beyond the additive sum of members. $S(K)>0$ means
+the coalition carries an \emph{interaction} the parts do not---something worth
+abstracting.
+
+\paragraph{Guard (all required).}
+$n(K)\ge n_\text{min}$ (support); \quad $C(K)\ge\theta_\text{coh}$ (they truly
+co-fire); \quad $S(K)\ge\theta_\text{syn}$ (genuine synergy); \quad
+$2\le|K|\le k_\text{max}$; \quad novelty (no existing higher-order aspect
+already covers $K$; otherwise defer to \textsc{merge}).
+
+\paragraph{Rewrite (RHS).}
+Create $a^\star$ with a symbolic identity $\tau(a^\star)$ derived from the
+coalition members' names $\tau(a_1),\dots,\tau(a_k)$; its pointcut
+$\mathrm{pc}(a^\star)$ matches when $K$ co-activates (a threshold/conjunction
+over $K$). Wire bottom-up aggregation edges $a_i\!\to\!a^\star$ and top-down
+modulation edges $a^\star\!\to\!a_i$, seeded from the measured
+co-activation/synergy. Members are \emph{retained} (unlike \textsc{split}, which
+replaces): \textsc{lift} adds a layer. \textbf{Identity initialization:}
+$a^\star$'s coordinating advice/gain starts at the identity (null modulation),
+so $\Downarrow_\text{fast}$ behavior is \emph{unchanged at creation}; $a^\star$
+acquires influence only later via \textsc{reweight} gated by $\Delta F$
+(cf.\ residual/identity initialization in deep networks).
+
+\paragraph{Score.}
+$\Delta\textsc{Complexity}=L(a^\star)+L(\mathrm{pc}^\star)+L(\text{hub edges})-L(\text{prunable lateral edges})$:
+abstraction can \emph{reduce} description length by replacing an $O(k^2)$
+entangled clique among members with $O(k)$ hub edges through $a^\star$. The
+benefit has a cheap log-only estimator $\Delta\textsc{Error}\approx-\eta\,S(K)$
+(the synergy a coordinator can capture), calibrated on the cold path by
+instantiating $a^\star$ with a learned coordinating advice and replaying sampled
+coalition-active turns. Accept iff $\Delta F<0$; given identity initialization,
+the subsequent growth of $a^\star$'s influence is itself $\Delta F$-gated.
+
+\begin{remark}[Lift vs.\ Merge]
+Both respond to co-occurrence, but to opposite regimes. High \emph{redundancy}
+(members duplicate one another; $S(K)\approx0$, high correlation) triggers
+\textsc{merge} (collapse to one); high \emph{synergy} (members distinct yet
+jointly load-bearing; $S(K)>0$) triggers \textsc{lift} (abstract a coordinator
+above them). With \textsc{split}, the three primitives form a complete response
+to the three regimes of reward-conditioned co-statistics: separable variance,
+synergistic coalition, and redundant duplication.
+\end{remark}
+
+%==============================================================
+\section{Properties}
+\label{sec:props}
+%==============================================================
+
+\begin{proposition}[Conservation]
+Every \textsc{split} satisfies \emph{domain conservation}
+$\mathrm{dom}(a_1)\uplus\mathrm{dom}(a_2)=\mathrm{dom}(a)$ and
+\emph{flow conservation} (total in/out weight preserved at creation).
+\end{proposition}
+
+\begin{proposition}[Behavior preservation]
+\textsc{split} is a \emph{refinement}: since
+$\mathrm{pc}(a_1)\vee\mathrm{pc}(a_2)\equiv\mathrm{pc}(a)$ and weight is
+conserved, on any context outside the rewritten region the agent's
+$\Downarrow_\text{fast}$ behavior is unchanged. \textsc{lift} is
+behavior-preserving \emph{at creation} by identity initialization (its
+coordinator has null effect until subsequently reweighted under $\Delta F$).
+Hence both generative primitives change behavior only where doing so lowers $F$.
+\end{proposition}
+
+\begin{proposition}[Replay determinism]
+The tier-1 quantities (eligibility, responsibility from logged scores and
+hard/soft contribution flags, baseline, $\Delta\textsc{Complexity}$, the
+variance-reduction estimator) are fixed functions of the activation/reward
+log. Given the log and constants $(\lambda,\alpha,\beta,T(\cdot))$, the
+structural trajectory is byte-for-byte reproducible. Tier-2 calibration
+introduces stochastic LLM replays and is averaged and seeded.
+\end{proposition}
+
+\begin{remark}[Three timescales]
+$\Downarrow_\text{fast}$ (per turn) runs inference and accumulates
+eligibility; a \emph{warm} loop runs \textsc{reweight}/\textsc{connect}/\textsc{prune};
+a \emph{cold} loop runs \textsc{split}/\textsc{lift}/\textsc{merge} plus tier-2
+calibration and homeostatic normalization. $T$ is annealed (critical
+periods), and freshly created structure is refractory for $\tau_\text{ref}$
+turns to prevent split$\leftrightarrow$merge thrashing.
+\end{remark}
+
+%==============================================================
+\section{Evaluation Plan}
+\label{sec:eval}
+%==============================================================
+
+We preregister five hypotheses (H1--H5) as \textbf{Phase~I internal validity}:
+each mechanism works per spec on graded in-repo fixtures. \textbf{Phase~II}
+(application-level Self-Evolving in coding/OpenClaw scenarios) is deferred;
+the auxiliary demo-tool table below is illustrative, not an external-validity claim.
+
+\subsection{Hypotheses}
+\begin{description}[leftmargin=2.2em,itemsep=2pt]
+\item[H1 (Efficiency).] As the network matures, the rate of external-LLM
+  calls per solved task decreases (symbolic structure absorbs cognition)
+  without loss of task success.
+\item[H2 (Useful differentiation).] Each accepted \textsc{split} reduces
+  reward variance within its child sub-contexts relative to the parent, and
+  improves task reward on those sub-contexts.
+\item[H3 (Credit necessity).] Replacing responsibility-weighted credit
+  (Eq.~\ref{eq:credit}) with pure participation increases the spurious-split
+  rate and degrades final reward.
+\item[H4 (Hard$>$soft reliability).] Behavioral changes mediated by hard
+  (control-flow) aspects are more reliable and more cleanly creditable than
+  those mediated by soft (prompt) aspects; the gap widens with task
+  stochasticity.
+\item[H5 (Bounded self-evolution).] With the conserved core $A_\text{reflex}$
+  and refractory/annealing controls, structural size and reward remain stable
+  (no runaway growth or collapse) over long horizons.
+\end{description}
+
+\subsection{Phase~II protocol: self-evolution capability (H0)}
+\textbf{H0 (primary, deferred).} Through morphogenetic learning alone, with no
+code changes, the agent's competence on application scenarios it was \emph{not}
+hand-built for rises with experience, and the learned structure transfers to
+held-out and cross-domain scenarios---growing toward general competence rather
+than overfitting one task. H1--H5 (Phase~I) are the mechanism ablations that
+explain \emph{why} H0 should hold; passing Phase~I is necessary but not
+sufficient for H0.
+
+\noindent\textbf{Learning curve.} Success/reward versus experience (episodes)
+with \emph{no developer edits} mid-run; the signature of self-evolution is a
+rising curve produced by $\Downarrow_\text{slow}$ alone.
+
+\noindent\textbf{Transfer / generalization.} Evolve on scenario set $A$;
+evaluate frozen structure on held-out members $B$ and on $\geq 1$ cross-domain
+set. A small $A\!\to\!B$ gap is the testable surrogate for ``general'': one
+substrate and one learning law cover new scenarios \emph{without per-scenario
+engineering}.
+
+\noindent\textbf{Decisive baseline.} Beyond the Phase~I baselines, add a
+\emph{developer-effort-matched hand-iterated} agent (a human iterates
+prompts/tools under a fixed effort budget). The headline H0 result is MAN's
+learned curve overtaking the static graph and approaching the hand-iterated
+agent at \emph{near-zero developer effort}---the operational form of ``no
+longer iterated traditionally.''
+
+\noindent\textbf{Breadth and cost.} Report scenario-family \emph{coverage}
+(how many distinct families one substrate$+$law grows into) and
+\emph{cost-to-competence} (samples/compute to a target success), since
+sparse-reward credit assignment (Section~\ref{sec:discussion}) can make the
+curve shallow.
+
+\noindent\emph{Scope.} ``General'' is not claimed literally; it is
+operationalized as transfer across a diverse, held-out benchmark plus
+cross-domain generalization, with breadth reported. Target environment:
+coding / OpenClaw scenarios. \todo{fix scenario benchmark, held-out split,
+cross-domain set, and the hand-iteration effort budget.}
+
+\subsection{Metrics (Phase I)}
+LLM-calls-per-success; task success / reward; within-child reward variance
+ratio (pre/post split); \emph{invalid split rate} on noisy bandit (tier-1
+splits vs.\ uniform-$\rho$ no split); reliability gap $\rho_\text{hard}-\rho_\text{soft}$
+and outcome-variance gap under injected noise; structural edge-span on
+256-row soak; replay-determinism (re-run from log $\Rightarrow$ identical
+tier-1 structure). We do \emph{not} treat \textsc{merge} counts as a paper
+primitive (grammar table only).
+
+\subsection{Task suites}
+Graded in-repo suites (regenerate via
+\texttt{scripts/generate\_morphogenetic\_validation\_data.py}):
+(i) \texttt{r\_t\_bandit.jsonl} (96 rows, partition
+\texttt{zone:alpha}/\texttt{zone:beta}) + \texttt{r\_t\_bandit\_noisy.jsonl};
+(ii) verifiable tool guard (\texttt{demo-tool-block}, 5 commands $\times$ 8
+epochs); (iii) \texttt{r\_t\_soak\_long.jsonl} (256 rows, 8$\times$ bimodal
+replay). External SWE-bench-scale benchmarks remain future work.
+
+\subsection{Baselines and ablations}
+Baselines: (a) static aspect graph (no $\Downarrow_\text{slow}$); (b) weight-only
+plasticity (\textsc{reweight} alone, ablating \textsc{split}/\textsc{lift});
+(c) the underlying LLM with a fixed hand-written prompt; (d) an LLM-only
+agent with no aspect graph.
+Ablations: responsibility off (H3); eligibility horizon
+$\lambda\in\{0,\dots,1\}$; complexity weight $\beta$ sweep; temperature
+schedule on/off; tier-2 calibration on/off; conserved core on/off (H5).
+
+\subsection{Phase I results (internal validity, v0.3)}
+\noindent\emph{Reproduce: \texttt{bash scripts/run-man-paper-experiments.sh};
+primary gate file \texttt{INTERNAL\_VALIDITY.md}; full dump
+\texttt{report.json} (\texttt{raw.internal\_validity}). All H1--H5 + F1--F3
+gates pass on current fixtures.}
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+ID & Claim (abbrev.) & Pass \\
+\midrule
+H1 & CPS decreases, success held & yes \\
+H2 & Split $\downarrow$ variance; bandit lift & yes \\
+H3 & $\rho$ spread; tier-1 split on noisy bandit & yes \\
+H4 & $\rho_\text{hard}>\rho_\text{soft}$; noise sweep & yes \\
+H5 & Soak span bounded; reflex core retained & yes \\
+F1--F3 & Replay, $\lambda$, $\beta$ guards & yes \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Auxiliary tables (demo tool model)}
+
+\input{../../experiments/man_paper/results/latex/main_table.tex}
+
+\begin{center}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Ablation & Success / metric & Spurious-split & Notes \\
+\midrule
+-- responsibility $\rho$ (H3) & 1.00 & 0.72 vs 0.00 & hard$-$soft spread \\
+-- responsibility plasticity & tier-1 split & uniform: no split & noisy + uniform $\rho$ \\
+Tier-1 replay & 1.00 & --- & $|{\rm resid}|<10^{-15}$, hash stable \\
+H4 hard$>$soft ($\rho$) & gap 0.48 & --- & tier-1 on tied activations \\
+Tier-2 LOO & splits 0 vs 0 & --- & $\Delta$ split count \\
+-- conserved reflex (H5) & stable & edge span 0 & reflex on: 2 aspects \\
+H2 bandit lift & 1.00 & --- & $\Delta\bar r = 0.5$ post-partition \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent\textbf{H1 longitudinal (10 epochs):} MAN LLM calls/success
+$2.0 \rightarrow 1.0$; LLM-only flat at $2.33$; static flat at $1.0$.
+
+\input{../../experiments/man_paper/results/latex/lambda_sweep.tex}
+\input{../../experiments/man_paper/results/latex/beta_sweep.tex}
+\input{../../experiments/man_paper/results/latex/h4_noise_sweep.tex}
+
+\subsection{Threats to validity}
+Reward attribution quality bounds split quality (Section~\ref{sec:discussion});
+soft-advice causal estimates are high-variance; feature map $\varphi$ limits
+expressible partitions; long-horizon credit is intrinsically hard. The
+protocol isolates each via the ablations above.
+
+%==============================================================
+\section{Discussion}
+\label{sec:discussion}
+%==============================================================
+
+\paragraph{The central tension.}
+Unifying topology and learning (H-topo) is precisely what removes the
+differentiable search space that makes gradient descent powerful. MAN
+therefore searches over discrete structure, guided by $\Delta F$ rather than
+a gradient. Biology pays for structural learning with evolutionary and
+developmental time and massive parallelism; the open question is whether
+morphogen-guided proposals plus a cheap $\Delta F$ estimator make it
+tractable at useful scale.
+
+\paragraph{The irreducible soft spot.}
+The causal effect of a soft advice on a stochastic LLM cannot be known
+deterministically; counterfactuals only estimate it, with variance. Hence
+\emph{hard}-acting aspects are cleanly creditable while \emph{soft} ones are
+statistical. This re-derives, from the credit side, the soft/hard
+distinction that motivates the framework, and identifies a concrete lever:
+converting soft advice into hard control-flow mediation improves both
+reliability and credit cleanliness in one move.
+
+\paragraph{What MAN is and is not.}
+MAN is a stochastic graph-rewriting system whose rewrite rates are set by a
+variational functional; a readable, governable, growable neuro-symbolic
+substrate that \emph{orchestrates} an LLM. It is not a gradient-trained
+ANN/transformer, and it does not aim to out-reason a monolithic model on raw
+inference; its distinctive value is a transformer one can read, edit, govern,
+and grow at the architecture level, fusing the organ/spinal-cord/cortex
+layers of the original program into one continuous substrate.
+
+%==============================================================
+\section{Conclusion}
+%==============================================================
+
+We recast the unsolved ``synaptic plasticity'' of the aspect-oriented
+biologically inspired program as \emph{structural} plasticity, and gave a
+self-contained formal nucleus---Morphogenetic Aspect Networks---in which an
+agent is a stochastic graph-rewriting system whose structure and inference
+are one variational process. We specified credit assignment, the variational
+selection rule, and both generative primitives (\textsc{split} and
+\textsc{lift}) in full, with conservation and behavior-preservation
+guarantees, and we preregistered a falsifiable
+evaluation protocol. The load-bearing open problems are sharp and named:
+low-variance, low-cost credit estimation, and the acquisition of the feature
+map $\varphi$.
+
+%==============================================================
+\section*{Reproducibility and status}
+%==============================================================
+This is a draft framework paper. Sections~\ref{sec:model}--\ref{sec:props}
+are complete. Section~\ref{sec:eval} Phase~I (internal validity) is filled on
+current fixtures; Phase~II application benchmarks remain future work.
+
+%==============================================================
+\begin{thebibliography}{99}
+%==============================================================
+\bibitem{dijkstra1976} E.~W.~Dijkstra. \emph{A Discipline of Programming}. Prentice-Hall, 1976.
+\bibitem{kiczales1997} G.~Kiczales, J.~Lamping, A.~Mendhekar, et al. Aspect-Oriented Programming. In \emph{ECOOP}, LNCS 1241, 220--242, 1997.
+\bibitem{wang2004waosd} L.~Wang, X.~Tang, L.~Zhang. Aspect-Oriented: a Candidate for the Biologically Inspired Programming Paradigm for Neural Networks and Evolvable Software. In \emph{International Workshop on Aspect-Oriented Software Development (WAOSD'2004)}, Beijing, China, September 2004.
+\bibitem{hoare1985} C.~A.~R.~Hoare. \emph{Communicating Sequential Processes}. Prentice-Hall, 1985.
+\bibitem{milner1999} R.~Milner. \emph{Communicating and Mobile Systems: the $\pi$-calculus}. Cambridge University Press, 1999.
+\bibitem{andrews2001} J.~H.~Andrews. Process-Algebraic Foundations of Aspect-Oriented Programming. In \emph{Reflection}, 187--209, 2001.
+\bibitem{vaswani2017} A.~Vaswani, N.~Shazeer, N.~Parmar, et al. Attention Is All You Need. In \emph{NeurIPS}, 2017.
+\bibitem{shazeer2017} N.~Shazeer, A.~Mirhoseini, K.~Maziarz, et al. Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer. In \emph{ICLR}, 2017.
+\bibitem{stanley2002} K.~O.~Stanley, R.~Miikkulainen. Evolving Neural Networks through Augmenting Topologies. \emph{Evolutionary Computation}, 10(2):99--127, 2002.
+\bibitem{floreano2001} D.~Floreano, J.~Urzelai. Neural Morphogenesis, Synaptic Plasticity, and Evolution. \emph{Theory in Biosciences}, 120:225--240, 2001.
+\bibitem{turing1952} A.~M.~Turing. The Chemical Basis of Morphogenesis. \emph{Phil.\ Trans.\ R.\ Soc.\ B}, 237:37--72, 1952.
+\bibitem{rissanen1978} J.~Rissanen. Modeling by Shortest Data Description. \emph{Automatica}, 14:465--471, 1978.
+\bibitem{friston2010} K.~Friston. The Free-Energy Principle: A Unified Brain Theory? \emph{Nature Reviews Neuroscience}, 11:127--138, 2010.
+\bibitem{suttonbarto2018} R.~S.~Sutton, A.~G.~Barto. \emph{Reinforcement Learning: An Introduction}. 2nd ed., MIT Press, 2018.
+\bibitem{williams1992} R.~J.~Williams. Simple Statistical Gradient-Following Algorithms for Connectionist Reinforcement Learning. \emph{Machine Learning}, 8:229--256, 1992.
+\bibitem{shapley1953} L.~S.~Shapley. A Value for $n$-Person Games. In \emph{Contributions to the Theory of Games II}, 307--317, 1953.
+\bibitem{kahneman2011} D.~Kahneman. \emph{Thinking, Fast and Slow}. Farrar, Straus and Giroux, 2011.
+\bibitem{minsky1986} M.~Minsky. \emph{The Society of Mind}. Simon \& Schuster, 1986.
+\end{thebibliography}
+
+\end{document}

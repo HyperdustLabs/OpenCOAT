@@ -79,13 +79,14 @@ After [PR #77](https://github.com/HyperdustLabs/OpenCOAT/pull/77) (queue `queue_
 
 | Priority | Fork hook / joinpoint | Notes |
 | --- | --- | --- |
-| 1 | `tool_result_persist` | Fork hook is **sync-only** today; needs async or local policy cache before bridge can weave |
+| 1 | `tool_result_persist` | ✅ in-proc sync guard in bridge (v0.3 delivery) |
 | 2 | `reply_run.phase.*` | Native hooks at `ReplyOperation` phase edges (not lifecycle approx) |
-| 3 | `response.before_final` | Unified verifier before channel delivery (beyond `message_sending` cancel) |
-| 4 | `memory.before_write` | Unified memory middleware (compaction hooks are observe-only today) |
+| 3 | `response.before_final` | Partial via `message_sending` verify→repair; unified hook still future |
+| 4 | `memory.before_write` | ✅ `before_message_write` in-proc sync guard |
 | 5 | `queue.before_drain` | Wrap `scheduleFollowupDrain` |
 
-Bridge skipped (fork has hook, hot path): `before_message_write`, `tool_result_persist` until sync/async contract is extended.
+Bridge skipped (install-only): `before_install`. Memory / tool-result sync hooks
+require `inProcReflexToolGuard: true` (see [v0.3 delivery status](../07-mvp/v0.3-delivery-status.md)).
 
 ## Troubleshooting queue guard
 

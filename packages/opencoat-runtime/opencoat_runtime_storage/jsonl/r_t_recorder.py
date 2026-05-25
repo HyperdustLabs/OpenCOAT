@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 from pathlib import Path
+from tempfile import gettempdir
 from typing import Any, TextIO
 
 from opencoat_runtime_core.credit.r_t_record import RtRecord
@@ -60,6 +62,11 @@ class RtJsonlRecorder:
 
 
 def default_r_t_path() -> Path:
+    override = os.environ.get("OPENCOAT_R_T_PATH")
+    if override:
+        return Path(override).expanduser()
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return Path(gettempdir()) / "opencoat" / "r_t.jsonl"
     return Path.home() / ".opencoat" / "r_t.jsonl"
 
 

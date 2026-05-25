@@ -172,3 +172,69 @@ def test_export_all_merges_kinds() -> None:
     out = export_reflex_policies([_demo_tool_block(), queue], action_kind="all")
     kinds = {p["action_kind"] for p in out["policies"]}
     assert kinds == {"tool_call", "queue_enqueue"}
+
+
+def test_export_memory_block_concern() -> None:
+    concern = Concern(
+        id="mem-secret-block",
+        name="block secrets in session JSONL",
+        pointcuts=[
+            PointcutDef(
+                id="pc-mem",
+                joinpoints=["memory.before_write"],
+                match=PointcutMatch(any_keywords=["TOP_SECRET"]),
+            ),
+        ],
+        advices=[
+            AopAdvice(
+                id="adv-block",
+                kind=AdviceKind.BEFORE,
+                pointcut_ref="pc-mem",
+                content="Secrets must not be persisted.",
+                template=AdviceType.MEMORY_WRITE_GUARD,
+                effect=WeavingPolicy(
+                    mode=WeavingOperation.BLOCK,
+                    level=WeavingLevel.MEMORY_LEVEL,
+                    target="memory_write.content",
+                ),
+            ),
+        ],
+    )
+    out = export_reflex_policies([concern], action_kind="memory_write")
+    assert len(out["policies"]) == 1
+    row = out["policies"][0]
+    assert row["action_kind"] == "memory_write"
+    assert row.get("effect", "deny") == "deny"
+
+
+def test_export_message_rewrite_concern() -> None:
+    concern = Concern(
+        id="msg-leak-repair",
+        name="repair outbound leaks",
+        pointcuts=[
+            PointcutDef(
+                id="pc-msg",
+                joinpoints=["response.before_final"],
+                match=PointcutMatch(any_keywords=["LEAK_ME"]),
+            ),
+        ],
+        advices=[
+            AopAdvice(
+                id="adv-rewrite",
+                kind=AdviceKind.BEFORE,
+                pointcut_ref="pc-msg",
+                content="[OpenCOAT repaired outbound]",
+                template=AdviceType.REWRITE_GUIDANCE,
+                effect=WeavingPolicy(
+                    mode=WeavingOperation.REWRITE,
+                    level=WeavingLevel.PROMPT_LEVEL,
+                    target="runtime_prompt.output",
+                ),
+            ),
+        ],
+    )
+    out = export_reflex_policies([concern], action_kind="message_out")
+    assert len(out["policies"]) == 1
+    row = out["policies"][0]
+    assert row["effect"] == "rewrite"
+    assert row["rewrite_content"] == "[OpenCOAT repaired outbound]"

@@ -146,7 +146,7 @@ def _long_lived(concern: Concern) -> bool:
     if any(x in gtype for x in ("policy", "persona", "governance", "safety")):
         return True
     origin = concern.source.origin if concern.source else ""
-    return origin in ("manual_import", "host_explicit_plan", "system_default")
+    return origin in ("manual_import", "host_explicit_plan", "intent_alignment", "system_default")
 
 
 def _merge_preserve_customizations(existing: Concern, enriched: Concern) -> Concern:

@@ -15,7 +15,7 @@ import {
   submitJoinpoint,
   textPayload,
 } from "./daemon.js";
-import { HOOK_BINDINGS, SKIPPED_HOOKS } from "./hook-bindings.js";
+import { HOOK_BINDINGS, SKIPPED_HOOKS, SYNC_HOOK_BINDINGS } from "./hook-bindings.js";
 import {
   foldPromptInjection,
   guardToolCall,
@@ -54,8 +54,13 @@ import {
   failClosedSpawnGuard,
   failClosedToolGuard,
   reflexDenyDecision,
+  reflexMessageGuardDecision,
   reflexToolGuardDecision,
 } from "./reflex-tool-guard.js";
+import {
+  handleBeforeMessageWriteSync,
+  handleToolResultPersistSync,
+} from "./sync-reflex-guards.js";
 import {
   installRuntimeObservers,
   recordQueueDepthSnapshot,
@@ -346,18 +351,21 @@ async function handleHook(
           const e = asRecord(event);
           const content = typeof e.content === "string" ? e.content : "";
           const action = buildPayloadAction("message_out", { content, ...payload });
-          const decision = reflexDenyDecision(
+          const decision = reflexMessageGuardDecision(
             runtime.monitor,
             action,
             buildReflexState(c),
           );
-          if (decision.block) {
+          if (decision.cancel) {
             return {
               cancel: true,
               content:
-                decision.blockReason ??
+                decision.content ??
                 "Blocked by OpenCOAT ReflexMonitor (message_out).",
             };
+          }
+          if (typeof decision.content === "string") {
+            return { content: decision.content };
           }
           return {};
         }
@@ -539,6 +547,24 @@ export default function register(api: BridgePluginApi): void {
     );
   }
 
+  if (inProcReflexEnabled(cfg)) {
+    for (const binding of SYNC_HOOK_BINDINGS) {
+      api.on(binding.hook, (event: unknown, ctx: unknown) => {
+        if (binding.kind === "memory_write") {
+          return handleBeforeMessageWriteSync(cfg, reflexState.runtime, event, ctx);
+        }
+        if (binding.kind === "tool_result_persist") {
+          return handleToolResultPersistSync(cfg, reflexState.runtime, event, ctx);
+        }
+        return undefined;
+      });
+    }
+  }
+
+  const syncNote = inProcReflexEnabled(cfg)
+    ? ` + ${SYNC_HOOK_BINDINGS.length} sync`
+    : "";
+
   if (cfg.runtimeObservers) {
     installRuntimeObservers(api, cfg, createObserveEmitter(cfg, api.logger));
   }
@@ -547,12 +573,12 @@ export default function register(api: BridgePluginApi): void {
     ? "; runtime observers on (agent events + queue/task poll)"
     : "";
   api.logger?.info?.(
-    `[opencoat-bridge] registered ${HOOK_BINDINGS.length} hooks ` +
+    `[opencoat-bridge] registered ${HOOK_BINDINGS.length} hooks${syncNote} ` +
       `(skipped: ${SKIPPED_HOOKS.join(", ")}; daemon=${
         cfg.enabled ? cfg.daemonUrl : "disabled"
       }${observerNote}${
         inProcReflexEnabled(cfg)
-          ? "; in-proc ReflexMonitor (tool/spawn/message/queue)"
+          ? "; in-proc ReflexMonitor (tool/spawn/message/queue/memory)"
           : ""
       }${cfg.emitRtJsonl ? "; r_t JSONL emit" : ""})`,
   );

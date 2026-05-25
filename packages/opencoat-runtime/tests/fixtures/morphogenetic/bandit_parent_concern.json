@@ -1,0 +1,105 @@
+{
+  "id": "paper.bandit-parent",
+  "kind": "concern",
+  "neuron_type": "excitatory",
+  "reflex": false,
+  "generated_type": null,
+  "generated_tags": [],
+  "name": "Paper bandit parent (splittable)",
+  "description": "",
+  "source": null,
+  "chain_ref": null,
+  "joinpoint_selectors": [],
+  "pointcut": {
+    "joinpoints": [
+      "before_tool_call"
+    ],
+    "match": {
+      "any_keywords": [
+        "zone:alpha",
+        "zone:beta"
+      ],
+      "all_keywords": null,
+      "regex": null,
+      "semantic_intent": null,
+      "structure": null,
+      "confidence": null,
+      "risk": null,
+      "history": null,
+      "claim": null
+    },
+    "context_predicates": []
+  },
+  "advice": {
+    "type": "reasoning_guidance",
+    "content": "context bandit",
+    "rationale": null,
+    "max_tokens": null,
+    "params": null
+  },
+  "weaving_policy": {
+    "mode": "insert",
+    "level": "prompt_level",
+    "target": "prompt.system",
+    "max_tokens": 200,
+    "priority": 0.5
+  },
+  "pointcuts": [
+    {
+      "id": "pc-bandit",
+      "expression": "before_tool_call()",
+      "joinpoints": [
+        "before_tool_call"
+      ],
+      "match": {
+        "any_keywords": [
+          "zone:alpha",
+          "zone:beta"
+        ],
+        "all_keywords": null,
+        "regex": null,
+        "semantic_intent": null,
+        "structure": null,
+        "confidence": null,
+        "risk": null,
+        "history": null,
+        "claim": null
+      },
+      "context_predicates": []
+    }
+  ],
+  "advices": [
+    {
+      "id": "adv-bandit",
+      "kind": "before",
+      "pointcut_ref": "pc-bandit",
+      "content": "context bandit",
+      "template": "reasoning_guidance",
+      "rationale": null,
+      "max_tokens": null,
+      "params": null,
+      "effect": {
+        "mode": "insert",
+        "level": "prompt_level",
+        "target": "prompt.system",
+        "max_tokens": 200,
+        "priority": 0.5
+      }
+    }
+  ],
+  "declarations": [],
+  "graph_edges": [],
+  "scope": null,
+  "relations": [],
+  "activation_state": null,
+  "lifecycle_state": "created",
+  "metrics": {
+    "activations": 0,
+    "satisfied": 0,
+    "violated": 0,
+    "tokens_used": 0
+  },
+  "created_at": null,
+  "updated_at": null,
+  "schema_version": "0.1.0"
+}

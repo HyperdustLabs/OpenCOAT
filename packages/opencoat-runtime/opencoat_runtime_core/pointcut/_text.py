@@ -22,7 +22,7 @@ def extract_text(jp: JoinpointEvent) -> str:
     """
     payload = jp.payload or {}
     parts: list[str] = []
-    for key in ("raw_text", "text", "content", "token"):
+    for key in ("raw_text", "text", "content", "token", "command"):
         value = payload.get(key)
         if isinstance(value, str) and value:
             parts.append(value)

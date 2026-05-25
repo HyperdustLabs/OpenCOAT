@@ -61,7 +61,7 @@ A = A_reflex ⊎ A_cortex
 | aspect id | 挂载点 | 默认裁决 fail mode | **Current (2026-05)** |
 |---|---|---|---|
 | `reflex.tool_guard` | `tool.before_call` | deny | **collaborative** — bridge `tool_guard` + daemon RPC |
-| `reflex.memory_guard` | `memory.before_write` | deny | **skipped** — sync hot path; pending in-proc TCB |
+| `reflex.memory_guard` | `memory.before_write` | deny / rewrite | **in-proc sync** — `before_message_write` + `tool_result_persist` |
 | `reflex.response_verifier` | `response.before_final` | allow* | **collaborative** — `message_sending` outbound cancel |
 | `reflex.spawn_guard` | `task.before_create` / subagent spawn | deny | **collaborative** — spawn veto via bridge |
 | `reflex.queue_guard` | `queue.before_enqueue` | allow | **partial — fork hook + bridge `queue_guard` (collaborative)** block/rewrite |

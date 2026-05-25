@@ -150,7 +150,7 @@ def activation_keywords(concern: Concern, *, limit: int = 12) -> list[str]:
 def _origin_joinpoints(origin: str, defaults: tuple[str, ...]) -> tuple[str, ...]:
     if origin == "tool_result" and "before_tool_call" not in defaults:
         return (*defaults, "before_tool_call")
-    if origin in ("manual_import", "host_explicit_plan", "system_default"):
+    if origin in ("manual_import", "host_explicit_plan", "intent_alignment", "system_default"):
         extras = [jp for jp in ("on_user_input", "before_tool_call") if jp not in defaults]
         return (*defaults, *extras)
     return defaults

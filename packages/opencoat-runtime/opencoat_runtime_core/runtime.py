@@ -148,6 +148,10 @@ class OpenCOATRuntime:
         return self._dcn_store
 
     @property
+    def joinpoint_pipeline(self) -> JoinpointPipeline:
+        return self._joinpoint_pipeline
+
+    @property
     def llm(self) -> LLMClient:
         """Read-only access to the wired LLM client.
 

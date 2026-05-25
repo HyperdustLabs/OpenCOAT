@@ -31,6 +31,19 @@ function compileOne(spec: ReflexPolicySpec): ReflexPolicy {
     reason: spec.deny_reason,
   });
 
+  const rewrite = (action: Action): Decision => ({
+    kind: "rewrite",
+    policy_id: spec.id,
+    reason: spec.deny_reason,
+    action: {
+      ...action,
+      args: {
+        ...action.args,
+        content: spec.rewrite_content ?? spec.deny_reason,
+      },
+    },
+  });
+
   return {
     id: spec.id,
     criticality: spec.criticality,
@@ -47,6 +60,9 @@ function compileOne(spec: ReflexPolicySpec): ReflexPolicy {
     },
     decide(action: Action, state: State): Decision {
       if (!this.applies(action, state)) return { kind: "allow" };
+      if (spec.effect === "rewrite" && spec.rewrite_content) {
+        return rewrite(action);
+      }
       return deny();
     },
   };

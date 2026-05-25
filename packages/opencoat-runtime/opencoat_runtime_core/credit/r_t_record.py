@@ -65,6 +65,9 @@ def reward_from_signal(signal: RtSignal) -> float:
     if signal.kind == "turn_complete":
         if signal.error:
             return 0.0
+        payload = signal.payload if isinstance(signal.payload, dict) else {}
+        if "reward" in payload:
+            return float(payload["reward"])
         return 1.0
     return 0.0
 

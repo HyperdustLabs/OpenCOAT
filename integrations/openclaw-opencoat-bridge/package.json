@@ -1,6 +1,6 @@
 {
   "name": "@hyperdustlabs/opencoat-bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "OpenClaw gateway plugin — forwards lifecycle hooks to OpenCOAT daemon joinpoint.submit",
@@ -13,7 +13,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test dist/messages.test.js dist/hook-bindings.test.js dist/injector.test.js dist/runtime-observers.test.js dist/reflex-monitor.test.js dist/reflex-tool-guard.test.js dist/r-t-emit.test.js",
+    "test": "npm run build && node --test dist/messages.test.js dist/hook-bindings.test.js dist/injector.test.js dist/runtime-observers.test.js dist/reflex-monitor.test.js dist/reflex-tool-guard.test.js dist/r-t-emit.test.js dist/message-text.test.js dist/sync-reflex-guards.test.js",
     "prepare": "npm run build"
   },
   "devDependencies": {

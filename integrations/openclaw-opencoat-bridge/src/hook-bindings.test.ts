@@ -1,11 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { HOOK_BINDINGS, SKIPPED_HOOKS } from "./hook-bindings.js";
+import { HOOK_BINDINGS, SKIPPED_HOOKS, SYNC_HOOK_BINDINGS } from "./hook-bindings.js";
 
 describe("hook-bindings", () => {
   it("registers async-safe plugin hooks plus native queue hooks", () => {
     assert.equal(HOOK_BINDINGS.length, 29);
-    assert.equal(SKIPPED_HOOKS.length, 3);
+    assert.equal(SYNC_HOOK_BINDINGS.length, 2);
+    assert.equal(SKIPPED_HOOKS.length, 1);
   });
 
   it("has unique hook names", () => {

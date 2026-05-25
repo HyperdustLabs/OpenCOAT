@@ -568,6 +568,7 @@ class TestByOriginDispatch:
     def test_supported_origins_is_the_v01_catalog(self) -> None:
         assert ConcernExtractor.supported_origins() == (
             "manual_import",
+            "intent_alignment",
             "user_input",
             "tool_result",
             "draft_output",

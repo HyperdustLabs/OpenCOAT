@@ -1,0 +1,103 @@
+{
+  "phase": "phase_ii_diagnostic",
+  "llm": {
+    "label": "bai/gpt-5.2",
+    "is_stub": false
+  },
+  "family": "coding_train",
+  "feature_axis": "scenario_id",
+  "scenarios": 2,
+  "success_rate": 0.5,
+  "mean_reward": 0.75,
+  "bootstrap": {
+    "bootstrap_score": 0.5750000000000001,
+    "bootstrap_buffer": 2,
+    "bootstrap_activations": 2,
+    "bootstrap_state": "reinforced"
+  },
+  "connectome": {
+    "aspects": 2,
+    "edges": 0,
+    "edges_by_relation": {},
+    "reflex_core": [
+      "h0.conserved.fail-closed"
+    ],
+    "buffer_concerns": 1,
+    "eligibility": {
+      "aspect": {
+        "concern_self_evolving_agent_rmsp": 1.5390000000000001
+      },
+      "synapse": {}
+    },
+    "last_conservation_residual": 0.0
+  },
+  "split_guard_reason": "n(concern_self_evolving_agent_rmsp)=2 < n_min=24",
+  "traces": [
+    {
+      "scenario_id": "ct-json",
+      "variant_id": "base",
+      "family": "coding_train",
+      "user_text": "How do I parse a JSON string in Python?",
+      "ok": false,
+      "last_rollout_ok": false,
+      "reward": 0.5,
+      "llm_calls": 2,
+      "active_concerns": [
+        {
+          "concern_id": "concern_self_evolving_agent_rmsp",
+          "activation_score": 0.81
+        }
+      ],
+      "injections": [
+        {
+          "concern_id": "concern_self_evolving_agent_rmsp",
+          "advice_type": "reasoning_guidance",
+          "content": "Adopt the operating mode of a self-evolving agent that adapts its internal structures/strategies using reward-modulated structural plasticity, leveraging an external-reasoning LLM process to guide and refine behavior over time."
+        }
+      ],
+      "verifications": [
+        {
+          "concern_id": "concern_self_evolving_agent_rmsp",
+          "satisfied": false,
+          "score": 0.5,
+          "notes": "no verification advice",
+          "evidence": {}
+        }
+      ],
+      "response": "Use Python\u2019s built-in `json` module.\n\n```python\nimport json\n\ns = '{\"name\": \"Ada\", \"age\": 36, \"active\": true, \"scores\": [10, 20]}'\ndata = json.loads(s)   # JSON string -> Python object (dict/list/etc.)\n\nprint(data[\"name\"])    # \"Ada\"\nprint(data[\"scores\"])  # [10, 20]\n```\n\nNotes:\n- `json.loads()` parses a **string**.  \n- `json.load()` parses JSON from a **file-like object**:\n\n```python\nimport json\n\nwith open(\"data.json\", \"r\", encoding=\"utf-8\") as f:\n    data = json.load(f)\n```"
+    },
+    {
+      "scenario_id": "ct-fib",
+      "variant_id": "base",
+      "family": "coding_train",
+      "user_text": "Write a recursive Fibonacci function in Python.",
+      "ok": true,
+      "last_rollout_ok": true,
+      "reward": 1.0,
+      "llm_calls": 2,
+      "active_concerns": [
+        {
+          "concern_id": "concern_self_evolving_agent_rmsp",
+          "activation_score": 0.81
+        }
+      ],
+      "injections": [
+        {
+          "concern_id": "concern_self_evolving_agent_rmsp",
+          "advice_type": "reasoning_guidance",
+          "content": "Adopt the operating mode of a self-evolving agent that adapts its internal structures/strategies using reward-modulated structural plasticity, leveraging an external-reasoning LLM process to guide and refine behavior over time."
+        }
+      ],
+      "verifications": [
+        {
+          "concern_id": "concern_self_evolving_agent_rmsp",
+          "satisfied": false,
+          "score": 0.5,
+          "notes": "no verification advice",
+          "evidence": {}
+        }
+      ],
+      "response": "```python\ndef fib(n: int) -> int:\n    if n < 0:\n        raise ValueError(\"n must be non-negative\")\n    if n < 2:          # fib(0)=0, fib(1)=1\n        return n\n    return fib(n - 1) + fib(n - 2)\n```"
+    }
+  ]
+}

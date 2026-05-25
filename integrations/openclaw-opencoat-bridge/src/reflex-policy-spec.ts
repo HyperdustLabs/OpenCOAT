@@ -6,7 +6,11 @@ export type ReflexActionKind =
   | "tool_call"
   | "spawn"
   | "message_out"
-  | "queue_enqueue";
+  | "queue_enqueue"
+  | "memory_write"
+  | "tool_result_persist";
+
+export type ReflexPolicyEffect = "deny" | "rewrite";
 
 export type ReflexPolicySpec = {
   id: string;
@@ -14,6 +18,9 @@ export type ReflexPolicySpec = {
   action_kind: ReflexActionKind;
   predicate: ReflexPredicateSpec;
   deny_reason: string;
+  /** Default ``deny``. ``rewrite`` requires ``rewrite_content``. */
+  effect?: ReflexPolicyEffect;
+  rewrite_content?: string;
 };
 
 export type ReflexPredicateSpec =
@@ -37,6 +44,8 @@ const ACTION_KINDS = new Set<ReflexActionKind>([
   "spawn",
   "message_out",
   "queue_enqueue",
+  "memory_write",
+  "tool_result_persist",
 ]);
 
 export function parseReflexPolicyExport(raw: unknown): ReflexPolicyExport | null {
@@ -78,12 +87,20 @@ export function parseReflexPolicyExport(raw: unknown): ReflexPolicyExport | null
     }
     if (!predicate) continue;
 
+    const effect =
+      p.effect === "rewrite" || p.effect === "deny" ? p.effect : undefined;
+    const rewrite_content =
+      typeof p.rewrite_content === "string" ? p.rewrite_content : undefined;
+    if (effect === "rewrite" && !rewrite_content?.trim()) continue;
+
     policies.push({
       id: p.id,
       criticality: p.criticality,
       action_kind: p.action_kind as ReflexActionKind,
       predicate,
       deny_reason: p.deny_reason,
+      ...(effect ? { effect } : {}),
+      ...(rewrite_content ? { rewrite_content } : {}),
     });
   }
 
