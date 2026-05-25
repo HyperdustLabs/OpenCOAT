@@ -67,6 +67,18 @@ class JoinpointAutomation(BaseModel):
     extract_min_message_chars: int = Field(default=24, ge=1)
 
 
+class ConnectomeRouting(BaseModel):
+    """Architecture (ii): synapse-weighted multi-neuron routing (MoE buckets)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(default=True)
+    synapse_gain: float = Field(default=0.35, ge=0.0, le=1.0)
+    hub_boost: float = Field(default=0.25, ge=0.0, le=1.0)
+    moe_per_bucket: int = Field(default=6, ge=1)
+    min_route_score: float = Field(default=0.02, ge=0.0, le=1.0)
+
+
 class RuntimeConfig(BaseModel):
     """Top-level runtime configuration.
 
@@ -80,3 +92,4 @@ class RuntimeConfig(BaseModel):
     loops: RuntimeLoops = Field(default_factory=RuntimeLoops)
     budgets: RuntimeBudgets = Field(default_factory=RuntimeBudgets)
     joinpoint_automation: JoinpointAutomation = Field(default_factory=JoinpointAutomation)
+    connectome: ConnectomeRouting = Field(default_factory=ConnectomeRouting)

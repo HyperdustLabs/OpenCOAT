@@ -25,6 +25,7 @@ Design notes
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from opencoat_runtime_protocol import (
@@ -37,7 +38,10 @@ from opencoat_runtime_protocol import (
 
 from ..concern.executable import has_executable_pointcut, primary_pointcut
 from ..config import RuntimeConfig
+from ..connectome.router import ConnectomeRouter, ConnectomeRoutingConfig, joinpoint_bucket
 from ..coordinator import ConcernCoordinator
+from ..credit.attribution import ActiveAspect
+from ..credit.eligibility import EligibilityField
 from ..ports import (
     AdvicePlugin,
     ConcernStore,
@@ -63,6 +67,7 @@ class JoinpointPipeline:
         weaver: ConcernWeaver,
         advice_plugin: AdvicePlugin,
         observer: Observer | None = None,
+        router: ConnectomeRouter | None = None,
     ) -> None:
         self._config = config
         self._concern_store = concern_store
@@ -72,8 +77,38 @@ class JoinpointPipeline:
         self._weaver = weaver
         self._advice_plugin = advice_plugin
         self._observer = observer or NullObserver()
+        routing = config.connectome
+        self._router = router or ConnectomeRouter(
+            ConnectomeRoutingConfig(
+                enabled=routing.enabled,
+                synapse_gain=routing.synapse_gain,
+                hub_boost=routing.hub_boost,
+                moe_per_bucket=routing.moe_per_bucket,
+                min_route_score=routing.min_route_score,
+            )
+        )
+        self._coactivation_recorder: Callable[[str, list[str]], None] | None = None
+        self._activation_recorder: Callable[[str, list[ActiveAspect]], None] | None = None
+        self._eligibility: EligibilityField | None = None
         self._last_vector: ConcernVector | None = None
         self._last_injection: ConcernInjection | None = None
+
+    def set_coactivation_recorder(
+        self,
+        recorder: Callable[[str, list[str]], None] | None,
+    ) -> None:
+        """Register callback for weave co-activation (architecture ii graph growth)."""
+        self._coactivation_recorder = recorder
+
+    def set_activation_recorder(
+        self,
+        recorder: Callable[[str, list[ActiveAspect]], None] | None,
+    ) -> None:
+        """Register callback for paper §3 multi-aspect ``ρ`` attribution."""
+        self._activation_recorder = recorder
+
+    def set_eligibility_field(self, field: EligibilityField | None) -> None:
+        self._eligibility = field
 
     def run(
         self,
@@ -98,6 +133,13 @@ class JoinpointPipeline:
             joinpoint=joinpoint.name,
         ):
             candidates = list(self._scan_candidates(joinpoint, ctx))
+            candidates = self._router.route(
+                joinpoint,
+                candidates,
+                concern_store=self._concern_store,
+                dcn_store=self._dcn_store,
+                eligibility=self._eligibility,
+            )
             self._observer.on_metric(
                 "opencoat.weave.candidates",
                 float(len(candidates)),
@@ -133,6 +175,7 @@ class JoinpointPipeline:
             self._last_injection = injection
 
             self._record_activations(joinpoint, vector, injection)
+            self._notify_coactivation(joinpoint, vector, weave_id=weave_id)
             self._emit_telemetry(joinpoint, vector, injection)
 
             return injection
@@ -159,6 +202,20 @@ class JoinpointPipeline:
             candidates = self._scan_candidates_surface(
                 joinpoints, weave_id, root.host_round_id, base_ctx
             )
+            flat = [(c, s) for c, s, _ in candidates]
+            routed = self._router.route(
+                root,
+                flat,
+                concern_store=self._concern_store,
+                dcn_store=self._dcn_store,
+                eligibility=self._eligibility,
+            )
+            route_scores = {c.id: s for c, s in routed}
+            candidates = [
+                (c, route_scores.get(c.id, s), jp)
+                for c, s, jp in candidates
+                if c.id in route_scores
+            ]
             self._observer.on_metric(
                 "opencoat.weave.candidates",
                 float(len(candidates)),
@@ -205,6 +262,7 @@ class JoinpointPipeline:
                 injection,
                 activation_joinpoint_ids=activation_jps,
             )
+            self._notify_coactivation(root, vector, weave_id=weave_id)
             self._emit_telemetry(root, vector, injection)
             return injection
 
@@ -215,6 +273,41 @@ class JoinpointPipeline:
     @property
     def last_injection(self) -> ConcernInjection | None:
         return self._last_injection
+
+    def route_joinpoint(
+        self,
+        joinpoint: JoinpointEvent,
+        *,
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Pointcut scan + connectome route trace (architecture ii debug RPC)."""
+        weave_id = self._mint_weave_id(joinpoint)
+        ctx = self._build_context(
+            joinpoint,
+            context,
+            weave_id=weave_id,
+            host_round_id=joinpoint.host_round_id,
+        )
+        hits = self._scan_candidates(joinpoint, ctx)
+        routed = self._router.route(
+            joinpoint,
+            hits,
+            concern_store=self._concern_store,
+            dcn_store=self._dcn_store,
+        )
+        trace = self._router.route_debug(
+            joinpoint,
+            hits,
+            concern_store=self._concern_store,
+            dcn_store=self._dcn_store,
+        )
+        return {
+            "joinpoint": joinpoint.name,
+            "bucket": joinpoint_bucket(joinpoint.name),
+            "pointcut_hits": len(hits),
+            "routed": [{"concern_id": c.id, "route_score": s} for c, s in routed],
+            "trace": trace,
+        }
 
     def _scan_candidates(
         self,
@@ -305,6 +398,48 @@ class JoinpointPipeline:
                     error=repr(exc),
                 )
         return advices
+
+    def _notify_coactivation(
+        self,
+        joinpoint: JoinpointEvent,
+        vector: ConcernVector,
+        *,
+        weave_id: str,
+    ) -> None:
+        if not vector.active_concerns:
+            return
+        turn_key = joinpoint.host_round_id or weave_id
+        ids = [a.concern_id for a in vector.active_concerns]
+        if self._coactivation_recorder is not None:
+            try:
+                self._coactivation_recorder(turn_key, ids)
+            except Exception as exc:
+                self._observer.on_log(
+                    "warning",
+                    "coactivation recorder failed",
+                    error=repr(exc),
+                )
+        if self._activation_recorder is None:
+            return
+        activations: list[ActiveAspect] = []
+        for active in vector.active_concerns:
+            concern = self._concern_store.get(active.concern_id)
+            hard = bool(concern.reflex) if concern is not None else False
+            activations.append(
+                ActiveAspect(
+                    concern_id=active.concern_id,
+                    activation_score=active.activation_score,
+                    hard=hard,
+                )
+            )
+        try:
+            self._activation_recorder(turn_key, activations)
+        except Exception as exc:
+            self._observer.on_log(
+                "warning",
+                "activation recorder failed",
+                error=repr(exc),
+            )
 
     def _record_activations(
         self,

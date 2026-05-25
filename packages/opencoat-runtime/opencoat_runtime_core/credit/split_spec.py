@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import math
+import re
 from dataclasses import dataclass
 
 from opencoat_runtime_core.credit.delta_f import DeltaFResult, evaluate_delta_f
 from opencoat_runtime_core.credit.rt_buffer import ConcernRtBuffer, RtSample
+
+_TOKEN_RE = re.compile(r"[a-zA-Z][a-zA-Z0-9_-]{1,31}")
 
 
 @dataclass(frozen=True)
@@ -26,6 +30,7 @@ class SplitGuardResult:
     partition: SplitPartition | None
     delta_f: DeltaFResult | None
     reason: str = ""
+    acceptance_sample: float | None = None
 
 
 def reward_variance(samples: list[RtSample]) -> float:
@@ -55,64 +60,114 @@ def separability_gain(samples: list[RtSample], partition: SplitPartition) -> flo
     return _variance(all_r) - (p1 * _variance(left_r) + p2 * _variance(right_r))
 
 
-def find_best_axis_partition(samples: list[RtSample]) -> SplitPartition | None:
-    """Deterministic axis-aligned split over feature tokens (O(d·W))."""
-    if len(samples) < 4:
+def _feature_tokens(feature: str) -> frozenset[str]:
+    return frozenset(_TOKEN_RE.findall(feature.lower()))
+
+
+def is_categorical_feature_axis(samples: list[RtSample]) -> bool:
+    """Low-cardinality stimulus labels (scenario id, tool class), not free text."""
+    feats = [s.feature for s in samples if s.feature]
+    if not feats:
+        return False
+    n = len(feats)
+    n_unique = len(set(feats))
+    max_len = max(len(f) for f in feats)
+    if max_len > 64:
+        return False
+    if n_unique <= max(4, n // 2):
+        return True
+    return n_unique / n <= 0.35
+
+
+def _partition_from_indices(
+    samples: list[RtSample],
+    *,
+    axis: str,
+    threshold: str,
+    left_idx: tuple[int, ...],
+    right_idx: tuple[int, ...],
+) -> SplitPartition | None:
+    if not left_idx or not right_idx:
         return None
+    left_r = [samples[i].r for i in left_idx]
+    right_r = [samples[i].r for i in right_idx]
+    part = SplitPartition(
+        axis=axis,
+        threshold=threshold,
+        left_indices=left_idx,
+        right_indices=right_idx,
+        separability_gain=0.0,
+        reward_variance=reward_variance(samples),
+        mean_left=sum(left_r) / len(left_r),
+        mean_right=sum(right_r) / len(right_r),
+    )
+    return part.__class__(
+        **{**part.__dict__, "separability_gain": separability_gain(samples, part)}
+    )
+
+
+def _partition_categorical_exact(samples: list[RtSample]) -> SplitPartition | None:
+    """One stimulus class vs the rest (equality on ``feature``, not substring)."""
     features = sorted({s.feature for s in samples if s.feature})
-    if not features:
-        features = ["_"]
+    best: SplitPartition | None = None
+    for feat in features:
+        left_idx = tuple(i for i, s in enumerate(samples) if s.feature == feat)
+        right_idx = tuple(i for i, s in enumerate(samples) if s.feature != feat)
+        part = _partition_from_indices(
+            samples, axis=feat, threshold=feat, left_idx=left_idx, right_idx=right_idx
+        )
+        if part is None:
+            continue
+        if best is None or part.separability_gain > best.separability_gain:
+            best = part
+    return best
+
+
+def _partition_token_axes(samples: list[RtSample]) -> SplitPartition | None:
+    """Token presence axes for longer features (avoids 1-vs-(n−1) unique-string collapse)."""
+    token_hits: dict[str, list[int]] = {}
+    for i, sample in enumerate(samples):
+        for tok in _feature_tokens(sample.feature):
+            token_hits.setdefault(tok, []).append(i)
 
     best: SplitPartition | None = None
-    for axis in features:
-        if axis == "_":
-            left_idx = tuple(range(len(samples) // 2))
-            right_idx = tuple(range(len(samples) // 2, len(samples)))
-            left_r = [samples[i].r for i in left_idx]
-            right_r = [samples[i].r for i in right_idx]
-            part = SplitPartition(
-                axis="_index",
-                threshold=str(len(samples) // 2),
-                left_indices=left_idx,
-                right_indices=right_idx,
-                separability_gain=0.0,
-                reward_variance=reward_variance(samples),
-                mean_left=sum(left_r) / max(len(left_r), 1),
-                mean_right=sum(right_r) / max(len(right_r), 1),
-            )
-            part = part.__class__(
-                **{
-                    **part.__dict__,
-                    "separability_gain": separability_gain(samples, part),
-                }
-            )
-            if best is None or part.separability_gain > best.separability_gain:
-                best = part
+    for tok in sorted(token_hits):
+        left_set = set(token_hits[tok])
+        left_idx = tuple(sorted(left_set))
+        right_idx = tuple(i for i in range(len(samples)) if i not in left_set)
+        part = _partition_from_indices(
+            samples, axis=f"token:{tok}", threshold=tok, left_idx=left_idx, right_idx=right_idx
+        )
+        if part is None:
             continue
-
-        for feat in features:
-            left_idx = tuple(i for i, s in enumerate(samples) if feat in s.feature)
-            right_idx = tuple(i for i, s in enumerate(samples) if feat not in s.feature)
-            if not left_idx or not right_idx:
-                continue
-            left_r = [samples[i].r for i in left_idx]
-            right_r = [samples[i].r for i in right_idx]
-            part = SplitPartition(
-                axis=feat,
-                threshold=feat,
-                left_indices=left_idx,
-                right_indices=right_idx,
-                separability_gain=0.0,
-                reward_variance=reward_variance(samples),
-                mean_left=sum(left_r) / len(left_r),
-                mean_right=sum(right_r) / len(right_r),
-            )
-            part = part.__class__(
-                **{**part.__dict__, "separability_gain": separability_gain(samples, part)}
-            )
-            if best is None or part.separability_gain > best.separability_gain:
-                best = part
+        if best is None or part.separability_gain > best.separability_gain:
+            best = part
     return best
+
+
+def find_best_axis_partition(samples: list[RtSample]) -> SplitPartition | None:
+    """Axis-aligned split: categorical equality or token axes (not ``feat in text``)."""
+    if len(samples) < 4:
+        return None
+    if not any(s.feature for s in samples):
+        mid = len(samples) // 2
+        left_idx = tuple(range(mid))
+        right_idx = tuple(range(mid, len(samples)))
+        return _partition_from_indices(
+            samples, axis="_index", threshold=str(mid), left_idx=left_idx, right_idx=right_idx
+        )
+
+    if is_categorical_feature_axis(samples):
+        return _partition_categorical_exact(samples)
+    return _partition_token_axes(samples)
+
+
+def _welch_se(left: list[float], right: list[float]) -> float:
+    n1, n2 = len(left), len(right)
+    if n1 < 2 or n2 < 2:
+        return float("inf")
+    v1, v2 = _variance(left), _variance(right)
+    return math.sqrt(v1 / n1 + v2 / n2)
 
 
 def evaluate_split_guards(
@@ -123,12 +178,16 @@ def evaluate_split_guards(
     theta_sep: float = 0.15,
     n_min: int = 8,
     delta_min: float = 0.05,
+    use_welch: bool = False,
+    z_min: float = 1.96,
     temperature: float = 1.0,
+    beta: float = 0.5,
+    acceptance_sample: float | None = None,
 ) -> SplitGuardResult:
     samples = buffer.samples(concern_id)
     n = len(samples)
     if n < n_min:
-        return SplitGuardResult(False, None, None, reason=f"n({concern_id})={n} < n_min")
+        return SplitGuardResult(False, None, None, reason=f"n({concern_id})={n} < n_min={n_min}")
 
     h_a = reward_variance(samples)
     if h_a < theta_h:
@@ -146,22 +205,68 @@ def evaluate_split_guards(
             reason=f"G/H={partition.separability_gain / max(h_a, 1e-9):.4f} < θ_sep",
         )
 
-    if abs(partition.mean_left - partition.mean_right) < delta_min:
+    gap = abs(partition.mean_left - partition.mean_right)
+    left_r = [samples[i].r for i in partition.left_indices]
+    right_r = [samples[i].r for i in partition.right_indices]
+    if use_welch:
+        se = _welch_se(left_r, right_r)
+        if math.isfinite(se) and se > 1e-9:
+            if gap < z_min * se:
+                return SplitGuardResult(
+                    False,
+                    partition,
+                    None,
+                    reason=f"|r̄₁−r̄₂|={gap:.4f} < {z_min:.2f}·SE_w={z_min * se:.4f}",
+                )
+        elif gap < delta_min:
+            return SplitGuardResult(
+                False,
+                partition,
+                None,
+                reason=f"|r̄₁−r̄₂|={gap:.4f} < δ (Welch n<2)",
+            )
+    elif gap < delta_min:
         return SplitGuardResult(
             False,
             partition,
             None,
-            reason=f"|r̄₁−r̄₂|={abs(partition.mean_left - partition.mean_right):.4f} < δ",
+            reason=f"|r̄₁−r̄₂|={gap:.4f} < δ",
         )
 
     delta = evaluate_delta_f(
         separability_gain=partition.separability_gain,
         temperature=temperature,
+        beta=beta,
     )
-    if not delta.accept:
-        return SplitGuardResult(False, partition, delta, reason="ΔF ≥ 0")
+    sample = acceptance_sample
+    if sample is not None and not 0.0 <= sample < 1.0:
+        raise ValueError(f"acceptance_sample must be in [0, 1); got {sample!r}")
+    accepted = delta.accept if sample is None else sample < delta.acceptance_rate
+    if not accepted:
+        if sample is None:
+            reason = "ΔF ≥ 0"
+        else:
+            reason = f"rewrite rejected u={sample:.4f} ≥ p={delta.acceptance_rate:.4f}"
+        return SplitGuardResult(
+            False,
+            partition,
+            delta,
+            reason=reason,
+            acceptance_sample=sample,
+        )
 
-    return SplitGuardResult(True, partition, delta, reason="accepted")
+    mode = "categorical" if is_categorical_feature_axis(samples) else "token"
+    if sample is None:
+        reason = f"accepted ({mode} axis={partition.axis})"
+    else:
+        reason = f"accepted ({mode} axis={partition.axis}, u={sample:.4f} < p={delta.acceptance_rate:.4f})"
+    return SplitGuardResult(
+        True,
+        partition,
+        delta,
+        reason=reason,
+        acceptance_sample=sample,
+    )
 
 
 __all__ = [
@@ -169,6 +274,7 @@ __all__ = [
     "SplitPartition",
     "evaluate_split_guards",
     "find_best_axis_partition",
+    "is_categorical_feature_axis",
     "reward_variance",
     "separability_gain",
 ]

@@ -155,6 +155,7 @@ _LLM_SCHEMA: dict[str, Any] = {
 _DEFAULT_TRUST_BY_ORIGIN: dict[str, float] = {
     "manual_import": 0.95,
     "host_explicit_plan": 0.9,
+    "intent_alignment": 0.9,
     "system_default": 0.85,
     "user_input": 0.7,
     "tool_result": 0.6,
@@ -216,6 +217,19 @@ _INSTRUCTION_FEEDBACK = (
     "Extract Concerns implied by user / reviewer feedback. "
     "``generated_type`` like ``user_feedback`` or ``policy_update``. "
     "Empty object if feedback is unrelated to behaviour."
+)
+_INSTRUCTION_INTENT_ALIGNMENT = (
+    "You extract host operating INTENT for downstream concern alignment — "
+    "not safety refusals or anti-role-play rules. The span is a bootstrap / "
+    "startup directive: how the runtime agent should understand its mission "
+    "and behave on later turns. Emit AT MOST ONE Concern stating the "
+    "positive intent to honour (persona, operating mode, mission). "
+    "Paraphrase faithfully; do NOT invert startup identity lines into "
+    "prohibitions like 'do not claim to be X' unless the span itself "
+    "explicitly forbids something. ``generated_type``: ``persona``, "
+    "``operating_mode``, ``mission``, or ``man_bootstrap``. "
+    "``generated_tags``: 0–8 lowercase keywords from the intent. "
+    "Return {} only for bare boilerplate with no behavioural intent."
 )
 
 
@@ -301,6 +315,7 @@ class ConcernExtractor:
     # _DEFAULT_TRUST_BY_ORIGIN row.
     _ORIGIN_INSTRUCTIONS: ClassVar[dict[str, str]] = {
         "manual_import": _INSTRUCTION_GOVERNANCE,
+        "intent_alignment": _INSTRUCTION_INTENT_ALIGNMENT,
         "user_input": _INSTRUCTION_USER,
         "tool_result": _INSTRUCTION_TOOL,
         "draft_output": _INSTRUCTION_DRAFT,
@@ -376,6 +391,24 @@ class ConcernExtractor:
             origin="manual_import",
             ref=ref,
             instruction=_INSTRUCTION_GOVERNANCE,
+        )
+
+    def extract_for_intent_alignment(
+        self,
+        text: str,
+        *,
+        ref: str | None = None,
+    ) -> ExtractionResult:
+        """Bootstrap / startup text → one Concern capturing host operating intent.
+
+        Unlike :meth:`extract_from_governance_doc`, the model is steered to
+        align with the stated mission (persona / mode), not to refuse role-play.
+        """
+        return self._extract(
+            text,
+            origin="intent_alignment",
+            ref=ref,
+            instruction=_INSTRUCTION_INTENT_ALIGNMENT,
         )
 
     def extract_from_user_input(

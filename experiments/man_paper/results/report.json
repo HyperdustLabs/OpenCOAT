@@ -1,0 +1,1137 @@
+{
+  "hypotheses": {
+    "H1_efficiency": {
+      "pass": true,
+      "series": {
+        "llm_only": [
+          {
+            "epoch": 0.0,
+            "llm_calls_per_success": 2.3333333333333335,
+            "success_rate": 0.6,
+            "guard_score": 0.0,
+            "mature": 0.0
+          },
+          {
+            "epoch": 1.0,
+            "llm_calls_per_success": 2.3333333333333335,
+            "success_rate": 0.6,
+            "guard_score": 0.0,
+            "mature": 0.0
+          },
+          {
+            "epoch": 2.0,
+            "llm_calls_per_success": 2.3333333333333335,
+            "success_rate": 0.6,
+            "guard_score": 0.0,
+            "mature": 0.0
+          },
+          {
+            "epoch": 3.0,
+            "llm_calls_per_success": 2.3333333333333335,
+            "success_rate": 0.6,
+            "guard_score": 0.0,
+            "mature": 0.0
+          }
+        ],
+        "static_aspect_graph": [
+          {
+            "epoch": 0.0,
+            "llm_calls_per_success": 1.0,
+            "success_rate": 1.0,
+            "guard_score": 0.0,
+            "mature": 0.0
+          },
+          {
+            "epoch": 1.0,
+            "llm_calls_per_success": 1.0,
+            "success_rate": 1.0,
+            "guard_score": 0.0,
+            "mature": 0.0
+          },
+          {
+            "epoch": 2.0,
+            "llm_calls_per_success": 1.0,
+            "success_rate": 1.0,
+            "guard_score": 0.0,
+            "mature": 0.0
+          },
+          {
+            "epoch": 3.0,
+            "llm_calls_per_success": 1.0,
+            "success_rate": 1.0,
+            "guard_score": 0.0,
+            "mature": 0.0
+          }
+        ],
+        "man_full": [
+          {
+            "epoch": 0.0,
+            "llm_calls_per_success": 1.9672222222222224,
+            "success_rate": 1.0,
+            "guard_score": 0.04345333333333343,
+            "mature": 0.0
+          },
+          {
+            "epoch": 1.0,
+            "llm_calls_per_success": 1.9003709401709399,
+            "success_rate": 1.0,
+            "guard_score": 0.08681066666666673,
+            "mature": 0.0
+          },
+          {
+            "epoch": 2.0,
+            "llm_calls_per_success": 1.8336673504273502,
+            "success_rate": 1.0,
+            "guard_score": 0.13016800000000014,
+            "mature": 0.0
+          },
+          {
+            "epoch": 3.0,
+            "llm_calls_per_success": 1.7669637606837598,
+            "success_rate": 1.0,
+            "guard_score": 0.17352533333333428,
+            "mature": 0.0
+          }
+        ]
+      },
+      "delta_cps_man": 0.2002584615384626
+    },
+    "H2_differentiation": {
+      "bimodal": {
+        "method": "man_full",
+        "success_rate": 1.0,
+        "llm_calls_per_success": 1.0,
+        "reliability_gap": null,
+        "struct_stability": null,
+        "spurious_split_rate": 0.0,
+        "mean_reward": null,
+        "edges": 0,
+        "aspects": 2,
+        "splits": 0,
+        "merges": 0,
+        "replay_hash": null,
+        "conservation_max_abs_residual": 0.0,
+        "notes": "H2_pass=True parent_var=0.2500 child_vars=[0.0, 0.0]"
+      },
+      "bandit_lift": {
+        "method": "h2_bandit_lift",
+        "success_rate": 1.0,
+        "llm_calls_per_success": 1.0,
+        "reliability_gap": null,
+        "struct_stability": null,
+        "spurious_split_rate": null,
+        "mean_reward": 1.0,
+        "edges": 0,
+        "aspects": 0,
+        "splits": 0,
+        "merges": 0,
+        "replay_hash": null,
+        "conservation_max_abs_residual": null,
+        "notes": "lift=0.500 eligible=True"
+      }
+    },
+    "H3_credit_necessity": {
+      "rho_tier1": {
+        "method": "tier1_rho",
+        "success_rate": 1.0,
+        "llm_calls_per_success": 1.0,
+        "reliability_gap": null,
+        "struct_stability": null,
+        "spurious_split_rate": 0.7171717171717171,
+        "mean_reward": null,
+        "edges": 0,
+        "aspects": 0,
+        "splits": 0,
+        "merges": 0,
+        "replay_hash": null,
+        "conservation_max_abs_residual": null,
+        "notes": "hard_minus_soft_rho=0.7172 uniform_spread=0.0000"
+      },
+      "rho_uniform": {
+        "method": "uniform_rho",
+        "success_rate": 1.0,
+        "llm_calls_per_success": 1.0,
+        "reliability_gap": null,
+        "struct_stability": null,
+        "spurious_split_rate": 0.0,
+        "mean_reward": null,
+        "edges": 0,
+        "aspects": 0,
+        "splits": 0,
+        "merges": 0,
+        "replay_hash": null,
+        "conservation_max_abs_residual": null,
+        "notes": "uniform baseline"
+      },
+      "plasticity_tier1": {
+        "method": "tier1_plasticity",
+        "success_rate": 1.0,
+        "llm_calls_per_success": 1.0,
+        "reliability_gap": null,
+        "struct_stability": null,
+        "spurious_split_rate": 0.0,
+        "mean_reward": 0.5,
+        "edges": 0,
+        "aspects": 3,
+        "splits": 1,
+        "merges": 0,
+        "replay_hash": null,
+        "conservation_max_abs_residual": null,
+        "notes": "spurious=0 splits=1"
+      },
+      "plasticity_uniform": {
+        "method": "uniform_plasticity",
+        "success_rate": 1.0,
+        "llm_calls_per_success": 1.0,
+        "reliability_gap": null,
+        "struct_stability": null,
+        "spurious_split_rate": 0.0,
+        "mean_reward": 0.49609375,
+        "edges": 0,
+        "aspects": 1,
+        "splits": 0,
+        "merges": 0,
+        "replay_hash": null,
+        "conservation_max_abs_residual": null,
+        "notes": "spurious=0 splits=0 h3_ok=True"
+      }
+    },
+    "H4_hard_gt_soft": {
+      "rho_proxy": {
+        "method": "H4_hard_vs_soft",
+        "success_rate": 1.0,
+        "llm_calls_per_success": 1.0,
+        "reliability_gap": 0.48148148148148145,
+        "struct_stability": null,
+        "spurious_split_rate": null,
+        "mean_reward": null,
+        "edges": 0,
+        "aspects": 0,
+        "splits": 0,
+        "merges": 0,
+        "replay_hash": null,
+        "conservation_max_abs_residual": null,
+        "notes": "rho_hard=0.7407 rho_soft=0.2593"
+      },
+      "noise_sweep": [
+        {
+          "parameter": "outcome_noise",
+          "value": 0.0,
+          "metric": 0.0,
+          "success": false,
+          "notes": "rho_gap=0.717 var_soft-var_hard=0.0000"
+        },
+        {
+          "parameter": "outcome_noise",
+          "value": 0.1,
+          "metric": 0.030399999999999996,
+          "success": true,
+          "notes": "rho_gap=0.717 var_soft-var_hard=0.0304"
+        },
+        {
+          "parameter": "outcome_noise",
+          "value": 0.2,
+          "metric": 0.025499999999999967,
+          "success": true,
+          "notes": "rho_gap=0.717 var_soft-var_hard=0.0255"
+        },
+        {
+          "parameter": "outcome_noise",
+          "value": 0.3,
+          "metric": 0.04777500000000001,
+          "success": true,
+          "notes": "rho_gap=0.717 var_soft-var_hard=0.0478"
+        },
+        {
+          "parameter": "outcome_noise",
+          "value": 0.4,
+          "metric": -0.02279999999999996,
+          "success": false,
+          "notes": "rho_gap=0.717 var_soft-var_hard=-0.0228"
+        }
+      ]
+    },
+    "H5_bounded": {
+      "soak_man": {
+        "method": "man_full",
+        "success_rate": 1.0,
+        "llm_calls_per_success": 1.0,
+        "reliability_gap": null,
+        "struct_stability": 0.0,
+        "spurious_split_rate": null,
+        "mean_reward": null,
+        "edges": 2,
+        "aspects": 2,
+        "splits": 0,
+        "merges": 0,
+        "replay_hash": null,
+        "conservation_max_abs_residual": null,
+        "notes": "H5_stable=True edge_span=0 reward_span=1.0 rows=1024 fixture=r_t_soak_long.jsonl"
+      },
+      "soak_static": {
+        "method": "static_aspect_graph",
+        "success_rate": 1.0,
+        "llm_calls_per_success": 1.0,
+        "reliability_gap": null,
+        "struct_stability": 0.0,
+        "spurious_split_rate": null,
+        "mean_reward": null,
+        "edges": 0,
+        "aspects": 2,
+        "splits": 0,
+        "merges": 0,
+        "replay_hash": null,
+        "conservation_max_abs_residual": null,
+        "notes": "H5_stable=True edge_span=0 reward_span=1.0 rows=1024 fixture=r_t_soak_long.jsonl"
+      },
+      "reflex_on": {
+        "method": "reflex_on",
+        "success_rate": 1.0,
+        "llm_calls_per_success": 1.0,
+        "reliability_gap": null,
+        "struct_stability": 0.0,
+        "spurious_split_rate": null,
+        "mean_reward": null,
+        "edges": 2,
+        "aspects": 2,
+        "splits": 0,
+        "merges": 0,
+        "replay_hash": null,
+        "conservation_max_abs_residual": null,
+        "notes": "edge_span=0 stable=True"
+      },
+      "reflex_off": {
+        "method": "reflex_off",
+        "success_rate": 1.0,
+        "llm_calls_per_success": 1.0,
+        "reliability_gap": null,
+        "struct_stability": 0.0,
+        "spurious_split_rate": null,
+        "mean_reward": null,
+        "edges": 0,
+        "aspects": 1,
+        "splits": 0,
+        "merges": 0,
+        "replay_hash": null,
+        "conservation_max_abs_residual": null,
+        "notes": "edge_span=0 stable=True"
+      }
+    }
+  },
+  "main_table": [
+    {
+      "method": "llm_only",
+      "success_rate": 0.5,
+      "llm_calls_per_success": 2.0,
+      "reliability_gap": null,
+      "struct_stability": 0.0,
+      "spurious_split_rate": 0.0,
+      "mean_reward": null,
+      "edges": 0,
+      "aspects": 0,
+      "splits": 0,
+      "merges": 0,
+      "replay_hash": null,
+      "conservation_max_abs_residual": null,
+      "notes": ""
+    },
+    {
+      "method": "fixed_hand_prompt",
+      "success_rate": 1.0,
+      "llm_calls_per_success": 1.0,
+      "reliability_gap": 0.0,
+      "struct_stability": 0.0,
+      "spurious_split_rate": 0.0,
+      "mean_reward": null,
+      "edges": 0,
+      "aspects": 3,
+      "splits": 1,
+      "merges": 0,
+      "replay_hash": null,
+      "conservation_max_abs_residual": null,
+      "notes": ""
+    },
+    {
+      "method": "static_aspect_graph",
+      "success_rate": 1.0,
+      "llm_calls_per_success": 1.0,
+      "reliability_gap": 0.0,
+      "struct_stability": 0.0,
+      "spurious_split_rate": 0.0,
+      "mean_reward": null,
+      "edges": 0,
+      "aspects": 1,
+      "splits": 0,
+      "merges": 0,
+      "replay_hash": null,
+      "conservation_max_abs_residual": null,
+      "notes": ""
+    },
+    {
+      "method": "weight_only_plasticity",
+      "success_rate": 1.0,
+      "llm_calls_per_success": 1.0,
+      "reliability_gap": 0.0,
+      "struct_stability": 0.0,
+      "spurious_split_rate": 0.0,
+      "mean_reward": null,
+      "edges": 0,
+      "aspects": 1,
+      "splits": 0,
+      "merges": 0,
+      "replay_hash": null,
+      "conservation_max_abs_residual": null,
+      "notes": ""
+    },
+    {
+      "method": "man_full",
+      "success_rate": 1.0,
+      "llm_calls_per_success": 1.0,
+      "reliability_gap": 0.0,
+      "struct_stability": 0.0,
+      "spurious_split_rate": 0.0,
+      "mean_reward": null,
+      "edges": 0,
+      "aspects": 3,
+      "splits": 1,
+      "merges": 0,
+      "replay_hash": null,
+      "conservation_max_abs_residual": null,
+      "notes": ""
+    }
+  ],
+  "ablation_table": [
+    {
+      "method": "-- responsibility \u03c1 (H3)",
+      "success_rate": 1.0,
+      "llm_calls_per_success": 1.0,
+      "reliability_gap": null,
+      "struct_stability": null,
+      "spurious_split_rate": 0.7171717171717171,
+      "mean_reward": null,
+      "edges": 0,
+      "aspects": 0,
+      "splits": 0,
+      "merges": 0,
+      "replay_hash": null,
+      "conservation_max_abs_residual": null,
+      "notes": "hard_minus_soft_rho=0.7172 uniform_spread=0.0000"
+    },
+    {
+      "method": "-- responsibility plasticity (H3)",
+      "success_rate": 1.0,
+      "llm_calls_per_success": 1.0,
+      "reliability_gap": null,
+      "struct_stability": null,
+      "spurious_split_rate": 0.0,
+      "mean_reward": null,
+      "edges": 0,
+      "aspects": 0,
+      "splits": 0,
+      "merges": 0,
+      "replay_hash": null,
+      "conservation_max_abs_residual": null,
+      "notes": "tier1 spurious=0 splits=1; uniform spurious=0 splits=0 h3_ok=True"
+    },
+    {
+      "method": "tier1_replay",
+      "success_rate": 1.0,
+      "llm_calls_per_success": 1.0,
+      "reliability_gap": null,
+      "struct_stability": null,
+      "spurious_split_rate": null,
+      "mean_reward": null,
+      "edges": 0,
+      "aspects": 0,
+      "splits": 0,
+      "merges": 0,
+      "replay_hash": "44136fa355b3678a",
+      "conservation_max_abs_residual": 1.1102230246251565e-16,
+      "notes": "deterministic=True max_residual=1.11e-16"
+    },
+    {
+      "method": "H4_hard_vs_soft",
+      "success_rate": 1.0,
+      "llm_calls_per_success": 1.0,
+      "reliability_gap": 0.48148148148148145,
+      "struct_stability": null,
+      "spurious_split_rate": null,
+      "mean_reward": null,
+      "edges": 0,
+      "aspects": 0,
+      "splits": 0,
+      "merges": 0,
+      "replay_hash": null,
+      "conservation_max_abs_residual": null,
+      "notes": "rho_hard=0.7407 rho_soft=0.2593"
+    },
+    {
+      "method": "tier2_ablation",
+      "success_rate": 1.0,
+      "llm_calls_per_success": 1.0,
+      "reliability_gap": null,
+      "struct_stability": null,
+      "spurious_split_rate": 0.0,
+      "mean_reward": null,
+      "edges": 0,
+      "aspects": 0,
+      "splits": 0,
+      "merges": 0,
+      "replay_hash": null,
+      "conservation_max_abs_residual": null,
+      "notes": "splits_off=0 splits_on=0"
+    },
+    {
+      "method": "-- conserved reflex (H5)",
+      "success_rate": 0.0,
+      "llm_calls_per_success": 1.0,
+      "reliability_gap": null,
+      "struct_stability": null,
+      "spurious_split_rate": 0.0,
+      "mean_reward": null,
+      "edges": 0,
+      "aspects": 0,
+      "splits": 0,
+      "merges": 0,
+      "replay_hash": null,
+      "conservation_max_abs_residual": null,
+      "notes": "on edge_span=0 stable=True; off edge_span=0 stable=True"
+    },
+    {
+      "method": "h2_bandit_lift",
+      "success_rate": 1.0,
+      "llm_calls_per_success": 1.0,
+      "reliability_gap": null,
+      "struct_stability": null,
+      "spurious_split_rate": null,
+      "mean_reward": 1.0,
+      "edges": 0,
+      "aspects": 0,
+      "splits": 0,
+      "merges": 0,
+      "replay_hash": null,
+      "conservation_max_abs_residual": null,
+      "notes": "lift=0.500 eligible=True"
+    }
+  ],
+  "sweeps": {
+    "lambda": [
+      {
+        "parameter": "trace_lambda",
+        "value": 0.0,
+        "metric": 1.25,
+        "success": true,
+        "notes": "max_resid=1.11e-16"
+      },
+      {
+        "parameter": "trace_lambda",
+        "value": 0.25,
+        "metric": 1.6666666666666665,
+        "success": true,
+        "notes": "max_resid=1.11e-16"
+      },
+      {
+        "parameter": "trace_lambda",
+        "value": 0.5,
+        "metric": 2.4999999994179234,
+        "success": true,
+        "notes": "max_resid=1.11e-16"
+      },
+      {
+        "parameter": "trace_lambda",
+        "value": 0.75,
+        "metric": 4.999497737871398,
+        "success": true,
+        "notes": "max_resid=1.11e-16"
+      },
+      {
+        "parameter": "trace_lambda",
+        "value": 0.9,
+        "metric": 12.070789522463436,
+        "success": true,
+        "notes": "max_resid=1.11e-16"
+      },
+      {
+        "parameter": "trace_lambda",
+        "value": 1.0,
+        "metric": 40.00000000000002,
+        "success": true,
+        "notes": "max_resid=1.11e-16"
+      }
+    ],
+    "beta": [
+      {
+        "parameter": "split_beta",
+        "value": 0.01,
+        "metric": 1.0,
+        "success": true,
+        "notes": "accepted (categorical axis=benign)"
+      },
+      {
+        "parameter": "split_beta",
+        "value": 0.02,
+        "metric": 1.0,
+        "success": true,
+        "notes": "accepted (categorical axis=benign)"
+      },
+      {
+        "parameter": "split_beta",
+        "value": 0.05,
+        "metric": 0.0,
+        "success": false,
+        "notes": "\u0394F \u2265 0"
+      },
+      {
+        "parameter": "split_beta",
+        "value": 0.1,
+        "metric": 0.0,
+        "success": false,
+        "notes": "\u0394F \u2265 0"
+      },
+      {
+        "parameter": "split_beta",
+        "value": 0.5,
+        "metric": 0.0,
+        "success": true,
+        "notes": "\u0394F \u2265 0"
+      },
+      {
+        "parameter": "split_beta",
+        "value": 1.0,
+        "metric": 0.0,
+        "success": true,
+        "notes": "\u0394F \u2265 0"
+      }
+    ],
+    "h4_noise": [
+      {
+        "parameter": "outcome_noise",
+        "value": 0.0,
+        "metric": 0.0,
+        "success": false,
+        "notes": "rho_gap=0.717 var_soft-var_hard=0.0000"
+      },
+      {
+        "parameter": "outcome_noise",
+        "value": 0.1,
+        "metric": 0.030399999999999996,
+        "success": true,
+        "notes": "rho_gap=0.717 var_soft-var_hard=0.0304"
+      },
+      {
+        "parameter": "outcome_noise",
+        "value": 0.2,
+        "metric": 0.025499999999999967,
+        "success": true,
+        "notes": "rho_gap=0.717 var_soft-var_hard=0.0255"
+      },
+      {
+        "parameter": "outcome_noise",
+        "value": 0.3,
+        "metric": 0.04777500000000001,
+        "success": true,
+        "notes": "rho_gap=0.717 var_soft-var_hard=0.0478"
+      },
+      {
+        "parameter": "outcome_noise",
+        "value": 0.4,
+        "metric": -0.02279999999999996,
+        "success": false,
+        "notes": "rho_gap=0.717 var_soft-var_hard=-0.0228"
+      }
+    ]
+  },
+  "empirical_gates": {
+    "H1": true,
+    "H2": true,
+    "H3": true,
+    "H4": true,
+    "H5": true,
+    "F1_replay": true,
+    "F2_lambda": true,
+    "F3_beta": true,
+    "auxiliary_man_beats_llm": true
+  },
+  "raw": {
+    "internal_validity": {
+      "phase": "internal_validity",
+      "all_pass": true,
+      "h1_epochs": 4,
+      "scale": {
+        "profile": "stress",
+        "bimodal_rows": 32,
+        "bandit_rows": 384,
+        "bandit_noisy_rows": 384,
+        "soak_rows": 1024,
+        "soak_repeats": 32,
+        "h1_epochs_default": 20,
+        "h1_trials_per_epoch": 60
+      },
+      "hypotheses": [
+        {
+          "id": "H1",
+          "claim": "LLM calls/success decreases as structure matures; success not degraded",
+          "suite": "demo-tool-block, 20 epochs \u00d7 60 trials (kernel+lifecycle score)",
+          "pass": true,
+          "metrics": {
+            "man_cps_epoch0": 1.9672222222222224,
+            "man_cps_final": 1.7669637606837598,
+            "man_success_final": 1.0,
+            "static_cps": 1.0,
+            "delta_cps_man": 0.2002584615384626
+          },
+          "notes": "CPS from planner + verifier weight 1\u2212score/0.65; guard_score is lifecycle.reinforce per success (warm step_delta\u22480, no synthetic ramp)"
+        },
+        {
+          "id": "H2",
+          "claim": "Split reduces within-child reward variance; partition improves sub-context reward",
+          "suite": "r_t_bimodal.jsonl (32) + r_t_bandit.jsonl (384), \u0394F guards",
+          "pass": true,
+          "metrics": {
+            "bimodal_notes": "H2_pass=True parent_var=0.2500 child_vars=[0.0, 0.0]",
+            "bandit_lift_notes": "lift=0.500 eligible=True",
+            "bimodal_parent_var": 0.25
+          },
+          "notes": "H2_pass=True parent_var=0.2500 child_vars=[0.0, 0.0]; lift=0.500 eligible=True"
+        },
+        {
+          "id": "H3",
+          "claim": "Responsibility-weighted \u03c1 enables credit cleaning; uniform \u03c1 blocks valid cold split on noisy bandit",
+          "suite": "\u03c1 pair + bandit (384) vs bandit_noisy (384)",
+          "pass": true,
+          "metrics": {
+            "rho_hard_minus_soft": 0.7171717171717171,
+            "tier1_splits": 1,
+            "uniform_splits": 0,
+            "tier1_mean_reward": 0.5,
+            "uniform_mean_reward": 0.49609375
+          },
+          "notes": "spurious=0 splits=1; spurious=0 splits=0 h3_ok=True"
+        },
+        {
+          "id": "H4",
+          "claim": "\u03c1_hard > \u03c1_soft; outcome variance gap favors hard under added noise",
+          "suite": "synthetic tied activation + simulated outcome noise sweep",
+          "pass": true,
+          "metrics": {
+            "reliability_gap_rho": 0.48148148148148145,
+            "noise_sweep_pass_count": 3,
+            "noise_sweep": [
+              {
+                "parameter": "outcome_noise",
+                "value": 0.0,
+                "metric": 0.0,
+                "success": false,
+                "notes": "rho_gap=0.717 var_soft-var_hard=0.0000"
+              },
+              {
+                "parameter": "outcome_noise",
+                "value": 0.1,
+                "metric": 0.030399999999999996,
+                "success": true,
+                "notes": "rho_gap=0.717 var_soft-var_hard=0.0304"
+              },
+              {
+                "parameter": "outcome_noise",
+                "value": 0.2,
+                "metric": 0.025499999999999967,
+                "success": true,
+                "notes": "rho_gap=0.717 var_soft-var_hard=0.0255"
+              },
+              {
+                "parameter": "outcome_noise",
+                "value": 0.3,
+                "metric": 0.04777500000000001,
+                "success": true,
+                "notes": "rho_gap=0.717 var_soft-var_hard=0.0478"
+              },
+              {
+                "parameter": "outcome_noise",
+                "value": 0.4,
+                "metric": -0.02279999999999996,
+                "success": false,
+                "notes": "rho_gap=0.717 var_soft-var_hard=-0.0228"
+              }
+            ]
+          },
+          "notes": "rho_hard=0.7407 rho_soft=0.2593"
+        },
+        {
+          "id": "H5",
+          "claim": "r_t_soak_long.jsonl (1024 rows): edge span bounded; reflex-on retains reflex concerns vs reflex-off ablation",
+          "suite": "r_t_soak_long.jsonl (1024 rows) + disable_reflex_core ablation",
+          "pass": true,
+          "metrics": {
+            "soak_edge_span_man": 0.0,
+            "soak_edge_span_static": 0.0,
+            "soak_edges_man": 2,
+            "reflex_on_aspects": 2,
+            "reflex_off_aspects": 1
+          },
+          "notes": "man H5_stable=True edge_span=0 reward_span=1.0 rows=1024 fixture=r_t_soak_long.jsonl; reflex edge_span=0 stable=True / edge_span=0 stable=True"
+        }
+      ],
+      "foundations": [
+        {
+          "id": "F1_replay",
+          "claim": "Tier-1 replay is deterministic with conserved \u03ba",
+          "suite": "r_t_bimodal.jsonl (32) \u00d72 cold replay",
+          "pass": true,
+          "metrics": {
+            "max_conservation_residual": 1.1102230246251565e-16,
+            "replay_hash": "44136fa355b3678a"
+          },
+          "notes": "deterministic=True max_residual=1.11e-16"
+        },
+        {
+          "id": "F2_lambda",
+          "claim": "Eligibility \u03bb accumulates trace mass without breaking conservation",
+          "suite": "\u03bb \u2208 {0,0.25,\u2026,1} on bimodal fixture",
+          "pass": true,
+          "metrics": {
+            "points": [
+              {
+                "parameter": "trace_lambda",
+                "value": 0.0,
+                "metric": 1.25,
+                "success": true,
+                "notes": "max_resid=1.11e-16"
+              },
+              {
+                "parameter": "trace_lambda",
+                "value": 0.25,
+                "metric": 1.6666666666666665,
+                "success": true,
+                "notes": "max_resid=1.11e-16"
+              },
+              {
+                "parameter": "trace_lambda",
+                "value": 0.5,
+                "metric": 2.4999999994179234,
+                "success": true,
+                "notes": "max_resid=1.11e-16"
+              },
+              {
+                "parameter": "trace_lambda",
+                "value": 0.75,
+                "metric": 4.999497737871398,
+                "success": true,
+                "notes": "max_resid=1.11e-16"
+              },
+              {
+                "parameter": "trace_lambda",
+                "value": 0.9,
+                "metric": 12.070789522463436,
+                "success": true,
+                "notes": "max_resid=1.11e-16"
+              },
+              {
+                "parameter": "trace_lambda",
+                "value": 1.0,
+                "metric": 40.00000000000002,
+                "success": true,
+                "notes": "max_resid=1.11e-16"
+              }
+            ]
+          },
+          "notes": ""
+        },
+        {
+          "id": "F3_beta",
+          "claim": "\u0394F split gate accepts low \u03b2, rejects high \u03b2 on bimodal buffer",
+          "suite": "\u03b2 sweep on paper.bimodal-guard",
+          "pass": true,
+          "metrics": {
+            "points": [
+              {
+                "parameter": "split_beta",
+                "value": 0.01,
+                "metric": 1.0,
+                "success": true,
+                "notes": "accepted (categorical axis=benign)"
+              },
+              {
+                "parameter": "split_beta",
+                "value": 0.02,
+                "metric": 1.0,
+                "success": true,
+                "notes": "accepted (categorical axis=benign)"
+              },
+              {
+                "parameter": "split_beta",
+                "value": 0.05,
+                "metric": 0.0,
+                "success": false,
+                "notes": "\u0394F \u2265 0"
+              },
+              {
+                "parameter": "split_beta",
+                "value": 0.1,
+                "metric": 0.0,
+                "success": false,
+                "notes": "\u0394F \u2265 0"
+              },
+              {
+                "parameter": "split_beta",
+                "value": 0.5,
+                "metric": 0.0,
+                "success": true,
+                "notes": "\u0394F \u2265 0"
+              },
+              {
+                "parameter": "split_beta",
+                "value": 1.0,
+                "metric": 0.0,
+                "success": true,
+                "notes": "\u0394F \u2265 0"
+              }
+            ]
+          },
+          "notes": ""
+        }
+      ],
+      "gates": {
+        "H1": true,
+        "H2": true,
+        "H3": true,
+        "H4": true,
+        "H5": true,
+        "F1_replay": true,
+        "F2_lambda": true,
+        "F3_beta": true
+      }
+    },
+    "phase_ii_protocol": {
+      "phase": "phase_ii_capability",
+      "status": "implemented_h0_harness",
+      "primary_hypothesis": {
+        "id": "H0",
+        "claim": "Morphogenetic learning alone (zero code changes) raises competence on un-hand-built application scenarios; structure transfers to held-out and cross-domain settings.",
+        "relation_to_phase_i": "H1--H5 are mechanism ablations; Phase I pass is necessary but not sufficient for H0."
+      },
+      "signatures": {
+        "learning_curve": {
+          "metric": "success_or_reward_vs_experience",
+          "constraint": "no_developer_edits_mid_run",
+          "interpretation": "rising curve from slow dynamics alone"
+        },
+        "transfer": {
+          "train": "scenario_set_A",
+          "eval": [
+            "held_out_B",
+            "cross_domain_>=1"
+          ],
+          "surrogate_for_general": "small_A_to_B_gap_same_substrate_and_law"
+        },
+        "headline_baseline": {
+          "name": "developer_effort_matched_hand_iterated",
+          "comparison": "MAN curve overtakes static graph and approaches hand-iterated agent at near-zero developer effort",
+          "extends_phase_i_baselines": true
+        },
+        "breadth_and_cost": {
+          "coverage": "scenario_family_count",
+          "cost_to_competence": "samples_or_compute_to_target_success"
+        }
+      },
+      "scope": {
+        "general_claim": "operationalized_not_literal",
+        "target_environments": [
+          "coding",
+          "openclaw"
+        ]
+      },
+      "genesis": {
+        "entrypoint": "experiments.man_paper.phase_ii_seed.seed_h0_graph",
+        "cortex": "one intent_alignment concern from MAN_IDENTITY_PROMPT",
+        "conserved_reflex": "h0.conserved.fail-closed",
+        "initial_edges": 0,
+        "forbidden_seeds": [
+          "plugin seed_stores()",
+          "SKILL.md concern upsert",
+          "demo coding/OpenClaw presets"
+        ]
+      },
+      "implemented_harness": {
+        "entrypoint": "uv run python experiments/man_paper/phase_ii_run.py",
+        "script": "bash scripts/run-man-paper-phase-ii.sh",
+        "scenario_families": [
+          "coding_train",
+          "coding_heldout",
+          "openclaw_cross"
+        ],
+        "baselines": [
+          "man_full",
+          "static_aspect_graph",
+          "hand_iterated"
+        ],
+        "outputs": [
+          "experiments/man_paper/results/PHASE_II_RESULTS.md",
+          "experiments/man_paper/results/phase_ii_learning_curves.csv",
+          "experiments/man_paper/results/phase_ii_report.json"
+        ]
+      },
+      "clean_h0_constraints": {
+        "no_split_gate_priming": true,
+        "feature_axis_default": "scenario_id",
+        "strict_stub_gates": true,
+        "real_llm_gates": "advisory unless --strict-gates"
+      },
+      "phase_i_entrypoint": "bash scripts/run-man-paper-experiments.sh",
+      "latest_result": {
+        "path": "experiments/man_paper/results/phase_ii_report.json",
+        "all_pass": true,
+        "llm": {
+          "label": "phase-ii-stub(forced)",
+          "is_stub": true
+        },
+        "gates_profile": "stub_strict",
+        "epochs": 10,
+        "summary": {
+          "man_final_success": 0.8333333333333334,
+          "static_final_success": 0.0,
+          "hand_final_success": 0.8333333333333334,
+          "hand_dev_edits": 3,
+          "scenario_families": 3,
+          "A_to_B_gap": 0.16666666666666663,
+          "h0_first_split_epoch": 3,
+          "h0_cumulative_splits": 2
+        },
+        "h0_plasticity": {
+          "unprimed": true,
+          "feature_axis": "scenario_id",
+          "split_n_min": 24,
+          "rollout_k": 1,
+          "first_split_epoch": 3,
+          "last_split_guard_reason": "n(c-1e9f82cccb1c)=12 < n_min=24",
+          "bootstrap_final_score": 1.0,
+          "bootstrap_final_score_ema": 0.9999999970128292,
+          "bootstrap_final_buffer": 12,
+          "bootstrap_final_activations": 50,
+          "cumulative_splits": 2
+        },
+        "failed_gates": []
+      }
+    },
+    "live_daemon": {
+      "ping": {
+        "ok": true
+      },
+      "concern_upsert": {
+        "id": "demo-tool-block",
+        "kind": "concern",
+        "neuron_type": "excitatory",
+        "reflex": false,
+        "generated_type": null,
+        "generated_tags": [],
+        "name": "Demo tool block",
+        "description": "",
+        "source": null,
+        "chain_ref": null,
+        "joinpoint_selectors": [],
+        "pointcut": {
+          "joinpoints": [
+            "before_tool_call"
+          ],
+          "match": {
+            "any_keywords": [
+              "rm -rf",
+              "rm  -rf"
+            ],
+            "all_keywords": null,
+            "regex": null,
+            "semantic_intent": null,
+            "structure": null,
+            "confidence": null,
+            "risk": null,
+            "history": null,
+            "claim": null
+          },
+          "context_predicates": []
+        },
+        "advice": {
+          "type": "tool_guard",
+          "content": "Refusing destructive shell command.",
+          "rationale": null,
+          "max_tokens": null,
+          "params": null
+        },
+        "weaving_policy": {
+          "mode": "block",
+          "level": "tool_level",
+          "target": "tool_call.arguments",
+          "max_tokens": 200,
+          "priority": 0.9
+        },
+        "pointcuts": [
+          {
+            "id": "pc-tool",
+            "expression": "before_tool_call()",
+            "joinpoints": [
+              "before_tool_call"
+            ],
+            "match": {
+              "any_keywords": [
+                "rm -rf",
+                "rm  -rf"
+              ],
+              "all_keywords": null,
+              "regex": null,
+              "semantic_intent": null,
+              "structure": null,
+              "confidence": null,
+              "risk": null,
+              "history": null,
+              "claim": null
+            },
+            "context_predicates": []
+          }
+        ],
+        "advices": [
+          {
+            "id": "adv-block",
+            "kind": "before",
+            "pointcut_ref": "pc-tool",
+            "content": "Refusing destructive shell command.",
+            "template": "tool_guard",
+            "rationale": null,
+            "max_tokens": null,
+            "params": null,
+            "effect": {
+              "mode": "block",
+              "level": "tool_level",
+              "target": "tool_call.arguments",
+              "max_tokens": 200,
+              "priority": 0.9
+            }
+          }
+        ],
+        "declarations": [],
+        "graph_edges": [],
+        "scope": null,
+        "relations": [],
+        "activation_state": null,
+        "lifecycle_state": "created",
+        "metrics": {
+          "activations": 0,
+          "satisfied": 0,
+          "violated": 0,
+          "tokens_used": 0
+        },
+        "created_at": null,
+        "updated_at": null,
+        "schema_version": "0.1.0"
+      },
+      "rm -rf /tmp/paper": {
+        "allowed": false,
+        "expect_allow": false,
+        "ok": true
+      },
+      "ls -la": {
+        "allowed": true,
+        "expect_allow": true,
+        "ok": true
+      },
+      "demo_ok": true
+    }
+  }
+}

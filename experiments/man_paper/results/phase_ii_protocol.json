@@ -1,0 +1,111 @@
+{
+  "phase": "phase_ii_capability",
+  "status": "implemented_h0_harness",
+  "primary_hypothesis": {
+    "id": "H0",
+    "claim": "Morphogenetic learning alone (zero code changes) raises competence on un-hand-built application scenarios; structure transfers to held-out and cross-domain settings.",
+    "relation_to_phase_i": "H1--H5 are mechanism ablations; Phase I pass is necessary but not sufficient for H0."
+  },
+  "signatures": {
+    "learning_curve": {
+      "metric": "success_or_reward_vs_experience",
+      "constraint": "no_developer_edits_mid_run",
+      "interpretation": "rising curve from slow dynamics alone"
+    },
+    "transfer": {
+      "train": "scenario_set_A",
+      "eval": [
+        "held_out_B",
+        "cross_domain_>=1"
+      ],
+      "surrogate_for_general": "small_A_to_B_gap_same_substrate_and_law"
+    },
+    "headline_baseline": {
+      "name": "developer_effort_matched_hand_iterated",
+      "comparison": "MAN curve overtakes static graph and approaches hand-iterated agent at near-zero developer effort",
+      "extends_phase_i_baselines": true
+    },
+    "breadth_and_cost": {
+      "coverage": "scenario_family_count",
+      "cost_to_competence": "samples_or_compute_to_target_success"
+    }
+  },
+  "scope": {
+    "general_claim": "operationalized_not_literal",
+    "target_environments": [
+      "coding",
+      "openclaw"
+    ]
+  },
+  "genesis": {
+    "entrypoint": "experiments.man_paper.phase_ii_seed.seed_h0_graph",
+    "cortex": "one intent_alignment concern from MAN_IDENTITY_PROMPT",
+    "conserved_reflex": "h0.conserved.fail-closed",
+    "initial_edges": 0,
+    "forbidden_seeds": [
+      "plugin seed_stores()",
+      "SKILL.md concern upsert",
+      "demo coding/OpenClaw presets"
+    ]
+  },
+  "implemented_harness": {
+    "entrypoint": "uv run python experiments/man_paper/phase_ii_run.py",
+    "script": "bash scripts/run-man-paper-phase-ii.sh",
+    "scenario_families": [
+      "coding_train",
+      "coding_heldout",
+      "openclaw_cross"
+    ],
+    "baselines": [
+      "man_full",
+      "static_aspect_graph",
+      "hand_iterated"
+    ],
+    "outputs": [
+      "experiments/man_paper/results/PHASE_II_RESULTS.md",
+      "experiments/man_paper/results/phase_ii_learning_curves.csv",
+      "experiments/man_paper/results/phase_ii_report.json"
+    ]
+  },
+  "clean_h0_constraints": {
+    "no_split_gate_priming": true,
+    "feature_axis_default": "scenario_id",
+    "strict_stub_gates": true,
+    "real_llm_gates": "advisory unless --strict-gates"
+  },
+  "phase_i_entrypoint": "bash scripts/run-man-paper-experiments.sh",
+  "latest_result": {
+    "path": "experiments/man_paper/results/phase_ii_report.json",
+    "all_pass": true,
+    "llm": {
+      "label": "phase-ii-stub(forced)",
+      "is_stub": true
+    },
+    "gates_profile": "stub_strict",
+    "epochs": 10,
+    "summary": {
+      "man_final_success": 0.8333333333333334,
+      "static_final_success": 0.0,
+      "hand_final_success": 0.8333333333333334,
+      "hand_dev_edits": 3,
+      "scenario_families": 3,
+      "A_to_B_gap": 0.16666666666666663,
+      "h0_first_split_epoch": 3,
+      "h0_cumulative_splits": 2
+    },
+    "h0_plasticity": {
+      "unprimed": true,
+      "feature_axis": "scenario_id",
+      "split_n_min": 24,
+      "rollout_k": 1,
+      "first_split_epoch": 3,
+      "last_split_guard_reason": "n(c-1e9f82cccb1c)=12 < n_min=24",
+      "bootstrap_final_score": 1.0,
+      "bootstrap_final_score_ema": 0.9999999970128292,
+      "bootstrap_final_buffer": 12,
+      "bootstrap_final_activations": 50,
+      "cumulative_splits": 2
+    },
+    "failed_gates": []
+  }
+}

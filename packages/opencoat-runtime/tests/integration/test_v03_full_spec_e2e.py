@@ -8,9 +8,7 @@ from opencoat_runtime_core.advice import AdviceGenerator
 from opencoat_runtime_core.config import RuntimeConfig
 from opencoat_runtime_core.coordinator import ConcernCoordinator
 from opencoat_runtime_core.credit.credit_field import CreditField
-from opencoat_runtime_core.credit.plasticity_engine import PlasticityEngine
 from opencoat_runtime_core.credit.r_t_record import RtRecord, RtSignal
-from opencoat_runtime_core.credit.rt_buffer import ConcernRtBuffer
 from opencoat_runtime_core.credit.rt_plasticity_service import RtPlasticityService
 from opencoat_runtime_core.credit.split_spec import evaluate_split_guards
 from opencoat_runtime_core.effector import EffectorAction, EffectorKernel
@@ -19,19 +17,10 @@ from opencoat_runtime_core.loops import JoinpointPipeline
 from opencoat_runtime_core.pointcut.matcher import PointcutMatcher
 from opencoat_runtime_core.weaving import ConcernWeaver
 from opencoat_runtime_protocol import (
-    AdviceKind,
-    AdviceType,
-    AopAdvice,
     Concern,
     JoinpointEvent,
-    PointcutDef,
-    WeavingLevel,
-    WeavingOperation,
-    WeavingPolicy,
 )
-from opencoat_runtime_protocol.envelopes import PointcutMatch
 from opencoat_runtime_storage.memory import MemoryConcernStore, MemoryDCNStore
-
 from tests.core.test_effector_kernel import _demo_tool_block
 
 

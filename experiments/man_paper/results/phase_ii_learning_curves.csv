@@ -1,0 +1,31 @@
+mode,epoch,success_rate,mean_reward,llm_calls,dev_edits,aspects,edges,splits,bootstrap_score,bootstrap_buffer,bootstrap_activations,bootstrap_state,first_split_epoch,split_guard_reason
+man_full,0,0.8333333333333334,0.9583333333333334,12,0,2,0,0,0.7875000000000002,6,6,reinforced,,n(c-1e9f82cccb1c)=6 < n_min=24
+man_full,1,0.8333333333333334,0.9583333333333334,12,0,2,0,0,1.0,12,12,reinforced,,n(c-1e9f82cccb1c)=12 < n_min=24
+man_full,2,0.8333333333333334,0.9583333333333334,12,0,2,0,0,1.0,18,18,reinforced,,n(c-1e9f82cccb1c)=18 < n_min=24
+man_full,3,0.8333333333333334,0.9583333333333334,12,0,4,0,1,1.0,0,24,archived,3,accepted (categorical axis=ct-write-fn)
+man_full,4,0.8333333333333334,0.9583333333333334,12,0,4,0,1,1.0,6,30,reinforced,3,n(c-1e9f82cccb1c)=6 < n_min=24
+man_full,5,0.8333333333333334,0.9583333333333334,12,0,4,0,1,1.0,12,36,reinforced,3,n(c-1e9f82cccb1c)=12 < n_min=24
+man_full,6,0.8333333333333334,0.9583333333333334,12,0,4,0,1,1.0,18,42,reinforced,3,n(c-1e9f82cccb1c)=18 < n_min=24
+man_full,7,0.8333333333333334,0.9583333333333334,12,0,4,0,2,1.0,0,48,archived,3,accepted (categorical axis=ct-write-fn)
+man_full,8,0.8333333333333334,0.9583333333333334,12,0,4,0,2,1.0,6,54,reinforced,3,n(c-1e9f82cccb1c)=6 < n_min=24
+man_full,9,0.8333333333333334,0.9583333333333334,12,0,4,0,2,1.0,12,60,reinforced,3,n(c-1e9f82cccb1c)=12 < n_min=24
+static_aspect_graph,0,0.0,0.0,12,0,1,0,0,,6,0,active,,
+static_aspect_graph,1,0.0,0.0,12,0,1,0,0,,12,0,active,,
+static_aspect_graph,2,0.0,0.0,12,0,1,0,0,,18,0,active,,
+static_aspect_graph,3,0.0,0.0,12,0,1,0,0,,24,0,active,,
+static_aspect_graph,4,0.0,0.0,12,0,1,0,0,,30,0,active,,
+static_aspect_graph,5,0.0,0.0,12,0,1,0,0,,36,0,active,,
+static_aspect_graph,6,0.0,0.0,12,0,1,0,0,,42,0,active,,
+static_aspect_graph,7,0.0,0.0,12,0,1,0,0,,48,0,active,,
+static_aspect_graph,8,0.0,0.0,12,0,1,0,0,,54,0,active,,
+static_aspect_graph,9,0.0,0.0,12,0,1,0,0,,60,0,active,,
+hand_iterated,0,0.8333333333333334,0.9583333333333334,12,1,2,0,0,0.7875000000000002,6,6,reinforced,,n(c-1e9f82cccb1c)=6 < n_min=24
+hand_iterated,1,0.8333333333333334,0.9583333333333334,12,2,4,6,0,1.0,12,12,reinforced,,n(c-1e9f82cccb1c)=12 < n_min=24
+hand_iterated,2,0.8333333333333334,0.9583333333333334,12,3,5,14,0,1.0,18,18,reinforced,,n(c-1e9f82cccb1c)=18 < n_min=24
+hand_iterated,3,0.8333333333333334,0.9583333333333334,12,3,7,14,1,1.0,0,24,archived,3,accepted (categorical axis=ct-write-fn)
+hand_iterated,4,0.8333333333333334,0.9583333333333334,12,3,9,14,2,1.0,6,30,reinforced,3,n(c-1e9f82cccb1c)=6 < n_min=24
+hand_iterated,5,0.8333333333333334,0.9583333333333334,12,3,11,14,3,1.0,12,36,reinforced,3,n(c-1e9f82cccb1c)=12 < n_min=24
+hand_iterated,6,0.8333333333333334,0.9583333333333334,12,3,11,14,3,1.0,18,42,reinforced,3,n(c-1e9f82cccb1c)=18 < n_min=24
+hand_iterated,7,0.8333333333333334,0.9583333333333334,12,3,11,14,4,1.0,0,48,archived,3,accepted (categorical axis=ct-write-fn)
+hand_iterated,8,0.8333333333333334,0.9583333333333334,12,3,11,14,4,1.0,6,54,reinforced,3,n(c-1e9f82cccb1c)=6 < n_min=24
+hand_iterated,9,0.8333333333333334,0.9583333333333334,12,3,11,14,4,1.0,12,60,reinforced,3,n(c-1e9f82cccb1c)=12 < n_min=24

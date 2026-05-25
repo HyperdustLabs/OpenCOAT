@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 ReflexCriticality = Literal["safety_critical", "advisory"]
 ActionKind = Literal[
@@ -87,7 +87,7 @@ class _ReflexPolicy:
 class ReflexMonitor:
     """Pure synchronous policy evaluator for ``EffectorKernel``."""
 
-    _RANK = {"allow": 1, "rewrite": 2, "deny": 3}
+    _RANK: ClassVar[dict[str, int]] = {"allow": 1, "rewrite": 2, "deny": 3}
 
     def __init__(
         self,

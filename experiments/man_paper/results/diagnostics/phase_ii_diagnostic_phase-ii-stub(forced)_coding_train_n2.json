@@ -1,0 +1,101 @@
+{
+  "phase": "phase_ii_diagnostic",
+  "llm": {
+    "label": "phase-ii-stub(forced)",
+    "is_stub": true
+  },
+  "family": "coding_train",
+  "feature_axis": "scenario_id",
+  "scenarios": 2,
+  "success_rate": 1.0,
+  "mean_reward": 1.0,
+  "bootstrap": {
+    "bootstrap_score": 0.6000000000000001,
+    "bootstrap_buffer": 2,
+    "bootstrap_activations": 2,
+    "bootstrap_state": "reinforced"
+  },
+  "connectome": {
+    "aspects": 2,
+    "edges": 0,
+    "edges_by_relation": {},
+    "reflex_core": [
+      "h0.conserved.fail-closed"
+    ],
+    "buffer_concerns": 1,
+    "eligibility": {
+      "aspect": {
+        "c-1e9f82cccb1c": 1.5390000000000001
+      },
+      "synapse": {}
+    },
+    "last_conservation_residual": 0.0
+  },
+  "split_guard_reason": "n(c-1e9f82cccb1c)=2 < n_min=24",
+  "traces": [
+    {
+      "scenario_id": "ct-json",
+      "family": "coding_train",
+      "user_text": "How do I parse a JSON string in Python?",
+      "ok": true,
+      "last_rollout_ok": true,
+      "reward": 1.0,
+      "llm_calls": 1,
+      "active_concerns": [
+        {
+          "concern_id": "c-1e9f82cccb1c",
+          "activation_score": 0.81
+        }
+      ],
+      "injections": [
+        {
+          "concern_id": "c-1e9f82cccb1c",
+          "advice_type": "response_requirement",
+          "content": "Start up. You are a Self-Evolving Agent via Reward-Modulated Structural Plasticity over an Externally Reasoning LLM. Operate as a morphogenetic aspect network: the external LLM reasons; structure and concerns evolve via reward-modulated plasticity. Ground technical answers in citable documentation."
+        }
+      ],
+      "verifications": [
+        {
+          "concern_id": "c-1e9f82cccb1c",
+          "satisfied": false,
+          "score": 0.5,
+          "notes": "no verification advice",
+          "evidence": {}
+        }
+      ],
+      "response": "Use json.loads for parsing a JSON string. https://docs.python.org/3/library/json.html [1]."
+    },
+    {
+      "scenario_id": "ct-fib",
+      "family": "coding_train",
+      "user_text": "Write a recursive Fibonacci function in Python.",
+      "ok": true,
+      "last_rollout_ok": true,
+      "reward": 1.0,
+      "llm_calls": 1,
+      "active_concerns": [
+        {
+          "concern_id": "c-1e9f82cccb1c",
+          "activation_score": 0.81
+        }
+      ],
+      "injections": [
+        {
+          "concern_id": "c-1e9f82cccb1c",
+          "advice_type": "response_requirement",
+          "content": "Start up. You are a Self-Evolving Agent via Reward-Modulated Structural Plasticity over an Externally Reasoning LLM. Operate as a morphogenetic aspect network: the external LLM reasons; structure and concerns evolve via reward-modulated plasticity. Ground technical answers in citable documentation."
+        }
+      ],
+      "verifications": [
+        {
+          "concern_id": "c-1e9f82cccb1c",
+          "satisfied": false,
+          "score": 0.5,
+          "notes": "no verification advice",
+          "evidence": {}
+        }
+      ],
+      "response": "def fibonacci(n: int) -> int:\n    if n <= 1:\n        return n\n    return fibonacci(n - 1) + fibonacci(n - 2)\nhttps://docs.python.org/3/ [1]."
+    }
+  ]
+}

@@ -6,7 +6,6 @@ import copy
 from dataclasses import dataclass
 
 from opencoat_runtime_protocol import (
-    AdviceKind,
     AopAdvice,
     Concern,
     PointcutDef,
@@ -74,11 +73,15 @@ def _child_from_parent(
 ) -> Concern:
     pointcuts = copy.deepcopy(parent.pointcuts)
     if not pointcuts and parent.pointcut:
+        joinpoints = list(parent.pointcut.joinpoints or ["before_response"])
+        expr = parent.pointcut.expression if hasattr(parent.pointcut, "expression") else None
+        if not expr and joinpoints:
+            expr = f"{joinpoints[0]}()"
         pointcuts = [
             PointcutDef(
                 id=f"pc-{suffix}",
-                expression=parent.pointcut.expression or "",
-                joinpoints=list(parent.pointcut.joinpoints or []),
+                expression=expr or "before_response()",
+                joinpoints=joinpoints,
                 match=PointcutMatch(any_keywords=list(keywords)),
             )
         ]

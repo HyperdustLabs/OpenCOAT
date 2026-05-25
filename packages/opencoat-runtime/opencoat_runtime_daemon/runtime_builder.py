@@ -98,8 +98,7 @@ def build_heartbeat_maintenance(
             "archive_count": int(decay_stats.get("archived", 0))
             + int(merge_stats.get("archived", 0))
             + int(cold_stats.get("archived", 0)),
-            "merge_count": int(merge_stats.get("merged", 0))
-            + int(cold_stats.get("merged", 0)),
+            "merge_count": int(merge_stats.get("merged", 0)) + int(cold_stats.get("merged", 0)),
             "conflict_count": int(conflict_stats.get("edges_added", 0)),
             "rt_reinforced": int(rt_stats.get("reinforced", 0)),
             "rt_weakened": int(rt_stats.get("weakened", 0)),
@@ -263,6 +262,10 @@ def build_runtime(
         llm=llm,
         heartbeat_maintenance=maintenance,
     )
+    pipeline = runtime.joinpoint_pipeline
+    pipeline.set_coactivation_recorder(rt_plasticity.record_coactivation)
+    pipeline.set_activation_recorder(rt_plasticity.record_turn_activations)
+    pipeline.set_eligibility_field(rt_plasticity.credit_field.eligibility)
     return BuiltRuntime(
         runtime=runtime,
         llm_label=info.label,

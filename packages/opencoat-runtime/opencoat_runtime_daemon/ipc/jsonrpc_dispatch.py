@@ -76,9 +76,8 @@ from opencoat_runtime_core.concern import ConcernBuilder, ConcernExtractor
 from opencoat_runtime_core.concern.chat_extract import chat_text_for_extraction
 from opencoat_runtime_core.concern.reflex_policy_export import export_reflex_policies
 from opencoat_runtime_core.credit.r_t_record import RtRecord
-from opencoat_runtime_core.effector import EffectorAction, EffectorKernel
-from opencoat_runtime_protocol import JoinpointEvent
 from opencoat_runtime_core.credit.rt_plasticity_service import RtPlasticityService
+from opencoat_runtime_core.effector import EffectorAction, EffectorKernel
 from opencoat_runtime_protocol import Concern, ConcernInjection, JoinpointEvent
 from pydantic import ValidationError
 
@@ -199,6 +198,7 @@ class JsonRpcHandler:
             "credit.r_t.stats": self._credit_rt_stats,
             "credit.r_t.consume": self._credit_rt_consume,
             "credit.connectome.stats": self._credit_connectome_stats,
+            "connectome.route": self._connectome_route,
             "plasticity.cold_step": self._plasticity_cold_step,
             "effector.run_turn": self._effector_run_turn,
         }
@@ -490,6 +490,17 @@ class JsonRpcHandler:
 
     def _credit_connectome_stats(self, _params: dict[str, Any] | list[Any]) -> dict[str, Any]:
         return self._rt_service.connectome_stats()
+
+    def _connectome_route(self, params: dict[str, Any] | list[Any]) -> dict[str, Any]:
+        p = _expect_params_dict(params)
+        raw_jp = p.get("joinpoint")
+        if not isinstance(raw_jp, dict):
+            raise JsonRpcParamsError("joinpoint must be an object")
+        joinpoint = JoinpointEvent.model_validate(raw_jp)
+        ctx = p.get("context") if isinstance(p.get("context"), dict) else None
+        routed = self._rt.joinpoint_pipeline.route_joinpoint(joinpoint, context=ctx)
+        routed["connectome"] = self._rt_service.connectome_stats()
+        return routed
 
     def _plasticity_cold_step(self, _params: dict[str, Any] | list[Any]) -> dict[str, Any]:
         return {"ok": True, **self._rt_service.cold_step()}

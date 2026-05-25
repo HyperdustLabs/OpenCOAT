@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from dataclasses import dataclass
 from itertools import combinations
 
@@ -14,8 +15,15 @@ from opencoat_runtime_core.credit.connectome_split import (
     materialize_split,
     propose_keyword_split,
 )
-from opencoat_runtime_core.credit.split_spec import SplitGuardResult, evaluate_split_guards
+from opencoat_runtime_core.credit.rewrite_gate import RewriteGate
+from opencoat_runtime_core.credit.rewrite_objective import (
+    score_connect,
+    score_lift,
+    score_merge,
+    score_prune,
+)
 from opencoat_runtime_core.credit.rt_buffer import ConcernRtBuffer
+from opencoat_runtime_core.credit.split_spec import SplitGuardResult, evaluate_split_guards
 from opencoat_runtime_core.ports import ConcernStore, DCNStore
 
 
@@ -43,6 +51,9 @@ def connect_coactivated(
     dcn_store: DCNStore,
     co_pairs: list[tuple[str, str]],
     min_weight: float = 0.2,
+    buffer: ConcernRtBuffer | None = None,
+    gate: RewriteGate | None = None,
+    beta: float = 0.01,
 ) -> int:
     """Add / strengthen ACTIVATES edges for co-activated concern pairs."""
     added = 0
@@ -52,9 +63,36 @@ def connect_coactivated(
             continue
         if a not in view.aspects or b not in view.aspects:
             continue
-        dcn_store.add_edge(a, b, ConcernRelationType.ACTIVATES, weight=min_weight)
-        added += 1
+        objective = score_connect(
+            coactivation=min_weight,
+            reward_mean=_pair_reward_mean(buffer, a, b),
+            beta=beta,
+        )
+        if gate is not None and not gate.evaluate("connect", delta_f=objective.delta_f).accepted:
+            continue
+        from opencoat_runtime_core.connectome.synapse_evolution import strengthen_edge
+
+        for cid in (a, b):
+            c = concern_store.get(cid)
+            if c is not None:
+                with suppress(Exception):
+                    dcn_store.add_node(c)
+        if strengthen_edge(
+            dcn_store,
+            a,
+            b,
+            delta=max(min_weight, 0.08),
+            floor=min_weight,
+        ) or _edge_exists(dcn_store, a, b):
+            added += 1
     return added
+
+
+def _edge_exists(dcn_store: DCNStore, src: str, dst: str) -> bool:
+    getter = getattr(dcn_store, "edge_weight", None)
+    if getter is None:
+        return False
+    return getter(src, dst, ConcernRelationType.ACTIVATES) is not None
 
 
 def prune_weak_edges(
@@ -62,6 +100,8 @@ def prune_weak_edges(
     concern_store: ConcernStore,
     dcn_store: DCNStore,
     weight_threshold: float = 0.15,
+    gate: RewriteGate | None = None,
+    beta: float = 0.01,
 ) -> int:
     view = build_connectome_view(concern_store=concern_store, dcn_store=dcn_store)
     pruned = 0
@@ -69,6 +109,9 @@ def prune_weak_edges(
         if edge.weight >= weight_threshold:
             continue
         if view.is_conserved(edge.src) or view.is_conserved(edge.dst):
+            continue
+        objective = score_prune(weight=edge.weight, threshold=weight_threshold, beta=beta)
+        if gate is not None and not gate.evaluate("prune", delta_f=objective.delta_f).accepted:
             continue
         dcn_store.remove_edge(edge.src, edge.dst, edge.relation)
         pruned += 1
@@ -80,6 +123,10 @@ def lift_coalition(
     concern_store: ConcernStore,
     members: tuple[str, ...],
     coalition_id: str,
+    dcn_store: DCNStore | None = None,
+    buffer: ConcernRtBuffer | None = None,
+    gate: RewriteGate | None = None,
+    beta: float = 0.01,
 ) -> bool:
     """Lift a co-firing coalition into a higher-order aspect (identity initialization)."""
     if len(members) < 2:
@@ -90,6 +137,13 @@ def lift_coalition(
     if any(p.reflex for p in parents if p is not None):
         return False
     if concern_store.get(coalition_id) is not None:
+        return False
+    objective = score_lift(
+        coalition_size=len(members),
+        reward_mean=_coalition_reward_mean(buffer, members),
+        beta=beta,
+    )
+    if gate is not None and not gate.evaluate("lift", delta_f=objective.delta_f).accepted:
         return False
 
     keywords: list[str] = []
@@ -116,6 +170,17 @@ def lift_coalition(
         reflex=False,
     )
     concern_store.upsert(meta)
+    if dcn_store is not None:
+        with suppress(Exception):
+            dcn_store.add_node(meta)
+        for mid in members:
+            parent = concern_store.get(mid)
+            if parent is None:
+                continue
+            with suppress(Exception):
+                dcn_store.add_node(parent)
+            dcn_store.add_edge(coalition_id, mid, ConcernRelationType.DEPENDS_ON, weight=0.9)
+            dcn_store.add_edge(coalition_id, mid, ConcernRelationType.ACTIVATES, weight=0.5)
     return True
 
 
@@ -125,6 +190,9 @@ def merge_near_duplicate_pair(
     dcn_store: DCNStore,
     a_id: str,
     b_id: str,
+    buffer: ConcernRtBuffer | None = None,
+    gate: RewriteGate | None = None,
+    beta: float = 0.01,
 ) -> bool:
     a = concern_store.get(a_id)
     b = concern_store.get(b_id)
@@ -132,10 +200,58 @@ def merge_near_duplicate_pair(
         return False
     kw_a = set(collect_pointcut_keywords(a))
     kw_b = set(collect_pointcut_keywords(b))
-    if len(kw_a & kw_b) < 2:
+    overlap = len(kw_a & kw_b)
+    if overlap < 2:
         return False
-    dcn_store.merge(b_id, a_id)
+    objective = score_merge(
+        keyword_overlap=overlap,
+        reward_gap=_reward_gap(buffer, a_id, b_id),
+        beta=beta,
+    )
+    if gate is not None and not gate.evaluate("merge", delta_f=objective.delta_f).accepted:
+        return False
+    for concern in (a, b):
+        with suppress(Exception):
+            dcn_store.add_node(concern)
+    try:
+        dcn_store.merge(b_id, a_id)
+    except KeyError:
+        return False
     return True
+
+
+def _reward_mean(buffer: ConcernRtBuffer | None, concern_id: str) -> float | None:
+    if buffer is None:
+        return None
+    samples = buffer.samples(concern_id)
+    if not samples:
+        return None
+    return sum(s.r for s in samples) / len(samples)
+
+
+def _pair_reward_mean(buffer: ConcernRtBuffer | None, a_id: str, b_id: str) -> float | None:
+    means = [m for cid in (a_id, b_id) if (m := _reward_mean(buffer, cid)) is not None]
+    if not means:
+        return None
+    return sum(means) / len(means)
+
+
+def _coalition_reward_mean(
+    buffer: ConcernRtBuffer | None,
+    members: tuple[str, ...],
+) -> float | None:
+    means = [m for cid in members if (m := _reward_mean(buffer, cid)) is not None]
+    if not means:
+        return None
+    return sum(means) / len(means)
+
+
+def _reward_gap(buffer: ConcernRtBuffer | None, a_id: str, b_id: str) -> float:
+    a = _reward_mean(buffer, a_id)
+    b = _reward_mean(buffer, b_id)
+    if a is None or b is None:
+        return 0.0
+    return a - b
 
 
 def split_with_spec_or_keywords(
@@ -144,10 +260,10 @@ def split_with_spec_or_keywords(
     concern_store: ConcernStore,
     buffer: ConcernRtBuffer,
     lifecycle,
+    dcn_store: DCNStore | None = None,
     guard: SplitGuardResult | None = None,
 ) -> bool:
     """Apply paper split when guards pass, else keyword fallback."""
-    from opencoat_runtime_core.credit.connectome_split import propose_keyword_split
 
     if concern.reflex or "--" in concern.id:
         return False
@@ -156,8 +272,6 @@ def split_with_spec_or_keywords(
         guard = evaluate_split_guards(buffer, concern.id)
 
     proposal = propose_keyword_split(concern)
-    if proposal is None:
-        return False
 
     if guard.eligible and guard.partition is not None:
         left_kw = [
@@ -177,13 +291,20 @@ def split_with_spec_or_keywords(
                 parent_id=concern.id,
                 child_a_id=f"{concern.id}--a",
                 child_b_id=f"{concern.id}--b",
-                keywords_a=tuple(sorted(set(left_kw))[:4] or proposal.keywords_a),
-                keywords_b=tuple(sorted(set(right_kw))[:4] or proposal.keywords_b),
+                keywords_a=tuple(sorted(set(left_kw))[:4]),
+                keywords_b=tuple(sorted(set(right_kw))[:4]),
             )
+
+    if proposal is None:
+        return False
 
     child_a, child_b = materialize_split(proposal, concern)
     concern_store.upsert(child_a)
     concern_store.upsert(child_b)
+    if dcn_store is not None:
+        for child in (child_a, child_b):
+            with suppress(Exception):
+                dcn_store.add_node(child)
     lifecycle.archive(concern, reason="connectome split (ΔF-gated)")
     buffer.clear(concern.id)
     return True

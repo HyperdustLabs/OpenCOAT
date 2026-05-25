@@ -8,11 +8,17 @@ echo "== v0.3 full spec: core + integration pytest =="
 uv run pytest \
   packages/opencoat-runtime/tests/core/test_effector_kernel.py \
   packages/opencoat-runtime/tests/core/test_connectome_split.py \
+  packages/opencoat-runtime/tests/core/test_connectome_router.py \
   packages/opencoat-runtime/tests/core/test_plasticity_split.py \
   packages/opencoat-runtime/tests/core/test_plasticity_cold.py \
   packages/opencoat-runtime/tests/core/test_r_t_replay.py \
   packages/opencoat-runtime/tests/integration/test_v03_full_spec_e2e.py \
+  packages/opencoat-runtime/tests/integration/test_arch_ii_connectome_e2e.py \
+  packages/opencoat-runtime/tests/integration/test_morphogenetic_paper_validation.py \
   -q
+
+echo "== morphogenetic paper fixtures =="
+uv run python scripts/generate_morphogenetic_validation_data.py
 
 echo "== v0.3 full spec: bridge tests =="
 (cd integrations/openclaw-opencoat-bridge && npm test)

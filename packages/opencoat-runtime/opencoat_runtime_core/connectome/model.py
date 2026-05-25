@@ -9,6 +9,18 @@ from opencoat_runtime_protocol import Concern, ConcernRelationType
 from ..ports import ConcernStore, DCNStore
 
 
+def _edge_weight(
+    dcn_store: DCNStore,
+    src: str,
+    dst: str,
+    relation: ConcernRelationType,
+) -> float | None:
+    getter = getattr(dcn_store, "edge_weight", None)
+    if getter is None:
+        return None
+    return getter(src, dst, relation)
+
+
 @dataclass(frozen=True)
 class ConnectomeEdge:
     src: str
@@ -54,7 +66,10 @@ def build_connectome_view(
                 if key in seen:
                     continue
                 seen.add(key)
-                edges.append(ConnectomeEdge(src=concern.id, dst=neighbor, relation=rel, weight=1.0))
+                weight = _edge_weight(dcn_store, concern.id, neighbor, rel) or 1.0
+                edges.append(
+                    ConnectomeEdge(src=concern.id, dst=neighbor, relation=rel, weight=weight)
+                )
     return ConnectomeView(
         aspects=aspects,
         edges=edges,

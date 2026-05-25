@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import pytest
 from opencoat_runtime_core.concern.lifecycle import ConcernLifecycleManager
 from opencoat_runtime_core.credit.plasticity_engine import PlasticityEngine
 from opencoat_runtime_core.credit.r_t_record import RtRecord, RtSignal
@@ -140,3 +141,75 @@ def test_tool_outcome_error_weakens_policy() -> None:
     assert updated is not None
     assert updated.activation_state is not None
     assert updated.activation_state.score < 0.5
+
+
+def test_turn_complete_reinforces_plastic_cortex_from_advantage() -> None:
+    store = MemoryConcernStore()
+    dcn = MemoryDCNStore()
+    store.upsert(Concern(id="cortex-h0", name="cortex", reflex=False))
+    lifecycle = ConcernLifecycleManager(concern_store=store, dcn_store=dcn)
+    engine = PlasticityEngine(step_delta=0.05)
+
+    record = RtRecord(
+        ts=datetime(2026, 5, 24, tzinfo=UTC),
+        session_id="phase-ii",
+        turn_id="t1",
+        joinpoint="before_response",
+        hook="before_response",
+        signal=RtSignal(
+            kind="turn_complete",
+            payload={
+                "active_aspects": [
+                    {
+                        "concern_id": "cortex-h0",
+                        "activation_score": 1.0,
+                        "plastic": True,
+                    }
+                ]
+            },
+        ),
+        r=1.0,
+        baseline_b=0.0,
+    )
+    stats = engine.reweight([record], concern_store=store, lifecycle=lifecycle)
+
+    assert stats.reinforced == 1
+    updated = store.get("cortex-h0")
+    assert updated is not None
+    assert updated.lifecycle_state == "reinforced"
+    assert updated.activation_state is not None
+    assert updated.activation_state.score == 0.55
+
+
+def test_turn_complete_uses_stored_advantage_payload() -> None:
+    store = MemoryConcernStore()
+    dcn = MemoryDCNStore()
+    store.upsert(Concern(id="cortex-h0", name="cortex", reflex=False))
+    lifecycle = ConcernLifecycleManager(concern_store=store, dcn_store=dcn)
+    engine = PlasticityEngine(step_delta=0.05)
+
+    record = RtRecord(
+        ts=datetime(2026, 5, 24, tzinfo=UTC),
+        session_id="phase-ii-e0:ct-json",
+        turn_id="t2",
+        joinpoint="before_response",
+        hook="before_response",
+        signal=RtSignal(
+            kind="turn_complete",
+            payload={
+                "advantage": 0.42,
+                "active_aspects": [
+                    {"concern_id": "cortex-h0", "activation_score": 1.0, "plastic": True}
+                ],
+            },
+        ),
+        r=1.0,
+        baseline_b=0.58,
+    )
+    stats = engine.reweight([record], concern_store=store, lifecycle=lifecycle)
+
+    assert stats.reinforced == 1
+    updated = store.get("cortex-h0")
+    assert updated is not None
+    assert updated.activation_state is not None
+    assert updated.activation_state.score == pytest.approx(0.52, abs=0.01)

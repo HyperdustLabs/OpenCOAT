@@ -392,6 +392,7 @@ class TestConcernExtract:
         # exercised.
         for origin in (
             "manual_import",
+            "intent_alignment",
             "user_input",
             "tool_result",
             "draft_output",

@@ -306,6 +306,7 @@ class ConcernSource(_Base):
         "memory",
         "feedback",
         "host_explicit_plan",
+        "intent_alignment",
         "draft_output",
         "environment_event",
         "system_default",

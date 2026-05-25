@@ -1,0 +1,105 @@
+{
+  "id": "paper.soft-hint",
+  "kind": "concern",
+  "neuron_type": "excitatory",
+  "reflex": false,
+  "generated_type": null,
+  "generated_tags": [],
+  "name": "Paper soft hint",
+  "description": "",
+  "source": null,
+  "chain_ref": null,
+  "joinpoint_selectors": [],
+  "pointcut": {
+    "joinpoints": [
+      "before_tool_call"
+    ],
+    "match": {
+      "any_keywords": [
+        "destructive",
+        "benign"
+      ],
+      "all_keywords": null,
+      "regex": null,
+      "semantic_intent": null,
+      "structure": null,
+      "confidence": null,
+      "risk": null,
+      "history": null,
+      "claim": null
+    },
+    "context_predicates": []
+  },
+  "advice": {
+    "type": "tool_guard",
+    "content": "Paper validation guard",
+    "rationale": null,
+    "max_tokens": null,
+    "params": null
+  },
+  "weaving_policy": {
+    "mode": "block",
+    "level": "tool_level",
+    "target": "tool_call.arguments",
+    "max_tokens": 200,
+    "priority": 0.9
+  },
+  "pointcuts": [
+    {
+      "id": "pc-paper",
+      "expression": "before_tool_call()",
+      "joinpoints": [
+        "before_tool_call"
+      ],
+      "match": {
+        "any_keywords": [
+          "destructive",
+          "benign"
+        ],
+        "all_keywords": null,
+        "regex": null,
+        "semantic_intent": null,
+        "structure": null,
+        "confidence": null,
+        "risk": null,
+        "history": null,
+        "claim": null
+      },
+      "context_predicates": []
+    }
+  ],
+  "advices": [
+    {
+      "id": "adv-paper",
+      "kind": "before",
+      "pointcut_ref": "pc-paper",
+      "content": "Paper validation guard",
+      "template": "tool_guard",
+      "rationale": null,
+      "max_tokens": null,
+      "params": null,
+      "effect": {
+        "mode": "block",
+        "level": "tool_level",
+        "target": "tool_call.arguments",
+        "max_tokens": 200,
+        "priority": 0.9
+      }
+    }
+  ],
+  "declarations": [],
+  "graph_edges": [],
+  "scope": null,
+  "relations": [],
+  "activation_state": null,
+  "lifecycle_state": "created",
+  "metrics": {
+    "activations": 0,
+    "satisfied": 0,
+    "violated": 0,
+    "tokens_used": 0
+  },
+  "created_at": null,
+  "updated_at": null,
+  "schema_version": "0.1.0"
+}

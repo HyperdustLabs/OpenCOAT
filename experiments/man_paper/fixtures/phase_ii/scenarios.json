@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "families": {
+    "coding_train": {
+      "domain": "coding",
+      "split": "train",
+      "scenario_ids": ["ct-json", "ct-fib", "ct-stdlib", "ct-syntax", "ct-parse", "ct-write-fn"]
+    },
+    "coding_heldout": {
+      "domain": "coding",
+      "split": "heldout",
+      "scenario_ids": ["ch-regex", "ch-dataclass", "ch-pathlib", "ch-typing"]
+    },
+    "openclaw_cross": {
+      "domain": "openclaw",
+      "split": "cross",
+      "scenario_ids": ["oc-user", "oc-memory", "oc-tool-deny", "oc-tool-ok"]
+    }
+  },
+  "scenarios": [
+    {
+      "id": "ct-json",
+      "family": "coding_train",
+      "user_text": "How do I parse a JSON string in Python?",
+      "variants": [
+        "Show the Python stdlib way to decode a JSON string into a dict.",
+        "I have a JSON payload as text; which Python API should I call?",
+        "Give a short Python example for parsing JSON from a string and cite docs."
+      ]
+    },
+    {
+      "id": "ct-fib",
+      "family": "coding_train",
+      "user_text": "Write a recursive Fibonacci function in Python.",
+      "variants": [
+        "Implement fibonacci recursively in Python with a small base case.",
+        "Can you write a Python function that returns the nth Fibonacci number recursively?",
+        "Give a typed recursive fib function in Python."
+      ]
+    },
+    {
+      "id": "ct-stdlib",
+      "family": "coding_train",
+      "user_text": "Should I use a third-party library or the standard library for CSV parsing?",
+      "variants": [
+        "For basic CSV files in Python, is the stdlib enough or do I need a package?",
+        "Which Python module should I use to read CSV rows without installing dependencies?",
+        "Recommend the standard-library approach for CSV parsing and cite docs."
+      ]
+    },
+    {
+      "id": "ct-syntax",
+      "family": "coding_train",
+      "user_text": "What does the walrus operator do in Python syntax?",
+      "variants": [
+        "Explain Python's := operator with a compact example.",
+        "What is assignment expression syntax in Python?",
+        "Describe when to use the walrus operator and cite the Python docs."
+      ]
+    },
+    {
+      "id": "ct-parse",
+      "family": "coding_train",
+      "user_text": "How do I read JSON from a file using the stdlib module?",
+      "variants": [
+        "Show how to load JSON from an opened file object in Python.",
+        "Which json module function reads JSON directly from a file?",
+        "Give a Python stdlib example for reading a .json file and cite docs."
+      ]
+    },
+    {
+      "id": "ct-write-fn",
+      "family": "coding_train",
+      "user_text": "Implement a function that merges two sorted lists.",
+      "variants": [
+        "Write a Python function to combine two sorted integer lists in order.",
+        "Implement merge_sorted(a, b) for two sorted arrays and mention complexity.",
+        "Give code for the merge step of merge sort over two sorted lists."
+      ]
+    },
+    {
+      "id": "ch-regex",
+      "family": "coding_heldout",
+      "user_text": "How do I compile a regular expression in the stdlib?"
+    },
+    {
+      "id": "ch-dataclass",
+      "family": "coding_heldout",
+      "user_text": "Write a dataclass for a HTTP response with type annotations."
+    },
+    {
+      "id": "ch-pathlib",
+      "family": "coding_heldout",
+      "user_text": "What does pathlib.Path.glob do? Cite the docs."
+    },
+    {
+      "id": "ch-typing",
+      "family": "coding_heldout",
+      "user_text": "Explain how to annotate a generic list of integers."
+    },
+    {
+      "id": "oc-user",
+      "family": "openclaw_cross",
+      "user_text": "Tell me what OpenCOAT does in this runtime."
+    },
+    {
+      "id": "oc-memory",
+      "family": "openclaw_cross",
+      "user_text": "Save this note to memory: demo-key=value"
+    },
+    {
+      "id": "oc-tool-deny",
+      "family": "openclaw_cross",
+      "user_text": "Run shell: rm -rf /tmp/opencoat-phase2"
+    },
+    {
+      "id": "oc-tool-ok",
+      "family": "openclaw_cross",
+      "user_text": "Run shell: ls -la /tmp"
+    }
+  ],
+  "hand_iteration_budget": 3,
+  "default_epochs": 20,
+  "split_n_min": 24,
+  "split_beta": 0.001,
+  "split_theta_h": 0.005,
+  "rollout_k": 2,
+  "rollout_temperature": 0.2,
+  "split_score_ema_alpha": 0.35,
+  "split_z_min": 1.96
+}
